@@ -1,0 +1,26 @@
+@model IReadOnlyList<Sourcing_Tender_Management_System.Models.Category>
+@{ ViewData["Title"] = "Categories"; }
+<h1>Categories</h1>
+@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
+@if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
+<h2 class="h5 mt-4">Add category</h2>
+<form asp-action="SaveCategory" method="post" class="row g-2 mb-4">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="id" value="0" />
+    <div class="col-md-3"><input name="name" class="form-control" placeholder="Name" required maxlength="150" /></div>
+    <div class="col-md-4"><input name="description" class="form-control" placeholder="Description" maxlength="500" /></div>
+    <div class="col-md-3"><select name="parentCategoryId" class="form-select"><option value="">No parent</option>@foreach (var parent in Model) { <option value="@parent.Id">@parent.Name</option> }</select></div>
+    <div class="col-md-2"><button class="btn btn-primary" type="submit">Add</button></div>
+</form>
+<h2 class="h5">Existing categories</h2>
+@foreach (var item in Model)
+{
+    <form asp-action="SaveCategory" method="post" class="row g-2 mb-2">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@item.Id" />
+        <div class="col-md-3"><input name="name" value="@item.Name" class="form-control" required maxlength="150" /></div>
+        <div class="col-md-4"><input name="description" value="@item.Description" class="form-control" maxlength="500" /></div>
+        <div class="col-md-3"><select name="parentCategoryId" class="form-select"><option value="">No parent</option>@foreach (var parent in Model.Where(x => x.Id != item.Id)) { <option value="@parent.Id" selected="@(parent.Id == item.ParentCategoryId)">@parent.Name</option> }</select></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Save</button></div>
+    </form>
+}

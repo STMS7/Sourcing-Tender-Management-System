@@ -25,10 +25,18 @@ public class Tender
     [Required, MaxLength(450)] public string CreatedByUserId { get; set; } = string.Empty;
     [DeleteBehavior(DeleteBehavior.Restrict)] public ApplicationUser CreatedByUser { get; set; } = null!;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Column(TypeName = "decimal(5,2)")] public decimal TechnicalWeight { get; set; } = 60;
+    [Column(TypeName = "decimal(5,2)")] public decimal FinancialWeight { get; set; } = 40;
+    public DateTime? EvaluationCriteriaLockedAt { get; set; }
+    public bool RequiresTopCommittee { get; set; }
+    public int? AwardedBidId { get; set; }
+    [ForeignKey(nameof(AwardedBidId)), DeleteBehavior(DeleteBehavior.Restrict)] public Bid? AwardedBid { get; set; }
     public ICollection<TenderItem> Items { get; set; } = new List<TenderItem>();
     public ICollection<TenderDocument> Documents { get; set; } = new List<TenderDocument>();
     public ICollection<TenderCommitteeMember> CommitteeMembers { get; set; } = new List<TenderCommitteeMember>();
     public ICollection<EvaluationCriterion> EvaluationCriteria { get; set; } = new List<EvaluationCriterion>();
-    public ICollection<Bid> Bids { get; set; } = new List<Bid>();
+    [InverseProperty(nameof(Bid.Tender))] public ICollection<Bid> Bids { get; set; } = new List<Bid>();
     public ICollection<Approval> Approvals { get; set; } = new List<Approval>();
+    public ICollection<TenderInvitation> Invitations { get; set; } = new List<TenderInvitation>();
+    public ICollection<EvaluationReport> EvaluationReports { get; set; } = new List<EvaluationReport>();
 }

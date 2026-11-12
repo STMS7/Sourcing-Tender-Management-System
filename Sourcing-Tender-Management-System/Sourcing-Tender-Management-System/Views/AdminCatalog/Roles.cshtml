@@ -1,0 +1,27 @@
+@model IReadOnlyList<Microsoft.AspNetCore.Identity.IdentityRole>
+@{ ViewData["Title"] = "Roles"; }
+<h1>Roles</h1>
+<p>Assign a role from the user edit page.</p>
+@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
+@if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
+<form asp-action="CreateRole" method="post" class="d-flex gap-2 mb-4">
+    @Html.AntiForgeryToken()
+    <input name="name" class="form-control" style="max-width:300px" placeholder="New role name" required maxlength="100" />
+    <button class="btn btn-primary" type="submit">Add role</button>
+</form>
+<table class="table table-striped"><thead><tr><th>Role</th><th>Action</th></tr></thead><tbody>
+@foreach (var role in Model)
+{
+    <tr><td>@role.Name</td><td>
+        @if (role.Name is not ("Admin" or "ProcurementOfficer" or "EvaluationCommittee" or "TopCommittee" or "Supplier"))
+        {
+            <form asp-action="DeleteRole" method="post" onsubmit="return confirm('Delete this unused role?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@role.Id" />
+                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+            </form>
+        }
+        else { <span>Core role</span> }
+    </td></tr>
+}
+</tbody></table>

@@ -1,0 +1,55 @@
+@model IReadOnlyList<Sourcing_Tender_Management_System.Models.AdminUserListItemViewModel>
+@{
+    ViewData["Title"] = "Users";
+}
+
+<div class="py-4">
+    <h1>Users</h1>
+    <p>Accounts and roles in the system.</p>
+    @if (TempData["Message"] is string message)
+    {
+        <div class="alert alert-success">@message</div>
+    }
+    <div class="d-flex gap-2 mb-3">
+        <form method="get" asp-action="Users" class="d-flex gap-2">
+            <input class="form-control" type="search" name="search" value="@ViewBag.Search" placeholder="Search name or email" />
+            <button class="btn btn-outline-primary" type="submit">Search</button>
+        </form>
+        <a class="btn btn-primary" asp-action="CreateUser">Create user</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Roles</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in Model)
+                {
+                    <tr>
+                        <td>@user.FullName</td>
+                        <td>@user.Email</td>
+                        <td>@user.Roles</td>
+                        <td>@(user.IsActive ? "Active" : "Disabled")</td>
+                        <td>
+                            <a asp-action="EditUser" asp-route-id="@user.Id">Edit</a>
+                            <span class="mx-1">·</span>
+                            <a asp-action="ResetPassword" asp-route-id="@user.Id">Reset password</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <p>No users found.</p>
+    }
+</div>

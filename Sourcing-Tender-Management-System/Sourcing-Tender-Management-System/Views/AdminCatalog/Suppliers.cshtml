@@ -1,0 +1,59 @@
+@model IReadOnlyList<Sourcing_Tender_Management_System.Models.Supplier>
+@using Sourcing_Tender_Management_System.Models
+@{ ViewData["Title"] = "Suppliers"; }
+<h1>Suppliers</h1>
+@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
+@if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
+<p>Create a supplier record before creating its user account.</p>
+@foreach (var item in Model.Prepend(new Sourcing_Tender_Management_System.Models.Supplier()))
+{
+    var isNew = item.Id == 0;
+    <details class="card mb-2" open="@isNew">
+        <summary class="card-header">@(isNew ? "Add supplier" : item.CompanyName)</summary>
+        <form asp-action="SaveSupplier" method="post" class="card-body row g-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@item.Id" />
+            <div class="col-md-6"><label class="form-label">Company name</label><input name="companyName" value="@item.CompanyName" class="form-control" required maxlength="200" /></div>
+            <div class="col-md-6"><label class="form-label">Registration number</label><input name="registrationNumber" value="@item.RegistrationNumber" class="form-control" required maxlength="100" /></div>
+            <div class="col-md-6"><label class="form-label">Email</label><input name="email" value="@item.Email" type="email" class="form-control" required maxlength="256" /></div>
+            <div class="col-md-6"><label class="form-label">Tax number</label><input name="taxNumber" value="@item.TaxNumber" class="form-control" maxlength="100" /></div>
+            <div class="col-md-6"><label class="form-label">Phone</label><input name="phoneNumber" value="@item.PhoneNumber" class="form-control" maxlength="30" /></div>
+            <div class="col-md-6"><label class="form-label">Address</label><input name="address" value="@item.Address" class="form-control" maxlength="500" /></div>
+            <div class="col-md-6"><label class="form-label">Registration status</label><select name="registrationStatus" class="form-select">
+                @foreach (var status in Enum.GetValues<SupplierRegistrationStatus>())
+                { <option value="@status" selected="@(item.RegistrationStatus == status)">@status</option> }
+            </select></div>
+            <div class="col-md-6"><label class="form-label">Decision reason</label><input name="reviewReason" value="@item.ReviewReason" class="form-control" maxlength="2000" /></div>
+            <div class="col-md-6 form-check ms-3"><input type="checkbox" name="isActive" value="true" checked="@(isNew || item.IsActive)" class="form-check-input" id="activeSupplier-@item.Id" /><label for="activeSupplier-@item.Id">Active</label></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Save supplier</button></div>
+        </form>
+        @if (!isNew)
+        {
+            var categories = (IReadOnlyList<Category>)ViewBag.Categories;
+            var links = ((IReadOnlyList<SupplierCategory>)ViewBag.SupplierCategories).Where(x => x.SupplierId == item.Id).ToList();
+            <div class="card-body border-top">
+                <strong>Categories:</strong>
+                @foreach (var link in links)
+                {
+                    <form asp-action="RemoveSupplierCategory" method="post" class="d-inline-block me-2">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="supplierId" value="@item.Id" />
+                        <input type="hidden" name="categoryId" value="@link.CategoryId" />
+                        <span>@categories.First(x => x.Id == link.CategoryId).Name</span>
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                    </form>
+                }
+                <form asp-action="AddSupplierCategory" method="post" class="d-flex gap-2 mt-2">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="supplierId" value="@item.Id" />
+                    <select name="categoryId" class="form-select" style="max-width:300px" required>
+                        <option value="">Choose category</option>
+                        @foreach (var category in categories.Where(x => links.All(y => y.CategoryId != x.Id)))
+                        { <option value="@category.Id">@category.Name</option> }
+                    </select>
+                    <button type="submit" class="btn btn-outline-primary">Add category</button>
+                </form>
+            </div>
+        }
+    </details>
+}

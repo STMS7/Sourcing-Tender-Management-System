@@ -33,4 +33,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<DeliveryItem> DeliveryItems => Set<DeliveryItem>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<SupplierDocument> SupplierDocuments => Set<SupplierDocument>();
+    public DbSet<SupplierReview> SupplierReviews => Set<SupplierReview>();
+    public DbSet<ProcurementRequestReview> ProcurementRequestReviews => Set<ProcurementRequestReview>();
+    public DbSet<WorkAssignment> WorkAssignments => Set<WorkAssignment>();
+    public DbSet<TenderInvitation> TenderInvitations => Set<TenderInvitation>();
+    public DbSet<BidComplianceReview> BidComplianceReviews => Set<BidComplianceReview>();
+    public DbSet<EvaluationReport> EvaluationReports => Set<EvaluationReport>();
+    public DbSet<EvaluationReportBid> EvaluationReportBids => Set<EvaluationReportBid>();
+    public DbSet<CommitteePosition> CommitteePositions => Set<CommitteePosition>();
+    public DbSet<CommitteeVote> CommitteeVotes => Set<CommitteeVote>();
+    public DbSet<WorkflowTransition> WorkflowTransitions => Set<WorkflowTransition>();
+    public DbSet<ProcessMessage> ProcessMessages => Set<ProcessMessage>();
+    public DbSet<ProcessMessageAttachment> ProcessMessageAttachments => Set<ProcessMessageAttachment>();
+    public DbSet<UserPasskeyCredential> UserPasskeyCredentials => Set<UserPasskeyCredential>();
 }

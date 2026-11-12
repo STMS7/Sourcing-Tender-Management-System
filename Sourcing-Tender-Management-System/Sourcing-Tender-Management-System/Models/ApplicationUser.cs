@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Sourcing_Tender_Management_System.Models;
 
@@ -14,6 +15,7 @@ public class ApplicationUser : IdentityUser
     public Department? Department { get; set; }
 
     public int? SupplierId { get; set; }
+    [InverseProperty(nameof(Supplier.Users))]
     [DeleteBehavior(DeleteBehavior.Restrict)]
     public Supplier? Supplier { get; set; }
 

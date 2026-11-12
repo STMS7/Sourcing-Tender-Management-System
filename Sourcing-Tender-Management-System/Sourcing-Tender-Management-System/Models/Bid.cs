@@ -10,7 +10,7 @@ public class Bid
 {
     public int Id { get; set; }
     public int TenderId { get; set; }
-    [DeleteBehavior(DeleteBehavior.Restrict)]
+    [InverseProperty(nameof(Tender.Bids)), DeleteBehavior(DeleteBehavior.Restrict)]
     public Tender Tender { get; set; } = null!;
     public int SupplierId { get; set; }
     [DeleteBehavior(DeleteBehavior.Restrict)]

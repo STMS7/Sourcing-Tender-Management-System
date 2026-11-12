@@ -11,6 +11,8 @@ public class ProcurementRequest
     [Required, MaxLength(40)] public string RequestNumber { get; set; } = string.Empty;
     [Required, MaxLength(200)] public string Title { get; set; } = string.Empty;
     [MaxLength(2000)] public string? Description { get; set; }
+    [MaxLength(2000)] public string? Reason { get; set; }
+    public RequestPriority Priority { get; set; } = RequestPriority.Normal;
     public int DepartmentId { get; set; }
     [DeleteBehavior(DeleteBehavior.Restrict)]
     public Department Department { get; set; } = null!;
@@ -22,4 +24,5 @@ public class ProcurementRequest
     public ProcurementRequestStatus Status { get; set; } = ProcurementRequestStatus.Draft;
     public ICollection<ProcurementRequestItem> Items { get; set; } = new List<ProcurementRequestItem>();
     public ICollection<Tender> Tenders { get; set; } = new List<Tender>();
+    public ICollection<ProcurementRequestReview> Reviews { get; set; } = new List<ProcurementRequestReview>();
 }

@@ -13,6 +13,7 @@ public class EvaluationCriterion
     [Required, MaxLength(200)] public string Name { get; set; } = string.Empty;
     [MaxLength(1000)] public string? Description { get; set; }
     [Column(TypeName = "decimal(5,2)")] public decimal Weight { get; set; }
+    public CriterionType Type { get; set; } = CriterionType.Technical;
     [Column(TypeName = "decimal(5,2)")] public decimal MaximumScore { get; set; } = 100;
     public ICollection<BidEvaluationScore> Scores { get; set; } = new List<BidEvaluationScore>();
 }
