@@ -17,6 +17,7 @@ public class Approval
     [Required, MaxLength(450)] public string ApproverUserId { get; set; } = string.Empty;
     [DeleteBehavior(DeleteBehavior.Restrict)] public ApplicationUser ApproverUser { get; set; } = null!;
     [Required, MaxLength(100)] public string ApprovalLevel { get; set; } = string.Empty;
+    public ApprovalStage? Stage { get; set; }
     public int Sequence { get; set; }
     public ApprovalStatus Status { get; set; } = ApprovalStatus.Pending;
     [MaxLength(2000)] public string? Comments { get; set; }

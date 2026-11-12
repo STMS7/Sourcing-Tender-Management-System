@@ -12,6 +12,9 @@ public class Supplier
     [Required, MaxLength(200)] public string CompanyName { get; set; } = string.Empty;
     [Required, MaxLength(100)] public string RegistrationNumber { get; set; } = string.Empty;
     [MaxLength(100)] public string? TaxNumber { get; set; }
+    [MaxLength(100)] public string? LicenseNumber { get; set; }
+    public DateTime? LicenseExpiresAt { get; set; }
+    public DocumentVerificationStatus LegalVerificationStatus { get; set; } = DocumentVerificationStatus.Pending;
     [Required, EmailAddress, MaxLength(256)] public string Email { get; set; } = string.Empty;
     [MaxLength(30)] public string? PhoneNumber { get; set; }
     [MaxLength(500)] public string? Address { get; set; }

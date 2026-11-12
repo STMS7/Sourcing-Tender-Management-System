@@ -11,6 +11,7 @@ public class Tender
     [Required, MaxLength(40)] public string TenderNumber { get; set; } = string.Empty;
     [Required, MaxLength(200)] public string Title { get; set; } = string.Empty;
     [MaxLength(3000)] public string? Description { get; set; }
+    [MaxLength(4000)] public string? TermsAndConditions { get; set; }
     public int? ProcurementRequestId { get; set; }
     [DeleteBehavior(DeleteBehavior.Restrict)]
     public ProcurementRequest? ProcurementRequest { get; set; }
@@ -39,4 +40,5 @@ public class Tender
     public ICollection<Approval> Approvals { get; set; } = new List<Approval>();
     public ICollection<TenderInvitation> Invitations { get; set; } = new List<TenderInvitation>();
     public ICollection<EvaluationReport> EvaluationReports { get; set; } = new List<EvaluationReport>();
+    public ICollection<TenderDocumentRequirement> DocumentRequirements { get; set; } = new List<TenderDocumentRequirement>();
 }

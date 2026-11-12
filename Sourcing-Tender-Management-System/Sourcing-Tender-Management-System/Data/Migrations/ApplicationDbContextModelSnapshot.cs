@@ -285,6 +285,9 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Property<int>("Sequence")
                         .HasColumnType("int");
 
+                    b.Property<int?>("Stage")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -368,6 +371,9 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int>("ComplianceStatus")
+                        .HasColumnType("int");
+
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasMaxLength(3)
@@ -375,6 +381,26 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
                     b.Property<int>("DeliveryDays")
                         .HasColumnType("int");
+
+                    b.Property<string>("DisqualificationReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal>("FeesAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("InstallationAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MaintenanceAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PaymentTerms")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal>("ShippingAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -384,6 +410,13 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
                     b.Property<int>("SupplierId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TechnicalSummary")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<int>("TenderId")
                         .HasColumnType("int");
@@ -405,6 +438,54 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Bids");
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidAnalysis", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("AnalyzedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("BidId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExtractedDataJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PreliminaryRecommendation")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<string>("RequestedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Strengths")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<string>("Weaknesses")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BidId");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.ToTable("BidAnalyses");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidComplianceReview", b =>
@@ -461,6 +542,10 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -474,12 +559,20 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("TenderDocumentRequirementId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BidId");
+
+                    b.HasIndex("TenderDocumentRequirementId");
 
                     b.ToTable("BidDocuments");
                 });
@@ -637,22 +730,49 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("BidId")
+                    b.Property<int?>("BidId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("DueAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProcurementRequestId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Question")
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("RecipientUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("TenderId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AskedByUserId");
 
                     b.HasIndex("BidId");
+
+                    b.HasIndex("ProcurementRequestId");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("TenderId");
 
                     b.ToTable("Clarifications");
                 });
@@ -671,6 +791,10 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Property<DateTime>("RespondedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("RespondedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("ResponseText")
                         .IsRequired()
                         .HasMaxLength(3000)
@@ -678,8 +802,9 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClarificationId")
-                        .IsUnique();
+                    b.HasIndex("ClarificationId");
+
+                    b.HasIndex("RespondedByUserId");
 
                     b.ToTable("ClarificationResponses");
                 });
@@ -760,6 +885,43 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("CommitteeVotes");
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.ContactMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ContactMessages");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Contract", b =>
@@ -1019,6 +1181,9 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("Round")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("SubmittedAt")
@@ -1450,6 +1615,16 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<int>("LegalVerificationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LicenseExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LicenseNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
@@ -1520,6 +1695,14 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -1536,9 +1719,25 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("VerificationNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("VerificationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VerifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SupplierId");
+
+                    b.HasIndex("VerifiedByUserId");
 
                     b.ToTable("SupplierDocuments");
                 });
@@ -1640,6 +1839,10 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
+                    b.Property<string>("TermsAndConditions")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1679,6 +1882,9 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("RoleType")
+                        .HasColumnType("int");
 
                     b.Property<int>("TenderId")
                         .HasColumnType("int");
@@ -1737,6 +1943,37 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.HasIndex("TenderId");
 
                     b.ToTable("TenderDocuments");
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.TenderDocumentRequirement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsMandatory")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("TenderId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenderId", "DocumentType")
+                        .IsUnique();
+
+                    b.ToTable("TenderDocumentRequirements");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.TenderInvitation", b =>
@@ -1861,6 +2098,61 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("UserPasskeyCredentials");
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.UserTask", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("ProcurementRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TenderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcurementRequestId");
+
+                    b.HasIndex("TenderId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserTasks");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.WorkAssignment", b =>
@@ -2098,6 +2390,25 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Navigation("Tender");
                 });
 
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidAnalysis", b =>
+                {
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Bid", "Bid")
+                        .WithMany()
+                        .HasForeignKey("BidId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Bid");
+
+                    b.Navigation("RequestedByUser");
+                });
+
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidComplianceReview", b =>
                 {
                     b.HasOne("Sourcing_Tender_Management_System.Models.Bid", "Bid")
@@ -2125,7 +2436,13 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Sourcing_Tender_Management_System.Models.TenderDocumentRequirement", "TenderDocumentRequirement")
+                        .WithMany("BidDocuments")
+                        .HasForeignKey("TenderDocumentRequirementId");
+
                     b.Navigation("Bid");
+
+                    b.Navigation("TenderDocumentRequirement");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidEvaluation", b =>
@@ -2206,23 +2523,50 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.HasOne("Sourcing_Tender_Management_System.Models.Bid", "Bid")
                         .WithMany("Clarifications")
                         .HasForeignKey("BidId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ProcurementRequest", "ProcurementRequest")
+                        .WithMany()
+                        .HasForeignKey("ProcurementRequestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Tender", "Tender")
+                        .WithMany()
+                        .HasForeignKey("TenderId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("AskedByUser");
 
                     b.Navigation("Bid");
+
+                    b.Navigation("ProcurementRequest");
+
+                    b.Navigation("RecipientUser");
+
+                    b.Navigation("Tender");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.ClarificationResponse", b =>
                 {
                     b.HasOne("Sourcing_Tender_Management_System.Models.Clarification", "Clarification")
-                        .WithOne("Response")
-                        .HasForeignKey("Sourcing_Tender_Management_System.Models.ClarificationResponse", "ClarificationId")
+                        .WithMany("Responses")
+                        .HasForeignKey("ClarificationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "RespondedByUser")
+                        .WithMany()
+                        .HasForeignKey("RespondedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Clarification");
+
+                    b.Navigation("RespondedByUser");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.CommitteePosition", b =>
@@ -2562,7 +2906,14 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "VerifiedByUser")
+                        .WithMany()
+                        .HasForeignKey("VerifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Supplier");
+
+                    b.Navigation("VerifiedByUser");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.SupplierReview", b =>
@@ -2647,6 +2998,17 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Navigation("Tender");
                 });
 
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.TenderDocumentRequirement", b =>
+                {
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Tender", "Tender")
+                        .WithMany("DocumentRequirements")
+                        .HasForeignKey("TenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tender");
+                });
+
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.TenderInvitation", b =>
                 {
                     b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "InvitedByUser")
@@ -2692,6 +3054,31 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.UserTask", b =>
+                {
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ProcurementRequest", "ProcurementRequest")
+                        .WithMany()
+                        .HasForeignKey("ProcurementRequestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Tender", "Tender")
+                        .WithMany()
+                        .HasForeignKey("TenderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ProcurementRequest");
+
+                    b.Navigation("Tender");
 
                     b.Navigation("User");
                 });
@@ -2788,7 +3175,7 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Clarification", b =>
                 {
-                    b.Navigation("Response");
+                    b.Navigation("Responses");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Contract", b =>
@@ -2873,6 +3260,8 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
                     b.Navigation("CommitteeMembers");
 
+                    b.Navigation("DocumentRequirements");
+
                     b.Navigation("Documents");
 
                     b.Navigation("EvaluationCriteria");
@@ -2882,6 +3271,11 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Navigation("Invitations");
 
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.TenderDocumentRequirement", b =>
+                {
+                    b.Navigation("BidDocuments");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.TenderItem", b =>

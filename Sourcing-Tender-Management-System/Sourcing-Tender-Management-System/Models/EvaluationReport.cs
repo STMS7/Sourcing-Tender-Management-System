@@ -14,6 +14,7 @@ public class EvaluationReport
     [DeleteBehavior(DeleteBehavior.Restrict)] public ApplicationUser PreparedByUser { get; set; } = null!;
     [Required, MaxLength(4000)] public string Summary { get; set; } = string.Empty;
     [MaxLength(2000)] public string? RecommendationReason { get; set; }
+    public RecommendationStatus Status { get; set; } = RecommendationStatus.Draft;
     public int? RecommendedBidId { get; set; }
     [DeleteBehavior(DeleteBehavior.Restrict)] public Bid? RecommendedBid { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

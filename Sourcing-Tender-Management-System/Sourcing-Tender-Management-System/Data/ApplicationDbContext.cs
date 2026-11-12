@@ -47,4 +47,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ProcessMessage> ProcessMessages => Set<ProcessMessage>();
     public DbSet<ProcessMessageAttachment> ProcessMessageAttachments => Set<ProcessMessageAttachment>();
     public DbSet<UserPasskeyCredential> UserPasskeyCredentials => Set<UserPasskeyCredential>();
+    public DbSet<TenderDocumentRequirement> TenderDocumentRequirements => Set<TenderDocumentRequirement>();
+    public DbSet<UserTask> UserTasks => Set<UserTask>();
+    public DbSet<BidAnalysis> BidAnalyses => Set<BidAnalysis>();
+    public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
 }
