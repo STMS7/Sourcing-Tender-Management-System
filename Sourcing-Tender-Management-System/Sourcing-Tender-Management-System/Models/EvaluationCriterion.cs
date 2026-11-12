@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sourcing_Tender_Management_System.Models;
 
+[Index(nameof(TenderId), nameof(Name), IsUnique = true)]
 public class EvaluationCriterion
 {
     public int Id { get; set; }

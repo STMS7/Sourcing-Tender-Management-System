@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sourcing_Tender_Management_System.Models;
 
+[Index(nameof(TenderNumber), IsUnique = true)]
 public class Tender
 {
     public int Id { get; set; }
@@ -10,8 +12,10 @@ public class Tender
     [Required, MaxLength(200)] public string Title { get; set; } = string.Empty;
     [MaxLength(3000)] public string? Description { get; set; }
     public int? ProcurementRequestId { get; set; }
+    [DeleteBehavior(DeleteBehavior.Restrict)]
     public ProcurementRequest? ProcurementRequest { get; set; }
     public int CategoryId { get; set; }
+    [DeleteBehavior(DeleteBehavior.Restrict)]
     public Category Category { get; set; } = null!;
     public DateTime? PublishedAt { get; set; }
     public DateTime SubmissionDeadline { get; set; }
@@ -19,6 +23,7 @@ public class Tender
     [Column(TypeName = "decimal(18,2)")] public decimal EstimatedValue { get; set; }
     public TenderStatus Status { get; set; } = TenderStatus.Draft;
     [Required, MaxLength(450)] public string CreatedByUserId { get; set; } = string.Empty;
+    [DeleteBehavior(DeleteBehavior.Restrict)] public ApplicationUser CreatedByUser { get; set; } = null!;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<TenderItem> Items { get; set; } = new List<TenderItem>();
     public ICollection<TenderDocument> Documents { get; set; } = new List<TenderDocument>();

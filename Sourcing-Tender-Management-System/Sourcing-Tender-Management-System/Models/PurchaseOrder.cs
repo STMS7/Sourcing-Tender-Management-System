@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sourcing_Tender_Management_System.Models;
 
+[Index(nameof(PurchaseOrderNumber), IsUnique = true)]
 public class PurchaseOrder
 {
     public int Id { get; set; }

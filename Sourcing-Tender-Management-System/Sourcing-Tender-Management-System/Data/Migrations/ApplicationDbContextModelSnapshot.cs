@@ -74,71 +74,6 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.ToTable("AspNetRoleClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("NormalizedEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("NormalizedUserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("UserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
-
-                    b.HasIndex("NormalizedUserName")
-                        .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
-                        .HasFilter("[NormalizedUserName] IS NOT NULL");
-
-                    b.ToTable("AspNetUsers", (string)null);
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
                     b.Property<int>("Id")
@@ -222,6 +157,95 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.ApplicationUser", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SupplierId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex")
+                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("AspNetUsers", (string)null);
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Approval", b =>
@@ -1293,7 +1317,7 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1302,7 +1326,7 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1317,7 +1341,7 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1326,16 +1350,33 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.ApplicationUser", b =>
+                {
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Department", "Department")
+                        .WithMany("Users")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Supplier", "Supplier")
+                        .WithMany("Users")
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Supplier");
+                });
+
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Approval", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "ApproverUser")
                         .WithMany()
                         .HasForeignKey("ApproverUserId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1347,15 +1388,19 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("ApproverUser");
+
                     b.Navigation("Tender");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.AuditLog", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Bid", b =>
@@ -1396,13 +1441,15 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "EvaluatorUser")
                         .WithMany()
                         .HasForeignKey("EvaluatorUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Bid");
+
+                    b.Navigation("EvaluatorUser");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidEvaluationScore", b =>
@@ -1455,7 +1502,7 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Clarification", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "AskedByUser")
                         .WithMany()
                         .HasForeignKey("AskedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1466,6 +1513,8 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .HasForeignKey("BidId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AskedByUser");
 
                     b.Navigation("Bid");
                 });
@@ -1484,8 +1533,8 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Contract", b =>
                 {
                     b.HasOne("Sourcing_Tender_Management_System.Models.Bid", "Bid")
-                        .WithOne()
-                        .HasForeignKey("Sourcing_Tender_Management_System.Models.Contract", "BidId")
+                        .WithMany()
+                        .HasForeignKey("BidId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -1519,12 +1568,14 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "ReceivedByUser")
                         .WithMany()
                         .HasForeignKey("ReceivedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("PurchaseOrder");
+
+                    b.Navigation("ReceivedByUser");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.DeliveryItem", b =>
@@ -1559,11 +1610,13 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Notification", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.ProcurementRequest", b =>
@@ -1574,13 +1627,15 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "RequestedByUser")
                         .WithMany()
                         .HasForeignKey("RequestedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Department");
+
+                    b.Navigation("RequestedByUser");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.ProcurementRequestItem", b =>
@@ -1651,7 +1706,7 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1664,6 +1719,8 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
 
                     b.Navigation("Category");
 
+                    b.Navigation("CreatedByUser");
+
                     b.Navigation("ProcurementRequest");
                 });
 
@@ -1675,13 +1732,15 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Sourcing_Tender_Management_System.Models.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Tender");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.TenderDocument", b =>
@@ -1751,6 +1810,8 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Department", b =>
                 {
                     b.Navigation("ProcurementRequests");
+
+                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.EvaluationCriterion", b =>
@@ -1784,6 +1845,8 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Navigation("Contracts");
 
                     b.Navigation("SupplierCategories");
+
+                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Tender", b =>

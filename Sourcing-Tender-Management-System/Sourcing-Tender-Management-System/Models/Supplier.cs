@@ -1,7 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sourcing_Tender_Management_System.Models;
 
+[Index(nameof(RegistrationNumber), IsUnique = true)]
+[Index(nameof(Email), IsUnique = true)]
 public class Supplier
 {
     public int Id { get; set; }
@@ -14,6 +17,7 @@ public class Supplier
     public bool IsApproved { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
+    public ICollection<ApplicationUser> Users { get; set; } = new List<ApplicationUser>();
     public ICollection<SupplierCategory> SupplierCategories { get; set; } = new List<SupplierCategory>();
     public ICollection<Bid> Bids { get; set; } = new List<Bid>();
     public ICollection<Contract> Contracts { get; set; } = new List<Contract>();

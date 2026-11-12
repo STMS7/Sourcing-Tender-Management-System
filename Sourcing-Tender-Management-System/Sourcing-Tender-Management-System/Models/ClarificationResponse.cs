@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 
 namespace Sourcing_Tender_Management_System.Models;
 
+[Index(nameof(ClarificationId), IsUnique = true)]
 public class ClarificationResponse
 {
     public int Id { get; set; }
