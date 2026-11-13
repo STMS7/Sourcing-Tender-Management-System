@@ -47,6 +47,29 @@ public class ReportTable
         Rows.Any(r => column < r.Length && r[column] is int or long or decimal or double or float);
 }
 
+/// <summary>
+/// A table cell that links to another report page. On screen it is a link; in Excel and PDF it is just its text.
+/// </summary>
+public record ReportLink(string Text, string Action, int Id)
+{
+    public override string ToString() => Text;
+}
+
+/// <summary>One bar of a chart.</summary>
+public record ChartPoint(string Label, decimal Value);
+
+/// <summary>
+/// A simple horizontal bar chart (label + value per bar). It is drawn with plain HTML/CSS on the page and with
+/// plain boxes in the PDF, so it needs no script, no internet and prints correctly.
+/// </summary>
+public class ReportChart
+{
+    public string Title { get; init; } = string.Empty;
+    public string Unit { get; init; } = string.Empty;
+    public List<ChartPoint> Points { get; init; } = new();
+    public decimal Max => Points.Count == 0 ? 0 : Points.Max(p => p.Value);
+}
+
 /// <summary>A finished report: filters used, headline numbers and tables. This is what gets rendered and exported.</summary>
 public class ReportDocument
 {
@@ -57,7 +80,15 @@ public class ReportDocument
     public string GeneratedBy { get; init; } = string.Empty;
     public string FilterSummary { get; init; } = "No filters";
     public List<ReportTile> Tiles { get; } = new();
+    public List<ReportChart> Charts { get; } = new();
     public List<ReportTable> Tables { get; } = new();
+
+    /// <summary>Adds a chart, skipping it when there is nothing to draw.</summary>
+    public void AddChart(string title, IEnumerable<(string Label, decimal Value)> points, string unit = "")
+    {
+        var list = points.Where(p => p.Value > 0).Select(p => new ChartPoint(p.Label, p.Value)).ToList();
+        if (list.Count > 0) Charts.Add(new ReportChart { Title = title, Unit = unit, Points = list });
+    }
 }
 
 /// <summary>Everything the report pages need to know about who is asking.</summary>

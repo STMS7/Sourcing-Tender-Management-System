@@ -10,6 +10,9 @@ public interface IReportService
 {
     IReadOnlyList<ReportCatalogEntry> GetCatalog(ReportViewer viewer);
     Task<ReportPageViewModel> BuildAsync(ReportKind kind, ReportFilter filter, ReportViewer viewer);
+
+    /// <summary>The full file of one tender (request, suppliers, bids, scores, decisions, timeline), or null if it does not exist.</summary>
+    Task<ReportDocument?> BuildTenderFileAsync(int tenderId, ReportViewer viewer);
 }
 
 /// <summary>
@@ -17,7 +20,7 @@ public interface IReportService
 /// Each report is a <see cref="ReportDocument"/> made of headline tiles and tables, so the screen, the Excel file
 /// and the PDF all show exactly the same numbers.
 /// </summary>
-public class ReportService(ApplicationDbContext db) : IReportService
+public partial class ReportService(ApplicationDbContext db) : IReportService
 {
     /// <summary>A tender still waiting for a decision more than this many days after its deadline counts as delayed.</summary>
     public const int EvaluationDelayDays = 14;
@@ -167,6 +170,14 @@ public class ReportService(ApplicationDbContext db) : IReportService
             detail.Add(x.Row.RequestNumber, x.Row.Title, x.Row.Department, Pretty(x.Row.Priority), Pretty(x.Row.Status),
                 x.Row.RequestedAt, x.Row.EstimatedBudget, x.Days);
         doc.Tables.Add(detail);
+
+        doc.AddChart("Requests by status", rows.GroupBy(r => r.Status).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Requests by department", rows.GroupBy(r => r.Department).OrderByDescending(g => g.Count()).Take(10).Select(g => (g.Key, (decimal)g.Count())));
+        doc.AddChart("Requests per month (last 12 months with requests)",
+            rows.GroupBy(r => new DateTime(r.RequestedAt.Year, r.RequestedAt.Month, 1)).OrderBy(g => g.Key).TakeLast(12)
+                .Select(g => (g.Key.ToString("yyyy-MM", CultureInfo.InvariantCulture), (decimal)g.Count())));
+        doc.AddChart("Estimated budget by department", rows.GroupBy(r => r.Department).OrderByDescending(g => g.Sum(r => r.EstimatedBudget)).Take(10)
+            .Select(g => (g.Key, g.Sum(r => r.EstimatedBudget))), "JOD");
     }
 
     // ---------------------------------------------------------------- Tenders
@@ -186,6 +197,7 @@ public class ReportService(ApplicationDbContext db) : IReportService
         var rows = await query.OrderByDescending(t => t.CreatedAt)
             .Select(t => new
             {
+                t.Id,
                 t.TenderNumber,
                 t.Title,
                 Category = t.Category.Name,
@@ -232,7 +244,7 @@ public class ReportService(ApplicationDbContext db) : IReportService
             Columns = new[] { "Number", "Title", "Category", "Status", "Deadline", "Invited", "Accepted", "Bids", "Participation", "Estimated value", "Awarded amount" }
         };
         foreach (var r in rows)
-            detail.Add(r.TenderNumber, r.Title, r.Category, Pretty(r.Status), r.SubmissionDeadline, r.Invited, r.Accepted, r.Bids,
+            detail.Add(new ReportLink(r.TenderNumber, "Tender", r.Id), r.Title, r.Category, Pretty(r.Status), r.SubmissionDeadline, r.Invited, r.Accepted, r.Bids,
                 r.Invited == 0 ? "-" : Percent(r.InvitedWhoBid, r.Invited), r.EstimatedValue,
                 r.AwardedAmount is null ? null : $"{r.AwardedAmount.Value.ToString("N2", CultureInfo.InvariantCulture)} {r.AwardedCurrency}");
         doc.Tables.Add(detail);
@@ -243,7 +255,7 @@ public class ReportService(ApplicationDbContext db) : IReportService
             Note = "Tenders that are past their deadline (or already closed) and received no submitted bid.",
             Columns = new[] { "Number", "Title", "Status", "Deadline", "Invited" }
         };
-        foreach (var r in noBids) zero.Add(r.TenderNumber, r.Title, Pretty(r.Status), r.SubmissionDeadline, r.Invited);
+        foreach (var r in noBids) zero.Add(new ReportLink(r.TenderNumber, "Tender", r.Id), r.Title, Pretty(r.Status), r.SubmissionDeadline, r.Invited);
         doc.Tables.Add(zero);
 
         var delays = new ReportTable
@@ -253,9 +265,13 @@ public class ReportService(ApplicationDbContext db) : IReportService
             Columns = new[] { "Number", "Title", "Status", "Deadline", "Days waiting", "Delayed" }
         };
         foreach (var x in delayed)
-            delays.Add(x.Row.TenderNumber, x.Row.Title, Pretty(x.Row.Status), x.Row.SubmissionDeadline, x.DaysWaiting,
+            delays.Add(new ReportLink(x.Row.TenderNumber, "Tender", x.Row.Id), x.Row.Title, Pretty(x.Row.Status), x.Row.SubmissionDeadline, x.DaysWaiting,
                 x.DaysWaiting > EvaluationDelayDays ? "Yes" : "No");
         doc.Tables.Add(delays);
+
+        doc.AddChart("Tenders by status", rows.GroupBy(r => r.Status).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Bids received per tender (top 10)", rows.OrderByDescending(r => r.Bids).Take(10).Select(r => (r.TenderNumber, (decimal)r.Bids)));
+        doc.AddChart("Estimated value by status", rows.GroupBy(r => r.Status).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), g.Sum(r => r.EstimatedValue))), "JOD");
     }
 
     // ---------------------------------------------------------------- Suppliers
@@ -344,6 +360,11 @@ public class ReportService(ApplicationDbContext db) : IReportService
             performance.Add(r.CompanyName, r.Invitations, r.Invitations == 0 ? "-" : Percent(r.Responded, r.Invitations),
                 r.Bids, r.Awarded, r.Bids == 0 ? "-" : Percent(r.Awarded, r.Bids), r.Contracts);
         doc.Tables.Add(performance);
+
+        doc.AddChart("Suppliers by registration status", rows.GroupBy(r => r.RegistrationStatus).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Suppliers by legal verification", rows.GroupBy(r => r.LegalVerificationStatus).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Bids submitted per supplier (top 10)", rows.OrderByDescending(r => r.Bids).Take(10).Select(r => (r.CompanyName, (decimal)r.Bids)));
+        doc.AddChart("Tenders won per supplier (top 10)", rows.OrderByDescending(r => r.Awarded).Take(10).Select(r => (r.CompanyName, (decimal)r.Awarded)));
     }
 
     // ---------------------------------------------------------------- Bids and evaluation
@@ -451,6 +472,13 @@ public class ReportService(ApplicationDbContext db) : IReportService
             unified.Add($"{r.TenderNumber} - {r.TenderTitle}", r.Round, Pretty(r.Status), r.Recommended, r.Amount, r.PreparedBy,
                 r.CreatedAt, r.SubmittedAt, r.RecommendationReason);
         doc.Tables.Add(unified);
+
+        doc.AddChart("Bids by status", bids.GroupBy(b => b.Status).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Bids by compliance result", bids.GroupBy(b => b.ComplianceStatus).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Bids per supplier (top 10)", bids.GroupBy(b => b.Supplier).OrderByDescending(g => g.Count()).Take(10).Select(g => (g.Key, (decimal)g.Count())));
+        doc.AddChart("Average bid amount per tender (top 10)",
+            bids.GroupBy(b => b.TenderNumber).OrderByDescending(g => g.Average(b => b.TotalAmount)).Take(10)
+                .Select(g => (g.Key, Math.Round(g.Average(b => b.TotalAmount), 2))), "JOD");
     }
 
     // ---------------------------------------------------------------- Approvals and decisions
@@ -517,6 +545,10 @@ public class ReportService(ApplicationDbContext db) : IReportService
         doc.Tiles.Add(new("Returned for review", reports.Count(r => r.Status == RecommendationStatus.ReturnedForReview).ToString()));
         doc.Tiles.Add(new("Committee approved", reports.Count(r => r.Status == RecommendationStatus.CommitteeApproved).ToString()));
         doc.Tiles.Add(new("Committee rejected", reports.Count(r => r.Status == RecommendationStatus.CommitteeRejected).ToString()));
+
+        doc.AddChart("Recommendations by status", reports.GroupBy(r => r.Status).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Sourcing Manager decisions", managerDecisions.GroupBy(d => d.Status).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
+        doc.AddChart("Top Committee votes", votes.GroupBy(v => v.Decision).OrderBy(g => g.Key).Select(g => (Pretty(g.Key), (decimal)g.Count())));
 
         var recs = new ReportTable
         {
