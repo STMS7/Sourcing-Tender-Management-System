@@ -11,7 +11,21 @@ public partial class SourcingOfficerController
     // Kept as a denied legacy route so older clients cannot assign committee members.
     [HttpPost]
     public Task<IActionResult> AssignEvaluationCommittee(SourcingCommitteeForm model) => Task.FromResult<IActionResult>(Forbid());
-    [HttpPost]
+
+    private async Task<List<string>> PreparationWaitingReasons(Tender tender)
+    {
+        var reasons = new List<string>();
+        if ((await EvaluationPreparation.MemberIssues(db, tender)).Count != 0)
+            reasons.Add("Waiting for Admin to assign four eligible evaluation committee members.");
+        var missing = Enum.GetValues<CriterionType>().Where(type =>
+            !tender.EvaluationCriteria.Any(c => c.Type == type && !CommitteeWeighting.IsWeightProposal(c)))
+            .Select(type => type.ToString().ToLowerInvariant()).ToList();
+        if (missing.Count != 0)
+            reasons.Add("Waiting for the evaluation committee to prepare " + string.Join(" and ", missing) + " criteria.");
+        return reasons;
+    }
+
+    [NonAction]
     public async Task<IActionResult> RequestWeightApproval(int id)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -20,13 +34,12 @@ public partial class SourcingOfficerController
         if (tender == null) return NotFound();
         if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null ||
             await db.Bids.AnyAsync(b => b.TenderId == id)) return Conflict("Request approval once, while preparing a draft without offers.");
-        foreach (var issue in await EvaluationPreparation.MemberIssues(db, tender)) ModelState.AddModelError("", issue);
+        // External prerequisites are a waiting state, not an officer form error.
+        if ((await PreparationWaitingReasons(tender)).Count != 0)
+            return RedirectToAction(nameof(Details), new { id });
         if (tender.Items.Count == 0 || string.IsNullOrWhiteSpace(tender.TermsAndConditions) ||
             tender.SubmissionDeadline <= DateTime.UtcNow || tender.OpeningDate < tender.SubmissionDeadline)
             ModelState.AddModelError("", "Complete the items, terms and future dates before requesting approval.");
-        foreach (var type in Enum.GetValues<CriterionType>())
-            if (!tender.EvaluationCriteria.Any(c => c.Type == type && !CommitteeWeighting.IsWeightProposal(c)))
-                ModelState.AddModelError("", $"Add at least one {type} criterion. The committee will assign its weight.");
         if (!ModelState.IsValid) return FormError(id);
         // Remove any legacy proposals; both current members approve this locked preparation.
         db.EvaluationCriteria.RemoveRange(tender.EvaluationCriteria.Where(CommitteeWeighting.IsWeightProposal));
@@ -43,7 +56,7 @@ public partial class SourcingOfficerController
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    [HttpPost]
+    [NonAction]
     public async Task<IActionResult> ReopenPreparation(int id)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);

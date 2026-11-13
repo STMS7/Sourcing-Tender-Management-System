@@ -300,6 +300,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             .OrderBy(s => s.CompanyName).ToListAsync();
         ViewBag.CanReadOffers = CanReadOffers(tender);
         ViewBag.PrePublicationApproved = await EvaluationPreparation.Approved(db, tender);
+        ViewBag.PreparationWaitingReasons = await PreparationWaitingReasons(tender);
         ViewBag.Handoff = await CheckEvaluationHandoff(tender);
         ViewBag.EvaluationSentAt = await db.WorkflowTransitions.Where(w => w.TenderId == id &&
             w.FromStage == WorkflowStage.Compliance && w.ToStage == WorkflowStage.Evaluation &&
@@ -309,44 +310,12 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         return View(tender);
     }
 
+    // Evaluation criteria are owned by the evaluation committee, not the officer.
     [HttpPost]
-    public async Task<IActionResult> AddCriterion(SourcingCriterionForm model)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var tender = await MyTenders().Include(t => t.EvaluationCriteria).FirstOrDefaultAsync(t => t.Id == model.TenderId);
-        if (tender == null) return NotFound();
-        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null) return Conflict("Criteria are locked.");
-        var criterionName = model.Name?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(criterionName)) ModelState.AddModelError("", "Enter a criterion name.");
-        if (criterionName.StartsWith(CommitteeWeighting.ProposalPrefix, StringComparison.OrdinalIgnoreCase))
-            ModelState.AddModelError("", "This criterion name is reserved for the evaluation committee's internal weight proposals.");
-        if (tender.EvaluationCriteria.Any(c => c.Name.Equals(criterionName, StringComparison.OrdinalIgnoreCase)))
-            ModelState.AddModelError("", "A criterion with this name already exists.");
-        if (!ModelState.IsValid) return FormError(model.TenderId);
-        tender.EvaluationCriteria.Add(new EvaluationCriterion
-        { Name = criterionName, Description = model.Description, Type = model.Type, Weight = 0, MaximumScore = model.MaximumScore });
-        Log(tender, "AddCriterion", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
-        return RedirectToAction(nameof(Details), new { id = tender.Id });
-    }
+    public Task<IActionResult> AddCriterion(SourcingCriterionForm model) => Task.FromResult<IActionResult>(Forbid());
 
     [HttpPost]
-    public async Task<IActionResult> RemoveCriterion(int id)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var criterion = await db.EvaluationCriteria.FirstOrDefaultAsync(c => c.Id == id && MyTenders().Any(t => t.Id == c.TenderId));
-        if (criterion == null) return NotFound();
-        if (CommitteeWeighting.IsWeightProposal(criterion)) return Conflict("Committee weight proposals cannot be removed by the sourcing officer.");
-        var tender = await MyTenders().FirstAsync(t => t.Id == criterion.TenderId);
-        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null) return Conflict("Criteria are locked.");
-        db.EvaluationCriteria.Remove(criterion);
-        Log(tender, "RemoveCriterion", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
-        return RedirectToAction(nameof(Details), new { id = tender.Id });
-    }
-
+    public Task<IActionResult> RemoveCriterion(int id) => Task.FromResult<IActionResult>(Forbid());
     [HttpPost]
     public async Task<IActionResult> AddRequirement(SourcingRequirementForm model)
     {
@@ -597,6 +566,36 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         var context = bidId != null ? $"bid:{bidId}" : requestId != null ? $"request:{requestId}"
             : tenderId != null ? $"tender:{tenderId}" : null;
         return RedirectToAction(nameof(Messages), new { group, context });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SendCommitteeMessage(int tenderId,
+        [Required, StringLength(200)] string subject, [Required, StringLength(2000)] string question)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var tender = await MyTenders().FirstOrDefaultAsync(t => t.Id == tenderId);
+        if (tender == null) return NotFound();
+        if (tender.Status is not (TenderStatus.Closed or TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview))
+            return Conflict("Committee messages are available during compliance, evaluation or manager review.");
+        var model = new SourcingClarificationForm { TenderId = tenderId };
+        var recipients = await AllowedRecipients(model);
+        if (recipients == null || recipients.Count == 0) return Conflict("Committee communication is not configured. Contact the responsible team.");
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(question))
+            return BadRequest("Enter a valid subject and message.");
+        foreach (var recipient in recipients.DistinctBy(u => u.Id))
+        {
+            var conversation = new Clarification { TenderId = tenderId, AskedByUserId = OfficerId,
+                RecipientUserId = recipient.Id, Subject = subject.Trim(), Question = question.Trim() };
+            db.Clarifications.Add(conversation);
+            await db.SaveChangesAsync();
+            db.Notifications.Add(new Notification { UserId = recipient.Id, Title = "New committee message",
+                Message = subject.Trim(), Type = NotificationType.ActionRequired,
+                Link = await new SourcingCommunicationPolicy(db).InboxLink(recipient.Id, conversation.Id) });
+        }
+        Audit("MessageEvaluationCommittee", "Tender", tenderId.ToString());
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        return RedirectToAction(nameof(Messages), new { group = "EvaluationCommittee", context = "tender:" + tenderId });
     }
 
     [HttpPost]

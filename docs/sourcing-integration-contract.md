@@ -1,3 +1,5 @@
+> Current delivery: see [Sourcing Officer delivery and team dependencies](sourcing-team-delivery.md). Preparation approval/reopening are no longer public officer HTTP actions; historical verification sections below describe earlier stages.
+
 # Sourcing integration contract
 
 This document describes the existing integration points that teammates' pages
@@ -200,11 +202,13 @@ fields directly. A manager's subsequent decisions belong to the manager module.
 ## Pre-publication approval contract
 
 1. Populate items, terms, future dates, at least one technical and one financial
-   criterion and document requirements. Admin assigns the four committee members
-   through /AdminCommittee; the officer waits for that assignment. The officer
-   defines criterion names/types/maximum scores, but cannot assign any weights.
-   New criterion weights are zero pending committee input; forged Weight fields
-   are ignored by the officer endpoint.
+   criterion and document requirements. The committee owns all criterion
+   names/types/maximum scores and weights; the officer only prepares tender
+   specifications and document requirements. Admin assigns the four committee
+   members through /AdminCommittee. Both officer criterion endpoints always
+   deny access. The committee's criterion-authoring producer remains a teammate
+   integration dependency: its current weight page consumes existing rows.
+   No other role's production files were changed by this officer-only correction.
 2. POST /SourcingOfficer/RequestWeightApproval locks the Draft using
    EvaluationCriteriaLockedAt and notifies the technical/financial members.
    Tender.Status stays Draft. This is preparation approval, not bid handoff.
@@ -223,7 +227,7 @@ fields directly. A manager's subsequent decisions belong to the manager module.
    records bind each approval to the current member and preparation lock time.
    A combined approval event is recorded when both have submitted. No migration
    or new persisted field is required. These rows are excluded from criterion
-   totals and cannot be created/deleted through the officer's criterion forms.
+   totals. Neither proposals nor scoring criteria can be created/deleted by officers.
 5. Publish verifies the agreed pair matches stored tender weights, both current
    members have approval evidence since the lock and before publication, all
    four members retain their roles, and selected suppliers match the category.

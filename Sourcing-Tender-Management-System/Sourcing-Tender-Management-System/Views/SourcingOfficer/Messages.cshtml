@@ -29,7 +29,7 @@
     @if (Model.Group == "Supplier") {
         <p class="small text-secondary mt-3">Choose a submitted offer after bidding closes. Only accounts belonging to that supplier are available.</p>
     } else if (Model.Group == "EvaluationCommittee") {
-        <p class="small text-secondary mt-3">Choose a tender in compliance, evaluation or manager review, then choose an assigned committee member.</p>
+        <p class="small text-secondary mt-3">Choose a tender in compliance, evaluation or manager review. Your message goes to its authorized evaluation committee without selecting individual members.</p>
     } else {
         <p class="small text-secondary mt-3">Choose a request available for your review, returned for changes, or linked to an active tender you manage. The request owner is the recipient.</p>
     }
@@ -54,10 +54,11 @@
         @if (Model.Recipients.Count == 0) {
             <p class="alert alert-info mt-3">No active recipients are assigned to this transaction. Ask the responsible team member to check the account or committee assignment.</p>
         } else {
-            <form asp-action="AskClarification" method="post" class="form-panel mt-3">
+            <form asp-action="@(Model.Group == "EvaluationCommittee" ? "SendCommitteeMessage" : "AskClarification")" method="post" class="form-panel mt-3">
                 <input name="ProcurementRequestId" value="@Model.Form.ProcurementRequestId" type="hidden" />
                 <input name="TenderId" value="@Model.Form.TenderId" type="hidden" />
                 <input name="BidId" value="@Model.Form.BidId" type="hidden" />
+                @if (Model.Group != "EvaluationCommittee") {
                 <div class="mb-3">
                     <label for="message-recipient" class="form-label">Recipient</label>
                     <select id="message-recipient" name="RecipientUserId" class="form-select" required>
@@ -67,6 +68,7 @@
                         }
                     </select>
                 </div>
+                }
                 <div class="mb-3"><label for="message-subject" class="form-label">Subject</label><input id="message-subject" name="Subject" value="@Model.Form.Subject" class="form-control" required maxlength="200" /></div>
                 <div class="mb-3"><label for="message-question" class="form-label">Message</label><textarea id="message-question" name="Question" class="form-control" rows="4" required maxlength="2000">@Model.Form.Question</textarea></div>
                 <button type="submit" class="btn btn-primary">Send message</button>
@@ -84,7 +86,7 @@
         } else {
             <ul class="list-group message-list">
                 @foreach (var conversation in Model.Conversations) {
-                    var counterpart = conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName;
+                    var counterpart = Model.Group == "EvaluationCommittee" ? "Evaluation committee" : conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName;
                     <li data-search-item class="list-group-item p-0">
                         <a class="message-link @(conversation.Id == selected?.Id ? "selected" : "")" aria-current="@(conversation.Id == selected?.Id ? "page" : null)"
                            asp-action="Messages" asp-route-group="@Model.Group" asp-route-conversationId="@conversation.Id">
@@ -111,13 +113,13 @@
             </p>
             <ol class="message-thread list-unstyled" data-message-thread tabindex="0" aria-label="Message history">
                 <li class="message-entry @(selected.AskedByUserId == userId ? "outgoing" : "")">
-                    <strong>@(selected.AskedByUserId == userId ? "You" : selected.AskedByUser.FullName)</strong>
+                    <strong>@(selected.AskedByUserId == userId ? "You" : Model.Group == "EvaluationCommittee" ? "Evaluation committee" : selected.AskedByUser.FullName)</strong>
                     <time class="small" datetime="@selected.AskedAt.ToString("O")">@selected.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
                     <p class="preserve-lines mb-0">@selected.Question</p>
                 </li>
                 @foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt)) {
                     <li class="message-entry @(response.RespondedByUserId == userId ? "outgoing" : "")">
-                        <strong>@(response.RespondedByUserId == userId ? "You" : response.RespondedByUser?.FullName ?? "Participant")</strong>
+                        <strong>@(response.RespondedByUserId == userId ? "You" : Model.Group == "EvaluationCommittee" ? "Evaluation committee" : response.RespondedByUser?.FullName ?? "Participant")</strong>
                         <time class="small" datetime="@response.RespondedAt.ToString("O")">@response.RespondedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
                         <p class="preserve-lines mb-0">@response.ResponseText</p>
                     </li>

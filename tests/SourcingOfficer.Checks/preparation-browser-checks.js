@@ -45,20 +45,8 @@ async page => {
     check(await page.getByLabel('Food Supplier', { exact: true }).isVisible(), 'Matching-category supplier is available');
     check(!(await page.locator('body').innerText()).includes('Hardware supplier') &&
         !(await page.locator('body').innerText()).includes('Unmapped supplier'), 'Other and missing categories are excluded');
-    for (const [name, type] of [['Quality specifications', 'Technical'], ['Delivery quality', 'Technical'], ['Total cost', 'Financial']]) {
-        await page.getByText('Add evaluation criterion', { exact: true }).click();
-        await page.locator('#criterion-name').fill(name);
-        await page.locator('#criterion-type').selectOption({ label: type });
-        check(await page.locator('#criterion-weight,[name="Weight"]').count() === 0, 'Officer has no criterion weight input');
-        if (name === 'Quality specifications') {
-            await capture('officer-criterion-desktop', 1440, 1000);
-            await capture('officer-criterion-mobile', 390, 844);
-            await page.locator('form[action$="/AddCriterion"]').evaluate(form => {
-                const forged = document.createElement('input'); forged.type = 'hidden'; forged.name = 'Weight'; forged.value = '99'; form.append(forged);
-            });
-        }
-        await page.getByRole('button', { name: 'Add criterion', exact: true }).click();
-    }
+    check(await page.locator('form[action$="/AddCriterion"],form[action$="/RemoveCriterion"],#criterion-score').count() === 0,
+        'Officer has no evaluation criterion or maximum score controls');
     check(await page.locator('#ManagerUserId,#DepartmentUserId,#TechnicalUserId,#FinancialUserId').count() === 0,
         'Officer has no committee assignment controls');
     const sourceToken = await page.locator('input[name="__RequestVerificationToken"]').first().inputValue();
@@ -90,8 +78,6 @@ async page => {
         'Admin assignments reach the officer read-only tracking section');
     await page.getByLabel('Food Supplier', { exact: true }).check();
     await page.getByRole('button', { name: 'Add selected suppliers', exact: true }).click();
-    const financialCriterionId = await page.locator('form[action$="/RemoveCriterion"]').evaluateAll(forms =>
-        forms.find(form => form.closest('tr').textContent.includes('Total cost')).querySelector('input[name=id]').value);
     const officerToken = await page.locator('input[name="__RequestVerificationToken"]').first().inputValue();
     const denied = await page.request.post(base + '/EvaluationCommittee/SubmitWeights', { maxRedirects: 0, form: {
         tenderId: id, technicalWeight: '99', financialWeight: '1', __RequestVerificationToken: officerToken
@@ -104,6 +90,8 @@ async page => {
     check(await page.getByRole('link', { name: 'Edit draft', exact: true }).count() === 0, 'Locked preparation hides editing');
     await capture('officer-desktop', 1440, 1000);
     await capture('officer-mobile', 390, 844);
+    await login('financial', '/EvaluationCommittee/Evaluate/' + id);
+    const financialCriterionId = await page.locator('input[name="criterionWeights[0].CriterionId"]').inputValue();
     await login('technical', '/EvaluationCommittee/Evaluate/' + id);
     check(await page.getByRole('heading', { name: 'Pre-publication approval', exact: true }).isVisible(), 'Technical member receives preparation stage');
     check(await page.getByRole('heading', { name: 'Compliant bids', exact: true }).count() === 0, 'Preparation does not expose bid section');
@@ -137,8 +125,6 @@ async page => {
     await login('officer', '/SourcingOfficer/Details/' + id);
     check(await page.locator('[name="Weight"],[name="TechnicalWeight"],[name="FinancialWeight"]').count() === 0,
         'Officer sees committee-assigned criterion and overall weights as read-only');
-    check((await page.locator('body').innerText()).includes('60%') && (await page.locator('body').innerText()).includes('40%'),
-        'Committee criterion weights reach the officer details');
     check(await page.getByRole('button', { name: 'Publish and send invitations', exact: true }).isEnabled(), 'Both approvals enable publication');
     await page.getByRole('button', { name: 'Publish and send invitations', exact: true }).click();
     check((await page.locator('body').innerText()).includes('Published'), 'Officer publishes approved tender');

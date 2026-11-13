@@ -1,3 +1,5 @@
+> Current delivery: see [Sourcing Officer delivery and team dependencies](sourcing-team-delivery.md). Preparation approval/reopening are no longer public officer HTTP actions; historical verification sections below describe earlier stages.
+
 # Sourcing Officer handoff
 
 The officer cycle covers department request review through delivery of compliant
@@ -15,8 +17,10 @@ uses the existing shared database and roles; no migration is required.
    and resubmitted by the department. Rejected requests cannot.
 3. Acceptance creates one Draft tender using the latest request items.
    Complete its category, terms, future deadline and optional opening date.
-4. Add at least one technical and one financial scoring criterion without weights.
-   The officer defines names, types and maximum scores; all weights are committee-only.
+4. The committee supplies at least one technical and one financial scoring
+   criterion, including names/types/maximum scores. The officer cannot create,
+   delete or edit criteria. Committee authoring is an outstanding teammate
+   integration: its current weight form only consumes existing criteria.
    Configure required documents. Admin opens Administration → Evaluation committees,
    selects this tender and assigns four distinct active members with the required
    account roles. The officer can only view those members.
@@ -86,8 +90,8 @@ dotnet run --project tests/SourcingOfficer.Checks --artifacts-path "$env:TEMP/st
 dotnet run --project tests/EvaluationCommittee.Checks --artifacts-path "$env:TEMP/stms-evaluation-checks"
 ```
 
-The migrated SQL suites passed 38 department, 112 officer and 44 committee checks
-(194 total).
+The current officer correction passed 114 officer SQL checks. Previous results
+remain 38 department and 44 committee checks; those were not rerun for this correction.
 They use newly generated isolated LocalDB databases and delete them on normal
 runs. The officer preview flags `-- --preview --handoff-preview` retain a
 synthetic database and print its name.
@@ -96,11 +100,11 @@ For browser verification, publish the app and run it in Staging against that
 isolated database at port 5189. Create
 `$env:TEMP/stms-sourcing-review/preparation` for captures and run the
 `tests/SourcingOfficer.Checks/preparation-browser-checks.js` callback through
-Playwright CLI. The verified rerun checked 48 points plus three separate published
-Admin/antiforgery checks (51 total); the maintained callback includes all of them
-(50 on a fresh fixture). Desktop/mobile captures cover Admin tender listing and
-assignment, officer
-criterion creation, locked preparation, technical weighting and financial weighting.
+Playwright CLI. The current journey passed 46 checks with an externally prepared
+Draft fixture; the fixture guard is included. The --handoff-preview fixture seeds
+its evaluation criteria directly as committee input, not through officer actions.
+This does not verify committee authoring. Desktop/mobile captures cover Admin tender listing and
+assignment, officer locked preparation, technical weighting and financial weighting.
 Preview accounts use
 `Preview-Only!4729` with officer@example.test, technical@example.test and
 financial@example.test and admin@example.test. These are test-fixture identities only.

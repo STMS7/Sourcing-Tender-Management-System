@@ -203,16 +203,35 @@ try
     await Act(c => c.Publish(tenderId));
     await using (var db = new ApplicationDbContext(options))
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft, "Incomplete tender cannot publish");
+    Check(await Act(c => c.RequestWeightApproval(tenderId)) is RedirectToActionResult,
+        "Missing external preparation redirects to tender details instead of raw errors");
+    await using (var db = new ApplicationDbContext(options))
+        Check((await db.Tenders.FindAsync(tenderId))!.EvaluationCriteriaLockedAt == null,
+            "Waiting for Admin and committee does not lock the draft");
+    await Act(async c => {
+        var result = await c.Details(tenderId);
+        var waiting = (List<string>)c.ViewBag.PreparationWaitingReasons;
+        Check(waiting.Count == 2 && waiting.Any(r => r.Contains("Admin")) && waiting.Any(r => r.Contains("technical and financial")),
+            "Officer details identify Admin assignment and committee criteria as separate waiting dependencies");
+        return result;
+    });
     await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical }));
     await using (var db = new ApplicationDbContext(options))
         Check(!await db.EvaluationCriteria.AnyAsync(), "Officer criteria cannot impersonate internal committee weight proposals");
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical }));
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Cost", Type = CriterionType.Financial }));
+    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical }))
+        is ForbidResult, "Officer cannot create evaluation criteria or maximum scores");
     Check(typeof(SourcingCriterionForm).GetProperty("Weight") == null,
         "Officer criterion input exposes no weight field for model binding");
-    await using (var db = new ApplicationDbContext(options))
-        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId).AllAsync(c => c.Weight == 0),
-            "Officer-created criteria store only pending weights");
+    await using (var db = new ApplicationDbContext(options)) {
+        Check(!await db.EvaluationCriteria.AnyAsync(), "Denied officer criterion writes leave the database unchanged");
+        // External committee input: the committee's authoring UI is outside this officer test.
+        db.EvaluationCriteria.AddRange(
+            new EvaluationCriterion { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical, MaximumScore = 100 },
+            new EvaluationCriterion { TenderId = tenderId, Name = "Cost", Type = CriterionType.Financial, MaximumScore = 100 });
+        await db.SaveChangesAsync();
+        Check(await Act(c => c.RemoveCriterion(db.EvaluationCriteria.Local.First().Id)) is ForbidResult,
+            "Officer cannot delete committee criteria before preparation locks");
+    }
     await Act(c => c.AddRequirement(new SourcingRequirementForm { TenderId = tenderId, DocumentType = "Food quality certificate", IsMandatory = true }));
     await Act(async c => {
         var details = (ViewResult)await c.Details(tenderId);
@@ -251,14 +270,14 @@ try
         "Committee receives draft preparation without supplier offers");
     await SubmitCommitteeWeights("technical", tenderId, 80, 20);
     Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Changed after review" }))
-        is ConflictObjectResult, "Preparation approval freezes criteria before publication");
+        is ForbidResult, "Officer cannot create criteria during preparation approval");
     Check(await Act(c => c.Edit(tenderId)) is ConflictObjectResult,
         "Direct edit links reject locked preparation instead of displaying an unusable form");
     Check(await Act(c => c.AddRequirement(new SourcingRequirementForm { TenderId = tenderId, DocumentType = "Changed document" }))
         is ConflictObjectResult, "Preparation approval freezes document requirements");
     await using (var db = new ApplicationDbContext(options)) {
         var proposalId = await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Name.StartsWith("__weight:")).Select(c => c.Id).FirstAsync();
-        Check(await Act(c => c.RemoveCriterion(proposalId)) is ConflictObjectResult, "Officer cannot remove committee approval rows");
+        Check(await Act(c => c.RemoveCriterion(proposalId)) is ForbidResult, "Officer cannot remove committee approval rows");
     }
     Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null)) is ViewResult {
         Model: SourcingMessagesViewModel preparationChat } && preparationChat.Recipients.Count == 4,
@@ -295,7 +314,7 @@ try
         Check(tender!.Status == TenderStatus.Published && tender.EvaluationCriteriaLockedAt != null, "Publish locks evaluation criteria");
         Check(await db.Notifications.AnyAsync(n => n.UserId == "supplier-user"), "Publishing notifies supplier accounts");
     }
-    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Late change" })) is ConflictObjectResult, "Criteria cannot change after publication");
+    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Late change" })) is ForbidResult, "Officer cannot create criteria after publication");
     Check(await Act(c => c.ReopenPreparation(tenderId)) is ConflictObjectResult,
         "Published preparation cannot be reopened or approvals reset");
     Check(await Act(c => c.Close(tenderId)) is ConflictObjectResult, "Early closure is rejected");
@@ -655,6 +674,13 @@ try
         db.UserRoles.Add(new IdentityUserRole<string> { UserId = "department", RoleId = roleIds["DepartmentRepresentative"] });
         await db.SaveChangesAsync();
     }
+    Check(await Act(c => c.SendCommitteeMessage(tenderId, "Team handoff", "Review the compliant offers."), "other")
+        is NotFoundResult, "Another officer cannot broadcast committee messages for this tender");
+    Check(await Act(c => c.SendCommitteeMessage(tenderId, "Team handoff", "Review the compliant offers."))
+        is RedirectToActionResult, "Officer messages the committee without selecting a member");
+    await using (var db = new ApplicationDbContext(options))
+        Check(await db.Clarifications.CountAsync(c => c.TenderId == tenderId && c.Subject == "Team handoff") == 4,
+            "Committee message reaches exactly the four authorized participants");
     Console.WriteLine($"All {checks} sourcing workflow checks passed.");
     if (preview)
     {
@@ -713,6 +739,26 @@ try
                 Reason = EvaluationPreparation.ApprovalReason, CreatedAt = ready.PublishedAt!.Value.AddMinutes(-30) });
         }
         await db.SaveChangesAsync();
+        if (args.Contains("--handoff-preview")) {
+            // External producer fixture; never created by an officer criterion endpoint.
+            var source = await db.ProcurementRequests.SingleAsync(r => r.RequestNumber == "PR-PREVIEW");
+            source.Status = ProcurementRequestStatus.ConvertedToTender;
+            db.Tenders.Add(new Tender { TenderNumber = "TND-PREPARATION-PREVIEW",
+                Title = "Browser preparation and category verification", CategoryId = categoryId,
+                CreatedByUserId = "officer", ProcurementRequestId = source.Id, Status = TenderStatus.Draft,
+                SubmissionDeadline = DateTime.UtcNow.AddDays(10), TermsAndConditions = "Food-safe packaging.",
+                Items = [new TenderItem { ItemName = "Food-safe bags", Quantity = 10000, Unit = "pcs" }],
+                EvaluationCriteria = [
+                    new EvaluationCriterion { Name = "Quality specifications", Type = CriterionType.Technical, MaximumScore = 100 },
+                    new EvaluationCriterion { Name = "Delivery quality", Type = CriterionType.Technical, MaximumScore = 100 },
+                    new EvaluationCriterion { Name = "Total cost", Type = CriterionType.Financial, MaximumScore = 100 }] });
+            await db.SaveChangesAsync();
+            db.Tenders.Add(new Tender { TenderNumber = "TND-WAITING-PREVIEW", Title = "Waiting for committee preparation",
+                CategoryId = categoryId, CreatedByUserId = "officer", Status = TenderStatus.Draft,
+                SubmissionDeadline = DateTime.UtcNow.AddDays(10), TermsAndConditions = "Food-safe packaging.",
+                Items = [new TenderItem { ItemName = "Food-safe bags", Quantity = 50, Unit = "pcs" }] });
+            await db.SaveChangesAsync();
+        }
         Console.WriteLine("PREVIEW_DATABASE=" + databaseName);
     }
 }
