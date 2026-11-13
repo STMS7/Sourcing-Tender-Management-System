@@ -1,0 +1,25 @@
+@model Sourcing_Tender_Management_System.Models.Clarification
+@using Sourcing_Tender_Management_System.Models
+@{ ViewData["Title"] = "Clarification"; }
+<h2>@Model.Subject</h2>
+<p>Status: <strong>@Model.Status</strong> | Asked: @Model.AskedAt.ToLocalTime()</p>
+<p>From: @Model.AskedByUser?.FullName | To: @Model.RecipientUser?.FullName</p>
+<p>@Model.Question</p>
+<h3>Responses</h3>
+@foreach (var r in Model.Responses.OrderBy(r => r.RespondedAt))
+{
+    <div class="border p-2 mb-2"><strong>@r.RespondedByUser?.FullName</strong> — @r.RespondedAt.ToLocalTime()<p>@r.ResponseText</p></div>
+}
+@if (ViewBag.CanReply == true)
+{
+    <form asp-action="Reply" asp-route-id="@Model.Id" method="post">
+        <label>Reply</label><textarea name="response" required maxlength="3000" class="form-control"></textarea>
+        <button type="submit">Send response</button>
+    </form>
+}
+@if (Model.Status != ClarificationStatus.Resolved &&
+    Model.AskedByUserId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
+{
+    <form asp-action="Resolve" asp-route-id="@Model.Id" method="post"><button type="submit">Mark Resolved</button></form>
+}
+<p><a asp-action="Index">Back to inbox</a></p>
