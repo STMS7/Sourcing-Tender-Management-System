@@ -222,7 +222,7 @@ Legacy published tenders without prior approval are flagged and blocked at
 handoff; resolve those through the team's documented procedure, without
 retroactively inventing approval evidence.
 
-Verified: 90 sourcing SQL checks, 34 committee SQL checks and 38 department SQL
+Verified: 107 sourcing SQL checks, 34 committee SQL checks and 38 department SQL
 checks. The preparation browser journey passed 26 checks on its rerun, including
 one synthetic-draft rerun guard (25 checks on a fresh fixture). Existing
 request/return/resubmission/acceptance browser checks remain separate.

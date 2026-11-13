@@ -253,7 +253,8 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
     {
         var tender = await MyTenders().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
         if (tender == null) return NotFound();
-        if (tender.Status != TenderStatus.Draft) return Conflict("Only draft tenders can be edited.");
+        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null)
+            return Conflict("Only unlocked draft tenders can be edited.");
         await LoadCategories();
         return View("TenderForm", new SourcingTenderForm
         {

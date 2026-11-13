@@ -77,7 +77,7 @@ dotnet run --project tests/SourcingOfficer.Checks --artifacts-path "$env:TEMP/st
 dotnet run --project tests/EvaluationCommittee.Checks --artifacts-path "$env:TEMP/stms-evaluation-checks"
 ```
 
-The migrated SQL suites passed 38 department, 90 officer and 34 committee checks.
+The migrated SQL suites passed 38 department, 107 officer and 34 committee checks.
 They use newly generated isolated LocalDB databases and delete them on normal
 runs. The officer preview flags `-- --preview --handoff-preview` retain a
 synthetic database and print its name.
@@ -96,3 +96,6 @@ committee receipt. Supplier input is synthetic because a complete supplier
 workflow controller is not present in this checkout. The team must run its
 supplier registration/invitation/submission pages against the same contracts
 when integrating them.
+
+See [the cycle audit](sourcing-officer-audit.md) for the corrected cross-inbox
+issues and the remaining supplier, committee-report and wider brief gaps.

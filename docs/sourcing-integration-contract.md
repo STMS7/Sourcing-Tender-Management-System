@@ -236,6 +236,11 @@ Valid context shapes are:
 | Evaluation member | null | tender ID | null |
 
 The officer composer derives recipients through SourcingCommunicationPolicy.
+CycleChat may store a supplier thread with BidId alone and TenderId null.
+Both inboxes accept this shape by deriving the tender from the stored bid.
+An explicit TenderId must match that bid; ProcurementRequestId cannot accompany
+a bid context. Supplier and officer access, bid status and opening time are
+rechecked using the same policy before replying.
 Read access is limited to the named sender/recipient; replies recheck active
 roles, relationships and stage. No role can use the inbox as a user directory.
 
@@ -247,6 +252,8 @@ UnderEvaluation. Evaluation-member messaging is available while Closed,
 UnderEvaluation or AwaitingManagerReview, plus locked Draft preparation for
 committee clarification. Historical threads stay readable to
 their participants after the active window; new replies are blocked.
+CycleChat uses the same officer-to-committee policy, including the assigned
+manager and department-role aliases during the supported stages.
 
 Send recipient users to /Messages. Officer accounts are redirected to their
 workspace automatically. Read notifications using UserId = the signed-in user;

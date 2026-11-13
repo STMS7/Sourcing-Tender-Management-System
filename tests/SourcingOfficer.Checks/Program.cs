@@ -69,6 +69,21 @@ async Task<IActionResult> EvaluatorAct(string userId, Func<EvaluationCommitteeCo
     };
     return await action(controller);
 }
+IActionResult CycleAct(string userId, Func<CycleChatController, IActionResult> action)
+{
+    var services = new ServiceCollection().AddLogging();
+    services.AddDbContext<ApplicationDbContext>(o => o.UseSqlServer(connection));
+    services.AddIdentityCore<ApplicationUser>(o => o.Stores.MaxLengthForKeys = 128)
+        .AddRoles<IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>();
+    using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+    var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+        new[] { new Claim(ClaimTypes.NameIdentifier, userId) }, "checks")) };
+    var controller = ActivatorUtilities.CreateInstance<CycleChatController>(scope.ServiceProvider);
+    controller.ControllerContext = new ControllerContext { HttpContext = http };
+    controller.TempData = new TempDataDictionary(http, new MemoryTempData());
+    return action(controller);
+}
 int requestId, categoryId, supplierId, tenderId, bidId, wrongSupplierId, unmappedSupplierId;
 try
 {
@@ -207,6 +222,8 @@ try
     await EvaluatorAct("technical", c => c.SubmitWeights(tenderId, 80, 20));
     Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Changed after review", Weight = 1 }))
         is ConflictObjectResult, "Preparation approval freezes criteria before publication");
+    Check(await Act(c => c.Edit(tenderId)) is ConflictObjectResult,
+        "Direct edit links reject locked preparation instead of displaying an unusable form");
     Check(await Act(c => c.AddRequirement(new SourcingRequirementForm { TenderId = tenderId, DocumentType = "Changed document" }))
         is ConflictObjectResult, "Preparation approval freezes document requirements");
     await using (var db = new ApplicationDbContext(options)) {
@@ -524,6 +541,88 @@ try
         var report = (await db.EvaluationReports.FindAsync(reportId))!;
         report.Status = RecommendationStatus.Draft;
         report.SubmittedAt = null;
+        await db.SaveChangesAsync();
+    }
+    // Shared Clarification rows must work through both independently implemented inboxes.
+    await Act(c => c.AskClarification(new SourcingClarificationForm { TenderId = tenderId, BidId = bidId,
+        RecipientUserId = "supplier-user", Subject = "Cross inbox officer", Question = "Confirm delivery." }));
+    int crossId;
+    await using (var db = new ApplicationDbContext(options))
+        crossId = await db.Clarifications.Where(c => c.Subject == "Cross inbox officer").Select(c => c.Id).SingleAsync();
+    Check(CycleAct("supplier-user", c => c.Thread(crossId)) is ViewResult cross && (bool)cross.ViewData["CanReply"]!,
+        "CycleChat can reply to officer messages carrying both tender and bid context");
+    Check(CycleAct("supplier-user", c => c.Reply(crossId, "Delivery confirmed via CycleChat")) is RedirectToActionResult,
+        "Supplier response crosses from CycleChat into the officer's thread");
+    Check(await Act(c => c.Messages(null, null, crossId)) is ViewResult { Model: SourcingMessagesViewModel crossModel } &&
+        crossModel.Selected!.Responses.Any(r => r.ResponseText == "Delivery confirmed via CycleChat"),
+        "Officer reads responses posted from the teammate's chat");
+    Check(CycleAct("supplier-user", c => c.New(null, null, bidId, "officer", "Supplier bid-only context", "Confirm packaging"))
+        is RedirectToActionResult, "Supplier can start an authorized bid-only CycleChat thread");
+    int bidOnlyId;
+    await using (var db = new ApplicationDbContext(options))
+        bidOnlyId = await db.Clarifications.Where(c => c.Subject == "Supplier bid-only context").Select(c => c.Id).SingleAsync();
+    Check(await Act(c => c.Messages(null, null, bidOnlyId)) is ViewResult { Model: SourcingMessagesViewModel bidOnlyModel } &&
+        bidOnlyModel.CanReply, "Officer can respond to supplier-originated bid-only contexts");
+    Check(await RecipientAct(c => c.Reply(bidOnlyId, "Generic inbox reply"), "supplier-user") is RedirectToActionResult,
+        "Shared recipient inbox supports CycleChat's bid-only shape");
+    Check(CycleAct("requester", c => c.Reply(crossId, "Unrelated reply")) is NotFoundResult,
+        "Cross-inbox compatibility never exposes supplier threads to other parties");
+    var wrongContext = CycleAct("supplier-user", c => c.New(null, tenderId + 9999, bidId, "officer",
+        "Mismatched context", "Invalid tender"));
+    await using (var db = new ApplicationDbContext(options))
+        Check(wrongContext is ViewResult && !await db.Clarifications.AnyAsync(c => c.Subject == "Mismatched context"),
+            "Explicit tender IDs must match the bid in CycleChat");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.OpeningDate = DateTime.UtcNow.AddHours(1);
+        await db.SaveChangesAsync();
+    }
+    Check(CycleAct("supplier-user", c => c.Reply(crossId, "Too early")) is ConflictObjectResult,
+        "CycleChat respects sealed-offer opening dates");
+    Check(await RecipientAct(c => c.Reply(bidOnlyId, "Too early"), "supplier-user") is ConflictObjectResult,
+        "Generic inbox applies the same sealed-offer gate");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.OpeningDate = null;
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.AskClarification(new SourcingClarificationForm { TenderId = tenderId,
+        RecipientUserId = "manager", Subject = "Cross inbox committee", Question = "Confirm report status" }));
+    int managerThread;
+    await using (var db = new ApplicationDbContext(options))
+        managerThread = await db.Clarifications.Where(c => c.Subject == "Cross inbox committee").Select(c => c.Id).SingleAsync();
+    Check(CycleAct("manager", c => c.Reply(managerThread, "Committee manager reply")) is RedirectToActionResult,
+        "Assigned sourcing manager can reply to officer committee threads through CycleChat");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.AwaitingManagerReview;
+        await db.SaveChangesAsync();
+    }
+    Check(CycleAct("manager", c => c.Reply(managerThread, "Report is awaiting review")) is RedirectToActionResult,
+        "Both inboxes retain officer committee communication while report awaits manager review");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.UnderEvaluation;
+        await db.SaveChangesAsync();
+    }
+    foreach (var alias in new[] { "DepartmentRequester", "RequestingDepartment" }) {
+        await using (var db = new ApplicationDbContext(options)) {
+            var role = await db.Roles.SingleOrDefaultAsync(r => r.Name == alias);
+            if (role == null) {
+                role = new IdentityRole(alias) { NormalizedName = alias.ToUpperInvariant() };
+                db.Roles.Add(role); await db.SaveChangesAsync();
+            }
+            db.UserRoles.RemoveRange(db.UserRoles.Where(r => r.UserId == "department"));
+            await db.SaveChangesAsync();
+            db.UserRoles.Add(new IdentityUserRole<string> { UserId = "department", RoleId = role.Id });
+            await db.SaveChangesAsync();
+        }
+        Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null)) is ViewResult {
+            Model: SourcingMessagesViewModel aliasModel } && aliasModel.Recipients.Any(r => r.Id == "department"),
+            alias + " is available for assigned committee clarification");
+        Check(CycleAct("department", c => c.New(null, tenderId, null, "officer", "Committee alias " + alias, "Clarify evaluation"))
+            is RedirectToActionResult, alias + " can use the teammate committee chat");
+    }
+    await using (var db = new ApplicationDbContext(options)) {
+        db.UserRoles.RemoveRange(db.UserRoles.Where(r => r.UserId == "department"));
+        await db.SaveChangesAsync();
+        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "department", RoleId = roleIds["DepartmentRepresentative"] });
         await db.SaveChangesAsync();
     }
     Console.WriteLine($"All {checks} sourcing workflow checks passed.");
