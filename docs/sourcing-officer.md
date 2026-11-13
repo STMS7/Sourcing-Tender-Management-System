@@ -1,5 +1,7 @@
 # Sourcing officer implementation
 
+For the complete delivery walkthrough, see [the handoff guide](sourcing-officer-handoff.md).
+
 For exact teammate-facing field names, state values, routes and attachment
 conventions, see [the integration contract](sourcing-integration-contract.md).
 
@@ -17,8 +19,9 @@ before merging.
 | Screen | Route | Purpose |
 | --- | --- | --- |
 | Overview | /SourcingOfficer | Live counts, recent tenders, personal task filtering and optional browser speech search |
-| Approved requests | /SourcingOfficer/Requests | Search the sourcing queue |
-| Request details | /SourcingOfficer/RequestDetails/{id} | Read the approved request, source items and start a clarification or tender |
+| Purchase requests | /SourcingOfficer/Requests | Search incoming requests and filter review/history statuses |
+| Request details | /SourcingOfficer/RequestDetails/{id} | Review items, return/reject with a message, chat or accept |
+| Accept request | /SourcingOfficer/AcceptRequest/{id} | Accept a Submitted/UnderReview request and create its draft together |
 | Create draft | /SourcingOfficer/Create?requestId={id} | Copy approved request items into a tender |
 | My tenders | /SourcingOfficer/Tenders | Search and filter by current status |
 | Edit draft | /SourcingOfficer/Edit/{id} | Change draft configuration only |
@@ -28,22 +31,50 @@ before merging.
 | Recipient inbox | /Messages | Shared inbox and response forms for department, supplier and committee accounts |
 
 State-changing actions are POST requests protected by antiforgery validation:
-Create, Edit, AddCriterion, RemoveCriterion, AddRequirement, RemoveRequirement,
+StartReview, ReturnRequest, RejectRequest, AcceptRequest, Create, Edit, AddCriterion, RemoveCriterion, AddRequirement, RemoveRequirement,
 Invite, RemoveInvitation, Publish, Close, Compliance, ForwardToEvaluation,
-AskClarification, Reply and Resolve.
+AskClarification, Reply, Resolve, AssignEvaluationCommittee, RequestWeightApproval and ReopenPreparation.
 
 ## Workflow implemented
 
-1. An approved request is available when it has no active request assignment or
-   has an active assignment to the current officer. Requests assigned only to
-   another officer are hidden.
-2. Creating a draft copies the request items, sets ownership from the signed-in
-   user, and marks the source request ConvertedToTender in one transaction.
+The Department integration has its own migrated SQL checks:
+
+```powershell
+dotnet run --project tests/DepartmentSourcing.Checks --artifacts-path "$env:TEMP/stms-department-checks"
+```
+
+The 39-check preview run also covers creation of its pending preview request.
+Use `-- --preview` to retain the isolated database and print its name for a
+Staging preview. Synthetic users `requester@example.test` and
+`officer@example.test` use `Preview-Only!4729`; these accounts exist only in
+the newly generated test database. The browser callback in
+`tests/DepartmentSourcing.Checks/browser-checks.js` targets that preview at
+`http://127.0.0.1:5188` and checks 20 points across the real two-account journey,
+including mobile overflow and the revised item snapshot. Screenshots go into
+`$env:TEMP/stms-sourcing-review/request-cycle`; create that directory first.
+
+1. Department submission makes a request Submitted and notifies available officers.
+   Submitted/UnderReview and legacy Approved requests are available when unassigned
+   or assigned to the current officer. Start review claims a pending request.
+   A formal return saves Returned, a reason/review and a linked message; the
+   department can edit and resubmit to that officer. Permanent rejection prevents
+   further edit/resubmission. Returned items and rejection history remain visible
+   to their reviewing officer.
+2. Accept and create tender validates the tender form, saves an approval review,
+   copies the latest request items, sets the signed-in officer as owner, completes
+   the request assignment and marks ConvertedToTender in one transaction.
+   Opening/cancelling the form or submitting invalid data leaves it pending.
+   The legacy Create route still supports previously Approved requests.
 3. The draft contains category, terms and UTC dates. Overall technical/financial
    weights belong to the evaluation committee, not the officer form.
-   The officer configures criteria, document requirements and approved suppliers.
+   The officer configures criteria/documents, assigns the four committee members,
+   and requests pre-publication approval. Preparation locks; both technical and
+   financial members submit their proposed split against the locked criteria.
+   The averaged split becomes approved before publication. Suppliers must be
+   approved, active and registered in the tender category.
 4. Publication checks the future deadline, opening date, items, terms, criterion weights
-   and supplier eligibility. It locks criteria and configuration, records history,
+   and supplier/category eligibility, four valid committee members and current
+   pre-publication approval evidence. It preserves the earlier preparation lock, records history,
    and creates in-system notifications for active supplier accounts.
 5. Closing is explicit and permitted only after the deadline. The current shared
    enum uses Published during bidding; this module does not add an Open status.
@@ -51,7 +82,7 @@ AskClarification, Reply and Resolve.
    withdrawn bids are excluded. Comparison does not rank across currencies or
    guess whether cost components are already included in TotalAmount.
 7. Compliance outcomes require a reason. A compliant outcome requires an accepted
-   invitation, an active approved supplier, valid quoted item links/nonnegative
+   invitation, an active approved supplier in the tender category, valid quoted item links/nonnegative
    amounts and all mandatory document requirement IDs. These checks run again at
    evaluation handoff. Document presence is a guard;
    the officer still reviews authenticity and all substantive requirements.
@@ -71,16 +102,18 @@ document downloads and foreign record IDs supplied by forms.
 
 Evaluation committee members must have CommitteeType.Evaluation and RoleType:
 SourcingManager, DepartmentRepresentative, FinancialRepresentative and
-TechnicalRepresentative. The module reads existing memberships; it does not
-take over committee assignment.
+TechnicalRepresentative. The draft committee form selects existing active users
+with the matching account roles; it never creates or changes their roles.
+Committee assignments become locked when preparation approval is requested.
 
 Clarification recipients are derived on the server:
 
-- Approved request, or converted request linked to an actively sourced tender:
-  its requesting user with DepartmentRepresentative or RequestingDepartment role.
+- Submitted/UnderReview/Approved request, an officer's returned request, or a
+  converted request linked to an actively sourced tender: its requesting user
+  with DepartmentRepresentative, DepartmentRequester or RequestingDepartment role.
 - Closed or UnderEvaluation tender's submitted bid, after the opening date:
   active Supplier-role accounts belonging to that bid's supplier.
-- Closed, UnderEvaluation or AwaitingManagerReview tender: active assigned
+- Locked preparation draft, Closed, UnderEvaluation or AwaitingManagerReview tender: active assigned
   evaluation members with an appropriate evaluation/representative/manager role.
 
 Only sender and recipient can read and respond. Participant eligibility is
@@ -124,16 +157,12 @@ when the team finalizes the integration.
 
 ## Policies to confirm before merge
 
-- Whether unassigned approved requests belong in a shared sourcing queue.
-- Whether conversion should reserve a request at draft creation, as implemented,
-  or at publication. This implementation prevents duplicate conversion by
-  transitioning the request in a serializable transaction.
-- Whether criteria weights total 100 within each technical/financial group.
-  Group results then use Tender.TechnicalWeight and FinancialWeight. No committee
-  scoring formula is implemented here.
-- Whether the officer is allowed to configure criteria directly or needs an
-  additional approval workflow. There is no criterion-approval record in the
-  current model, so this module does not claim to enforce such approval.
+- Whether the team needs manager-controlled assignment instead of the current
+  shared unassigned-request queue.
+- The officer prepares criteria; both technical and financial members approve
+  the locked criteria and weights before publication, with workflow evidence.
+  Confirm only whether the team requires additional managerial approval beyond
+  this implemented preparation approval.
 - Explicit versus scheduled tender closure and the interpretation of OpeningDate.
 - Supplier-side invitation links and private file storage.
 
@@ -152,27 +181,26 @@ records the sent timestamp and makes the tender available to the actual
 EvaluationCommitteeController. The send action is unavailable before closure or
 after the handoff.
 
-RequestDetails includes Chat with requesting department and Request changes in
-chat. The revision shortcut preselects the request owner and supplies a subject
-containing the source request number. Sending creates a normal clarification
-thread; it does not return or reject the request or modify its approval status.
-The department edits request data through its own workflow. The officer can read
-the latest conversation statuses from the source request and reopen the thread.
+RequestDetails includes Chat with requesting department and a distinct Return for
+changes form. Return requires a reason, records the formal Returned review/state
+and opens a linked message. Ordinary chat leaves the request state unchanged.
+The department uses its own Edit and Submit / Resubmit controls, and can reply
+through CycleChat or the shared inbox. Both use the same request communication
+scope. The officer reads review reasons and the latest conversation statuses.
 Converted source requests remain readable to their sourcing officer while the
 communication stage is active; Create tender is hidden after conversion.
 
 CommitteeWeighting reserves the __weight: criterion-name prefix. Officer-created
 criteria cannot use it or impersonate evaluator proposals. The existing
-committee module's weight-proposal process is otherwise unchanged by this work.
+committee module now receives preparation drafts separately from compliant offers.
+Weight submission is blocked after publication or when any bid already exists.
 
-The new sourcing-cycle-browser-checks.js uses the current /Auth/Login route and
-an isolated --preview --handoff-preview fixture. That fixture adds one closed,
-compliant tender ready for the UI handoff. The script checks department messages,
-replies and request history, sends the ready tender, then signs in separately as
-the technical and financial evaluators to verify receipt.
-
-Verified in this update: 70 sourcing SQL checks, 28 existing evaluation committee
-checks, and 19 browser assertions. No shared model or migration change is needed.
+The current preparation-browser-checks.js replaces the old post-bid weighting
+browser scenario. With a fresh --preview --handoff-preview fixture on port 5189,
+it verifies category filtering, draft committee assignment, both preparation
+approvals, publication, server rejection of late weight changes and receipt of
+compliant offers by both evaluator accounts. Older cycle/message callbacks use
+port 5187 and should be run on their own fresh fixture.
 
 ## Overall evaluation weights
 
@@ -182,22 +210,23 @@ form fields cannot change them. Officer edits also preserve legacy stored values
 The entity's existing numeric defaults are retained for schema compatibility;
 they are not displayed as an agreed committee decision.
 
-Tender details show Awaiting the technical & financial evaluation committee
-until both actual evaluator proposals are present. Then the agreed percentages
-are shown read-only. CommitteeWeighting and EvaluationCommitteeController remain
-responsible for the existing proposal/agreement process.
+Tender details show approval as pending until both proposals and the matching
+pre-publication workflow evidence exist for the currently assigned evaluators.
+Existing numeric defaults or legacy post-bid proposals do not count as approval.
 
-This correction concerns the overall technical/financial split. Within-group
-criterion weights and the officer's criterion-definition screen are unchanged.
-The existing policy question about pre-publication approval versus the team's
-current post-bid committee weighting process remains for the team to settle.
+Criteria and document requirements lock when approval is requested. Before
+publication, ReopenPreparation can remove the proposals and unlock the draft;
+all changes then require both members to approve again. Published tenders cannot
+be reopened through this action. No automatic legacy-data backfill is performed.
+Legacy published tenders without prior approval are flagged and blocked at
+handoff; resolve those through the team's documented procedure, without
+retroactively inventing approval evidence.
 
-Verified in this correction: 72 migrated SQL sourcing checks and seven browser
-assertions. An authenticated Edit POST with fabricated 99/1 weight fields left
-the draft's stored 60/40 values unchanged. Separate technical and financial
-accounts then submitted 80/20 and 60/40 proposals; the officer page displayed the
-resulting agreed 70/30 split read-only. The browser callback is
-weight-ownership-browser-checks.js and uses the handoff preview fixture.
+Verified: 107 sourcing SQL checks, 34 committee SQL checks and 38 department SQL
+checks. The preparation browser journey passed 26 checks on its rerun, including
+one synthetic-draft rerun guard (25 checks on a fresh fixture). Existing
+request/return/resubmission/acceptance browser checks remain separate.
+No shared schema or migration is changed.
 
 ## Verification
 
@@ -242,6 +271,10 @@ requester@example.test, supplier-user@example.test and technical@example.test.
 These accounts are generated only in an isolated --preview fixture.
 
 ## Live and voice search
+
+Search is now shared across all role cycles. See
+[Arabic and English workspace search](workspace-voice-search.md) for coverage,
+runtime support, integration attributes and current browser verification.
 
 Requests and Tenders use a shared sourcing-search.js component. Typing waits
 250 ms before fetching a server-rendered result fragment. Status filters apply

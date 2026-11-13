@@ -3,6 +3,7 @@
     ViewData["Title"] = "Top Committee";
 }
 
+<div id="top-committee-search-results">
 <h1 class="h3 mb-3">Top Committee</h1>
 <partial name="_Nav" model="@("Index")" />
 
@@ -33,6 +34,7 @@
     </div>
 </div>
 
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "top-committee-search", ResultsId = "top-committee-search-results", Label = "Search tenders awaiting a decision" })" />
 <h2 class="h5">Tenders awaiting the committee's decision</h2>
 @if (Model.AwaitingTenders.Count == 0)
 {
@@ -57,7 +59,7 @@ else
             <tbody>
             @foreach (var t in Model.AwaitingTenders)
             {
-                <tr>
+                <tr data-search-item>
                     <td>
                         <div class="fw-semibold">@t.TenderNumber</div>
                         <div class="small text-muted">@t.Title</div>
@@ -102,3 +104,5 @@ else
         </table>
     </div>
 }
+
+</div>

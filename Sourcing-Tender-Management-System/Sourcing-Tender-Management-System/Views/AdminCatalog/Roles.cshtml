@@ -1,5 +1,6 @@
 @model IReadOnlyList<Microsoft.AspNetCore.Identity.IdentityRole>
 @{ ViewData["Title"] = "Roles"; }
+<div id="role-search-results">
 <h1>Roles</h1>
 <p>Assign a role from the user edit page.</p>
 @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
@@ -9,10 +10,11 @@
     <input name="name" class="form-control" style="max-width:300px" placeholder="New role name" required maxlength="100" />
     <button class="btn btn-primary" type="submit">Add role</button>
 </form>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "role-search", ResultsId = "role-search-results", Label = "Search roles" })" />
 <table class="table table-striped"><thead><tr><th>Role</th><th>Action</th></tr></thead><tbody>
 @foreach (var role in Model)
 {
-    <tr><td>@role.Name</td><td>
+    <tr data-search-item><td>@role.Name</td><td>
         @if (role.Name is not ("Admin" or "ProcurementOfficer" or "EvaluationCommittee" or "TopCommittee" or "Supplier"))
         {
             <form asp-action="DeleteRole" method="post" onsubmit="return confirm('Delete this unused role?');">
@@ -25,3 +27,5 @@
     </td></tr>
 }
 </tbody></table>
+
+</div>

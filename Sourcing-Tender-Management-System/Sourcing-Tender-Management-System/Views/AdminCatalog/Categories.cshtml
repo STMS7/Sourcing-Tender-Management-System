@@ -1,5 +1,6 @@
 @model IReadOnlyList<Sourcing_Tender_Management_System.Models.Category>
 @{ ViewData["Title"] = "Categories"; }
+<div id="category-search-results">
 <h1>Categories</h1>
 @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
 @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
@@ -12,10 +13,11 @@
     <div class="col-md-3"><select name="parentCategoryId" class="form-select"><option value="">No parent</option>@foreach (var parent in Model) { <option value="@parent.Id">@parent.Name</option> }</select></div>
     <div class="col-md-2"><button class="btn btn-primary" type="submit">Add</button></div>
 </form>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "category-search", ResultsId = "category-search-results", Label = "Search existing categories" })" />
 <h2 class="h5">Existing categories</h2>
 @foreach (var item in Model)
 {
-    <form asp-action="SaveCategory" method="post" class="row g-2 mb-2">
+    <form data-search-item asp-action="SaveCategory" method="post" class="row g-2 mb-2">
         @Html.AntiForgeryToken()
         <input type="hidden" name="id" value="@item.Id" />
         <div class="col-md-3"><input name="name" value="@item.Name" class="form-control" required maxlength="150" /></div>
@@ -24,3 +26,5 @@
         <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Save</button></div>
     </form>
 }
+
+</div>

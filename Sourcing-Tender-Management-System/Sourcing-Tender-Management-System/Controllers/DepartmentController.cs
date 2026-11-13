@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +8,7 @@ using Sourcing_Tender_Management_System.Models;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
-[Authorize(Roles = "DepartmentRequester,DepartmentRepresentative")]
+[Authorize(Roles = "DepartmentRequester,DepartmentRepresentative,RequestingDepartment")]
 [AutoValidateAntiforgeryToken]
 public class DepartmentController : Controller
 {
@@ -197,6 +198,7 @@ public class DepartmentController : Controller
         };
         var user = CurrentEmployee();
         if (user == null) return Forbid();
+        using var transaction = _db.Database.BeginTransaction(IsolationLevel.Serializable);
         var request = Mine(user).Include(r => r.Items).FirstOrDefault(r => r.Id == id);
         if (request == null) return NotFound();
         if (request.Status != ProcurementRequestStatus.Draft && request.Status != ProcurementRequestStatus.Returned)
@@ -212,6 +214,7 @@ public class DepartmentController : Controller
         SetItems(request, form);
         Log("EditDraft", id);
         _db.SaveChanges();
+        transaction.Commit();
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -220,6 +223,7 @@ public class DepartmentController : Controller
     {
         var user = CurrentEmployee();
         if (user == null) return Forbid();
+        using var transaction = _db.Database.BeginTransaction(IsolationLevel.Serializable);
         var request = Mine(user).Include(r => r.Items).FirstOrDefault(r => r.Id == id);
         if (request == null) return NotFound();
         if (request.Status != ProcurementRequestStatus.Draft && request.Status != ProcurementRequestStatus.Returned)
@@ -228,7 +232,23 @@ public class DepartmentController : Controller
             return BadRequest("Provide at least one item and a valid required date before submitting.");
         request.Status = ProcurementRequestStatus.Submitted;
         Log("SubmitRequest", id);
+        _db.WorkflowTransitions.Add(new WorkflowTransition { ProcurementRequestId = id, FromStage = WorkflowStage.RequestReview,
+            ToStage = WorkflowStage.RequestReview, Action = WorkflowAction.Submitted, PerformedByUserId = user.Id,
+            Reason = "Department submitted the request for sourcing review." });
+        var officerIds = _db.Users.Where(u => u.IsActive &&
+            _db.UserRoles.Any(a => a.UserId == u.Id && _db.Roles.Any(r =>
+                r.Id == a.RoleId && (r.Name == "SourcingOfficer" || r.Name == "ProcurementOfficer"))) &&
+            (!_db.WorkAssignments.Any(a => a.Kind == AssignmentKind.ProcurementRequest &&
+                a.ProcurementRequestId == id && a.CompletedAt == null) ||
+             _db.WorkAssignments.Any(a => a.Kind == AssignmentKind.ProcurementRequest &&
+                a.ProcurementRequestId == id && a.CompletedAt == null && a.AssignedToUserId == u.Id)))
+            .Select(u => u.Id).ToList();
+        foreach (var officerId in officerIds)
+            _db.Notifications.Add(new Notification { UserId = officerId, Title = "Purchase request awaiting review",
+                Message = request.RequestNumber + ": " + request.Title, Type = NotificationType.ActionRequired,
+                Link = $"/SourcingOfficer/RequestDetails/{id}" });
         _db.SaveChanges();
+        transaction.Commit();
         return RedirectToAction(nameof(Details), new { id });
     }
 
