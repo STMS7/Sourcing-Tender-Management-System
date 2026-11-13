@@ -1,0 +1,98 @@
+@model SupplierRegisterViewModel
+@{
+    ViewData["Title"] = "Supplier Registration";
+}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <h1 class="h2">Supplier Registration</h1>
+        <p class="text-muted">Create your company profile and account to participate in tenders.</p>
+        @if (ViewBag.DevelopmentBypass == true)
+        {
+            <div class="alert alert-warning">Development testing: administrator approval is temporarily deferred. Your application will still be recorded as Pending.</div>
+        }
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <form asp-controller="Suppliers" asp-action="Register" method="post" enctype="multipart/form-data">
+                    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+                    <p class="small text-muted">Company name, registration number, contact person, email, both password fields and the registration document are required.</p>
+                    <h2 class="h5 mb-3">Company information</h2>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+<label asp-for="CompanyName" class="form-label"></label>
+<input asp-for="CompanyName" class="form-control" autocomplete="organization" />
+<span asp-validation-for="CompanyName" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="RegistrationNumber" class="form-label"></label>
+<input asp-for="RegistrationNumber" class="form-control"  />
+<span asp-validation-for="RegistrationNumber" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="TaxNumber" class="form-label"></label>
+<input asp-for="TaxNumber" class="form-control"  />
+<span asp-validation-for="TaxNumber" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="LicenseNumber" class="form-label"></label>
+<input asp-for="LicenseNumber" class="form-control"  />
+<span asp-validation-for="LicenseNumber" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="LicenseExpiresAt" class="form-label"></label>
+<input asp-for="LicenseExpiresAt" class="form-control"  />
+<span asp-validation-for="LicenseExpiresAt" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="PhoneNumber" class="form-label"></label>
+<input asp-for="PhoneNumber" class="form-control" autocomplete="tel" />
+<span asp-validation-for="PhoneNumber" class="text-danger"></span>
+</div>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Address" class="form-label"></label>
+                        <textarea asp-for="Address" class="form-control" rows="2" autocomplete="street-address"></textarea>
+                        <span asp-validation-for="Address" class="text-danger"></span>
+                    </div>
+                    <hr />
+                    <h2 class="h5 mb-3">Account information</h2>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+<label asp-for="FullName" class="form-label"></label>
+<input asp-for="FullName" class="form-control" autocomplete="name" />
+<span asp-validation-for="FullName" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="Email" class="form-label"></label>
+<input asp-for="Email" class="form-control" autocomplete="email" />
+<span asp-validation-for="Email" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="Password" class="form-label"></label>
+<input asp-for="Password" class="form-control" autocomplete="new-password" aria-describedby="password-help" />
+<span asp-validation-for="Password" class="text-danger"></span>
+</div>
+                        <div class="col-md-6 mb-3">
+<label asp-for="ConfirmPassword" class="form-label"></label>
+<input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+<span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+</div>
+                    </div>
+                    <p id="password-help" class="small text-muted">Use at least 6 characters, including uppercase and lowercase letters, a number and a symbol. Your account's password policy is checked when you submit.</p>
+                    <hr />
+                    <h2 class="h5 mb-3">Official document</h2>
+                    <div class="mb-4">
+                        <label asp-for="OfficialDocument" class="form-label"></label>
+                        <input asp-for="OfficialDocument" type="file" class="form-control" accept="application/pdf,.pdf" aria-describedby="document-help" />
+                        <div id="document-help" class="form-text">Upload your company registration certificate as a PDF, maximum 5 MB.</div>
+                        <span asp-validation-for="OfficialDocument" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create supplier account</button>
+                    <a class="btn btn-link" asp-area="Identity" asp-page="/Account/Login">Already have an account? Log in</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

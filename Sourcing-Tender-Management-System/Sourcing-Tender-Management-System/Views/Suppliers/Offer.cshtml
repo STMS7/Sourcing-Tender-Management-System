@@ -1,0 +1,63 @@
+@model SupplierOfferViewModel
+@{ ViewData["Title"] = "Submit Offer"; var tender = Model.Tender!; }
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Submit Offer</h1><a asp-action="Invitation" asp-route-id="@Model.InvitationId" class="btn btn-outline-secondary align-self-start">Back to invitation</a></div>
+<div class="alert alert-info"><strong>@tender.TenderNumber — @tender.Title</strong><br />Submission deadline (UTC): @tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm")</div>
+<form asp-action="Offer" method="post" enctype="multipart/form-data">
+    <input asp-for="InvitationId" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="card mb-4"><div class="card-body">
+        <h2 class="h5">Offer terms</h2>
+        <div class="row">
+            <div class="col-md-6 mb-3"><label asp-for="Currency" class="form-label">Currency code (e.g. JOD or USD)</label><input asp-for="Currency" type="text" class="form-control" maxlength="3" /><span asp-validation-for="Currency" class="text-danger"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="DeliveryDays" class="form-label">Delivery timeframe in days</label><input asp-for="DeliveryDays" type="number" class="form-control" min="1" max="3650" /><span asp-validation-for="DeliveryDays" class="text-danger"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="ValidUntil" class="form-label">Offer valid until</label><input asp-for="ValidUntil" type="date" class="form-control"  /><span asp-validation-for="ValidUntil" class="text-danger"></span></div>
+        </div>
+        <div class="mb-3"><label asp-for="TechnicalSummary" class="form-label">Technical summary</label><textarea asp-for="TechnicalSummary" class="form-control" rows="3"></textarea><span asp-validation-for="TechnicalSummary" class="text-danger"></span></div>
+        <div class="mb-3"><label asp-for="PaymentTerms" class="form-label">Payment terms</label><textarea asp-for="PaymentTerms" class="form-control" rows="2"></textarea><span asp-validation-for="PaymentTerms" class="text-danger"></span></div>
+    </div></div>
+    <h2 class="h5">Item prices and specifications</h2>
+    @for (var i = 0; i < Model.Items.Count; i++)
+    {
+        var item = tender.Items.Single(x => x.Id == Model.Items[i].TenderItemId);
+        <div class="card mb-3"><div class="card-body">
+            <h3 class="h6">@item.ItemName — @item.Quantity.ToString("0.###") @item.Unit</h3>
+            <p class="text-muted text-break">@item.Specifications</p>
+            <input asp-for="Items[i].TenderItemId" type="hidden" />
+            <div class="row">
+                <div class="col-md-6 mb-3"><label asp-for="Items[i].UnitPrice" class="form-label">Unit price</label><input asp-for="Items[i].UnitPrice" class="form-control" type="number" min="0.01" max="1000000000" step="0.01" /><span asp-validation-for="Items[i].UnitPrice" class="text-danger"></span></div>
+                <div class="col-md-6 mb-3"><label asp-for="Items[i].BrandOrModel" class="form-label">Brand / model (optional)</label><input asp-for="Items[i].BrandOrModel" class="form-control" /><span asp-validation-for="Items[i].BrandOrModel" class="text-danger"></span></div>
+            </div>
+            <label asp-for="Items[i].TechnicalResponse" class="form-label">Your offered specifications</label><textarea asp-for="Items[i].TechnicalResponse" class="form-control" rows="2"></textarea><span asp-validation-for="Items[i].TechnicalResponse" class="text-danger"></span>
+        </div></div>
+    }
+    <div class="card mb-4"><div class="card-body">
+        <h2 class="h5">Additional amounts</h2><p class="text-muted">Enter fixed amounts in the selected currency, not percentages. Leave zero where not applicable.</p>
+        <div class="row">
+            <div class="col-md-6 mb-3"><label asp-for="TaxAmount" class="form-label">Tax amount</label><input asp-for="TaxAmount" type="number" class="form-control" min="0" max="1000000000" step="0.01" /><span asp-validation-for="TaxAmount" class="text-danger"></span></div>
+<div class="col-md-6 mb-3"><label asp-for="FeesAmount" class="form-label">Fees amount</label><input asp-for="FeesAmount" type="number" class="form-control" min="0" max="1000000000" step="0.01" /><span asp-validation-for="FeesAmount" class="text-danger"></span></div>
+<div class="col-md-6 mb-3"><label asp-for="ShippingAmount" class="form-label">Shipping amount</label><input asp-for="ShippingAmount" type="number" class="form-control" min="0" max="1000000000" step="0.01" /><span asp-validation-for="ShippingAmount" class="text-danger"></span></div>
+<div class="col-md-6 mb-3"><label asp-for="InstallationAmount" class="form-label">Installation amount</label><input asp-for="InstallationAmount" type="number" class="form-control" min="0" max="1000000000" step="0.01" /><span asp-validation-for="InstallationAmount" class="text-danger"></span></div>
+<div class="col-md-6 mb-3"><label asp-for="MaintenanceAmount" class="form-label">Maintenance amount</label><input asp-for="MaintenanceAmount" type="number" class="form-control" min="0" max="1000000000" step="0.01" /><span asp-validation-for="MaintenanceAmount" class="text-danger"></span></div>
+        </div>
+        <p class="small mb-0">Total = sum of quantity × unit price for all items, plus the additional amounts. The server calculates and saves the final total.</p>
+    </div></div>
+    <div class="card mb-4"><div class="card-body">
+        <h2 class="h5">Required and supporting documents</h2>
+        <p class="text-muted">PDF files only, maximum 5 MB each. Total request size must be under 30 MB. If submission fails, select your files again before retrying.</p>
+        @if (Model.Files.Count == 0) { <p class="mb-0">This tender has no document requirements.</p> }
+        @for (var i = 0; i < Model.Files.Count; i++)
+        {
+            var requirement = tender.DocumentRequirements.Single(x => x.Id == Model.Files[i].RequirementId);
+            <div class="mb-3">
+                <input asp-for="Files[i].RequirementId" type="hidden" />
+                <label asp-for="Files[i].File" class="form-label">@requirement.DocumentType (@(requirement.IsMandatory ? "Required" : "Optional"))</label>
+                <p class="small text-muted">@requirement.Description</p>
+                <input asp-for="Files[i].File" class="form-control" type="file" accept="application/pdf,.pdf" required="@requirement.IsMandatory" />
+                <span asp-validation-for="Files[i].File" class="text-danger"></span>
+            </div>
+        }
+    </div></div>
+    <div class="alert alert-warning">Review your prices and documents before submitting. A submitted offer cannot be edited on this portal.</div>
+    <button class="btn btn-primary mb-4" type="submit">Submit offer</button>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

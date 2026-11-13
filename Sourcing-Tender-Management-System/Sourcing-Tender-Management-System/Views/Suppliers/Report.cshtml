@@ -1,0 +1,5 @@
+@model Bid
+@{ ViewData["Title"] = "My Offer Report"; }
+<div class="d-print-none mb-4"><a asp-action="OfferDetails" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Back to offer</a> <a asp-action="Export" asp-route-id="@Model.Id" class="btn btn-outline-primary">Download summary (CSV)</a><p class="text-muted mt-2">Use your browser's Print command (Ctrl+P) to print or save this report as PDF.</p></div>
+<h1 class="h2 mb-4">My Offer Report</h1>
+<partial name="_OfferSummary" model="Model" />

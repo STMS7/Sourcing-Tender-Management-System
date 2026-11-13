@@ -1,0 +1,27 @@
+@model List<Clarification>
+@{ ViewData["Title"] = "Clarifications"; }
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Clarifications</h1><a asp-action="Index" class="btn btn-outline-secondary align-self-start">Back to dashboard</a></div>
+<p class="text-muted">Questions addressed to your account. Dates are shown in UTC.</p>
+@if (TempData["SupplierNotice"] is string notice) { <div class="alert alert-success" role="status">@notice</div> }
+@if (Model.Count == 0) { <div class="alert alert-info">You have no clarification requests yet. Requests from the sourcing officer will appear here.</div> }
+@foreach (var question in Model)
+{
+    <div class="card mb-4"><div class="card-body">
+        <h2 class="h5">@question.Subject <span class="badge bg-secondary">@question.Status</span></h2>
+        <p class="small text-muted">Asked: @question.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</p>
+        <p class="text-break" style="white-space: pre-wrap">@question.Question</p>
+        @foreach (var reply in question.Responses.OrderBy(x => x.RespondedAt))
+        {
+            <div class="border-start border-3 ps-3 mb-3"><p class="small text-muted mb-1">Response: @reply.RespondedAt.ToString("dd MMM yyyy HH:mm") UTC</p><p class="text-break mb-0" style="white-space: pre-wrap">@reply.ResponseText</p></div>
+        }
+        @if (question.Status != ClarificationStatus.Resolved)
+        {
+            <form asp-action="Reply" method="post">
+                <input type="hidden" name="Id" value="@question.Id" />
+                <label for="reply-@question.Id" class="form-label">Your response</label>
+                <textarea id="reply-@question.Id" name="ResponseText" class="form-control mb-2" maxlength="3000" rows="3" required></textarea>
+                <button type="submit" class="btn btn-primary">Send response</button>
+            </form>
+        }
+    </div></div>
+}

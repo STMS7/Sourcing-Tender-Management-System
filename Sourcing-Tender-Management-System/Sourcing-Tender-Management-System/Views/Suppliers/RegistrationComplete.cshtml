@@ -1,0 +1,13 @@
+@{
+    ViewData["Title"] = "Registration received";
+}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card mt-4"><div class="card-body p-4">
+            <h1 class="h3">Registration received</h1>
+            <div class="alert alert-success" role="status">@(TempData["SupplierMessage"] ?? "Your registration has been received.")</div>
+            <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">Go to login</a>
+            <a class="btn btn-outline-secondary" asp-controller="Home" asp-action="Index">Home</a>
+        </div></div>
+    </div>
+</div>

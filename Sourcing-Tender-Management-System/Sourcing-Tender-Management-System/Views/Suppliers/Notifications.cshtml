@@ -1,0 +1,37 @@
+@model List<Notification>
+@{ ViewData["Title"] = "My Notifications"; }
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h2 mb-0">My Notifications</h1>
+    <a asp-action="Index" class="btn btn-outline-secondary">Back to dashboard</a>
+</div>
+<p class="text-muted">Notifications addressed to your account only. Dates are shown in UTC.</p>
+@if (TempData["SupplierNotice"] is string notice)
+{
+    <div class="alert alert-success" role="status">@notice</div>
+}
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info" role="status">You have no notifications yet. Notifications will appear here when the relevant system actions send them to your account.</div>
+}
+@foreach (var notification in Model)
+{
+    <div class="card mb-3 @(notification.IsRead ? "" : "border-primary")"><div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+            <h2 class="h5">@notification.Title</h2>
+            <span class="badge align-self-start @(notification.IsRead ? "bg-secondary" : "bg-primary")">@(notification.IsRead ? "Read" : "Unread")</span>
+        </div>
+        <p class="small text-muted">@notification.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC · @notification.Type</p>
+        <p class="text-break" style="white-space: pre-wrap">@notification.Message</p>
+        @if (!string.IsNullOrWhiteSpace(notification.Link) && Url.IsLocalUrl(notification.Link))
+        {
+            <a href="@Url.Content(notification.Link)" class="btn btn-sm btn-outline-primary">View related page</a>
+        }
+        @if (!notification.IsRead)
+        {
+            <form asp-action="ReadNotification" method="post" class="d-inline">
+                <input type="hidden" name="id" value="@notification.Id" />
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Mark as read</button>
+            </form>
+        }
+    </div></div>
+}

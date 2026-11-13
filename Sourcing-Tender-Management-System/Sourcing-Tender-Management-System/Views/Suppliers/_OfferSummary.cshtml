@@ -1,0 +1,37 @@
+@model Bid
+<div class="card mb-4"><div class="card-body">
+    <h2 class="h5">@Model.Tender.Title</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-4">Offer number</dt><dd class="col-sm-8 text-break">@Model.BidNumber</dd>
+        <dt class="col-sm-4">Tender number</dt><dd class="col-sm-8">@Model.Tender.TenderNumber</dd>
+        <dt class="col-sm-4">Status</dt><dd class="col-sm-8">@Model.Status</dd>
+        <dt class="col-sm-4">Compliance status</dt><dd class="col-sm-8">@Model.ComplianceStatus</dd>
+        <dt class="col-sm-4">Submitted (UTC)</dt><dd class="col-sm-8">@Model.SubmittedAt.ToString("dd MMM yyyy HH:mm")</dd>
+        <dt class="col-sm-4">Delivery timeframe</dt><dd class="col-sm-8">@Model.DeliveryDays days</dd>
+        <dt class="col-sm-4">Valid until</dt><dd class="col-sm-8">@(Model.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</dd>
+    </dl>
+    <h3 class="h6 mt-3">Technical summary</h3><p class="text-break" style="white-space: pre-wrap">@Model.TechnicalSummary</p>
+    <h3 class="h6">Payment terms</h3><p class="text-break mb-0" style="white-space: pre-wrap">@Model.PaymentTerms</p>
+    @if (!string.IsNullOrWhiteSpace(Model.DisqualificationReason)) { <div class="alert alert-warning mt-3 mb-0">@Model.DisqualificationReason</div> }
+</div></div>
+<div class="table-responsive mb-4"><table class="table table-bordered">
+    <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Item total</th><th scope="col">Offered specifications</th></tr></thead>
+    <tbody>
+    @foreach (var item in Model.Items.OrderBy(x => x.Id))
+    {
+        <tr><td>@item.TenderItem.ItemName<br /><small>@item.BrandOrModel</small></td><td>@item.TenderItem.Quantity.ToString("0.###") @item.TenderItem.Unit</td><td>@item.UnitPrice.ToString("N2")</td><td>@item.TotalPrice.ToString("N2")</td><td class="text-break">@item.TechnicalResponse</td></tr>
+    }
+    </tbody>
+</table></div>
+<div class="card mb-4"><div class="card-body">
+    <h2 class="h5">Financial summary (@Model.Currency)</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-6">Items subtotal</dt><dd class="col-sm-6">@Model.Items.Sum(x => x.TotalPrice).ToString("N2")</dd>
+        <dt class="col-sm-6">Tax</dt><dd class="col-sm-6">@Model.TaxAmount.ToString("N2")</dd>
+        <dt class="col-sm-6">Fees</dt><dd class="col-sm-6">@Model.FeesAmount.ToString("N2")</dd>
+        <dt class="col-sm-6">Shipping</dt><dd class="col-sm-6">@Model.ShippingAmount.ToString("N2")</dd>
+        <dt class="col-sm-6">Installation</dt><dd class="col-sm-6">@Model.InstallationAmount.ToString("N2")</dd>
+        <dt class="col-sm-6">Maintenance</dt><dd class="col-sm-6">@Model.MaintenanceAmount.ToString("N2")</dd>
+        <dt class="col-sm-6">Total</dt><dd class="col-sm-6 fw-bold">@Model.TotalAmount.ToString("N2") @Model.Currency</dd>
+    </dl>
+</div></div>
