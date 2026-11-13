@@ -1,0 +1,21 @@
+@model Sourcing_Tender_Management_System.Models.SupplierRegistrationViewModel
+@{ ViewData["Title"] = "Supplier registration"; }
+<h1>Supplier registration</h1>
+<p>Your account will be available after Admin approval.</p>
+<form asp-action="RegisterSupplier" method="post" enctype="multipart/form-data" class="row g-3">
+    <div asp-validation-summary="All" class="text-danger"></div>
+    <div class="col-md-6"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="CompanyName" class="form-label"></label><input asp-for="CompanyName" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="RegistrationNumber" class="form-label"></label><input asp-for="RegistrationNumber" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="TaxNumber" class="form-label"></label><input asp-for="TaxNumber" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="LicenseNumber" class="form-label"></label><input asp-for="LicenseNumber" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="LicenseExpiresAt" class="form-label"></label><input asp-for="LicenseExpiresAt" type="date" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="PhoneNumber" class="form-label"></label><input asp-for="PhoneNumber" class="form-control" /></div>
+    <div class="col-12"><label asp-for="Address" class="form-label"></label><input asp-for="Address" class="form-control" /></div>
+    <div class="col-12"><label asp-for="LicenseDocument" class="form-label">Business license (PDF, PNG or JPEG; up to 10 MB)</label><input asp-for="LicenseDocument" type="file" accept=".pdf,.png,.jpg,.jpeg" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="ConfirmPassword" class="form-label"></label><input asp-for="ConfirmPassword" class="form-control" /></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Submit registration</button></div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
