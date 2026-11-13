@@ -252,7 +252,34 @@
         var detectorLevel = 0;
         var detector = DETECTORS[0](faceapi);
         var missingSince = null;
-        try { console.info('Face detection backend:', faceapi.tf && faceapi.tf.getBackend ? faceapi.tf.getBackend() : 'unknown'); } catch (e) { /* diagnostics only */ }
+        var ssdFailed = false;
+        var cpuTried = false;
+        var LEVEL_NAMES = ['fast', 'sensitive', 'SSD'];
+
+        // The detector reads each frame from a plain 2D canvas instead of straight from the <video>
+        // element. On some graphics drivers a video cannot be uploaded to WebGL correctly and the
+        // detector then sees black frames, so it never finds a face even though the picture is fine.
+        var frameCanvas = document.createElement('canvas');
+        var frameContext = frameCanvas.getContext('2d', { willReadFrequently: true });
+        function grab() {
+            var sourceWidth = video.videoWidth || 640;
+            var sourceHeight = video.videoHeight || 480;
+            var w = Math.min(sourceWidth, 640);
+            var h = Math.round(w * sourceHeight / sourceWidth);
+            if (frameCanvas.width !== w || frameCanvas.height !== h) { frameCanvas.width = w; frameCanvas.height = h; }
+            frameContext.drawImage(video, 0, 0, w, h);
+            return frameCanvas;
+        }
+
+        // A short description of what the detector is running on, shown when no face is found so a
+        // screenshot is enough to diagnose the problem.
+        function diagnostics() {
+            var backend = 'unknown';
+            try { backend = faceapi.tf.getBackend(); } catch (e) { /* diagnostics only */ }
+            return '[' + backend + ', ' + LEVEL_NAMES[detectorLevel] + ', camera ' + (video.videoWidth || 0) + 'x' + (video.videoHeight || 0) + ']';
+        }
+
+        console.info('Face detection', diagnostics());
         var frames = [];
         var descriptors = [];
         var step = 0;
@@ -265,7 +292,7 @@
 
         while (performance.now() - started < deadline) {
             var now = performance.now() - started;
-            var detection = await faceapi.detectSingleFace(video, detector).withFaceLandmarks();
+            var detection = await faceapi.detectSingleFace(grab(), detector).withFaceLandmarks();
             if (!detection) {
                 if (missingSince === null) { missingSince = now; }
                 var missing = now - missingSince;
@@ -274,7 +301,7 @@
                     detectorLevel = 1;
                     detector = DETECTORS[1](faceapi);
                     console.info('No face found for 3 s: using a more sensitive face detector.');
-                } else if (detectorLevel === 1 && missing > 6000) {
+                } else if (detectorLevel === 1 && !ssdFailed && missing > 6000) {
                     try {
                         setHint('Still looking for your face...');
                         await ensureSsdModel();
@@ -283,12 +310,25 @@
                         console.info('No face found for 6 s: using the more accurate SSD face detector.');
                     } catch (e) {
                         console.error('Could not load the SSD face detector:', e);
-                        detectorLevel = 3; // stay on the sensitive tiny detector
+                        ssdFailed = true; // stay on the sensitive tiny detector
+                    }
+                } else if (missing > 10000 && !cpuTried) {
+                    // Last resort: some graphics drivers give wrong results in WebGL, so compute on the CPU.
+                    cpuTried = true;
+                    try {
+                        if (faceapi.tf.getBackend() !== 'cpu') {
+                            setHint('Still looking for your face (switching to a compatible mode)...');
+                            await faceapi.tf.setBackend('cpu');
+                            await faceapi.tf.ready();
+                            console.info('No face found for 10 s: switched the computation to the CPU.');
+                        }
+                    } catch (e) {
+                        console.error('Could not switch to the CPU backend:', e);
                     }
                 }
 
                 setHint(missing > 6000
-                    ? 'No face found. Face a light (not a window behind you), move a little back, and look straight at the camera.'
+                    ? 'No face found. Face a light (not a window behind you), move a little back, and look straight at the camera. ' + diagnostics()
                     : 'No face found. Look straight at the camera.');
                 await sleep(60);
                 continue;
@@ -302,7 +342,7 @@
             // A face sample is taken whenever the face is neutral: looking ahead, eyes open, mouth closed.
             var neutral = m.ear >= thresholds.earOpen && Math.abs(m.yaw) <= thresholds.yawCenter && m.mar <= thresholds.marClosed;
             if (neutral && descriptors.length < 6 && now - lastDescriptor >= 500) {
-                var full = await faceapi.detectSingleFace(video, detector).withFaceLandmarks().withFaceDescriptor();
+                var full = await faceapi.detectSingleFace(grab(), detector).withFaceLandmarks().withFaceDescriptor();
                 if (full) {
                     descriptors.push({ t: Math.round(now), v: Array.from(full.descriptor) });
                     lastDescriptor = now;
@@ -327,7 +367,9 @@
             await sleep(20);
         }
 
-        throw new Error('Time ran out before the steps were completed. Try again.');
+        throw new Error(frames.length === 0
+            ? 'No face was detected by the camera. Check the lighting, try another browser, and send this to the developer: ' + diagnostics()
+            : 'Time ran out before the steps were completed. Try again.');
     }
 
     async function runFace(options, challengeUrl, submitUrl, extra) {
