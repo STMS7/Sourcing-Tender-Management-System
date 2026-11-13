@@ -10,11 +10,13 @@
 - ما نعدّل على شغل التيم (الموديلات، الجداول، المايقريشنات، الـ csproj): بنسحب `main` ونطبّق `dotnet ef database update` فقط.
 - ما نكرر جداول أو حقول موجودة: نبني على الـ classes اللي عند صاحب الداتابيس.
 
-**الفرق بملفات التيم (ملفين فقط، إضافات صافية بدون حذف أي سطر لهم):**
+**الفرق بملفات التيم (3 ملفات، إضافات صافية بدون حذف أي سطر لهم):**
 - `Program.cs` +5 أسطر (2 using، تسجيل `AddTopCommittee()` و`AddBiometrics(...)`، واستدعاء الـ seeder داخل `IsDevelopment()`).
 - `Views/Auth/Login.cshtml` +1 سطر: `<partial name="~/Views/Biometric/_LoginOptions.cshtml" />` بعد الفورم، وهو بيعرض قسم "Or sign in with" (بصمة ووجه). كل الـ HTML والسكربت بملفاتي (`_LoginOptions.cshtml` و`wwwroot/biometric/biometric.js`).
 
-الباقي كله ملفات جديدة. ما في مايقريشن جديدة، ولا تعديل على `ApplicationDbContext` ولا `.csproj` ولا `_Layout` ولا `_LoginPartial` ولا `AuthController`.
+- `Views/Shared/_LoginPartial.cshtml` +3 أسطر (بطلب لجين): رابط **Profile** واضح بقائمة الموقع لأي حساب مسجّل دخول، وبيوصّل لـ "Manage your account" وفيه تبويب Biometrics. لأنه كل الصفحات (Admin، Sourcing Officer، لجان التقييم، الرسائل، اللجنة العليا، الـ Supplier...) بتستخدم قالب واحد (`_Layout`) وهالقائمة منه، فتعديل واحد غطّى كل الأدوار بدون ما نعدّل صفحة صفحة. (فحصته على 12 نوع حساب: الرابط ظاهر على كل صفحة بتفتح، ومخفي لما ما حدا مسجّل.)
+
+الباقي كله ملفات جديدة. ما في مايقريشن جديدة، ولا تعديل على `ApplicationDbContext` ولا `.csproj` ولا `_Layout` ولا `AuthController`.
 
 **تبويب Biometrics بالبروفايل (ملفات جديدة جوّا `Areas/Identity/Pages/Account/Manage/`):**
 - `_ManageNav.cshtml`: بيحل محل قائمة البروفايل الجاهزة (Identity) بنفس البنود ونفس الـ HTML بالضبط (Profile، Email، Password، External logins إذا في، Two-factor، Personal data)، وبيضيف تبويب **Biometrics** بالآخر. فحصت إنه كل صفحة بتظلّل تبويبها صح.
