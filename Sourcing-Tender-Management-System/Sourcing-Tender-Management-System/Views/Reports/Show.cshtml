@@ -84,6 +84,32 @@
     }
 </div>
 
+@if (doc.Charts.Count > 0)
+{
+    <div class="row g-3 mb-4">
+        @foreach (var chart in doc.Charts)
+        {
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">@chart.Title</h2>
+                        @foreach (var point in chart.Points)
+                        {
+                            var percent = chart.Max == 0 ? 0 : Math.Max(2, (int)Math.Round(point.Value / chart.Max * 100));
+                            var valueText = ReportExporter.FormatChartValue(point.Value, chart.Unit);
+                            <div class="d-flex align-items-center gap-2 mb-1 small">
+                                <div class="text-truncate" style="width:34%" title="@point.Label">@point.Label</div>
+                                <div class="flex-grow-1 bg-light rounded"><div class="bg-primary rounded" style="width:@(percent)%;height:14px" role="img" aria-label="@point.Label: @valueText"></div></div>
+                                <div class="text-end text-nowrap" style="min-width:72px">@valueText</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
 @foreach (var table in doc.Tables)
 {
     <section class="mb-4">

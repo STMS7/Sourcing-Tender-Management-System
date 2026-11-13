@@ -183,6 +183,28 @@ public class ReportExporter : IReportExporter
                         });
                     }
 
+                    foreach (var chart in report.Charts)
+                    {
+                        content.Item().ShowEntire().Column(block =>
+                        {
+                            block.Item().PaddingTop(4).Text(chart.Title).FontSize(11).Bold();
+                            foreach (var point in chart.Points)
+                            {
+                                var percent = chart.Max == 0 ? 1f : Math.Clamp((float)(point.Value / chart.Max * 100), 1f, 100f);
+                                block.Item().PaddingTop(2).Row(row =>
+                                {
+                                    row.ConstantItem(170).Text(point.Label).ClampLines(1);
+                                    row.RelativeItem().PaddingVertical(2).Row(bar =>
+                                    {
+                                        bar.RelativeItem(percent).Height(8).Background(Colors.Blue.Medium);
+                                        bar.RelativeItem(Math.Max(0.01f, 100f - percent));
+                                    });
+                                    row.ConstantItem(90).AlignRight().Text(FormatChartValue(point.Value, chart.Unit));
+                                });
+                            }
+                        });
+                    }
+
                     foreach (var table in report.Tables)
                     {
                         content.Item().Column(block =>
@@ -248,6 +270,11 @@ public class ReportExporter : IReportExporter
 
     private static IContainer BodyCell(IContainer container) =>
         container.BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(3);
+
+    /// <summary>The number shown next to a chart bar: whole numbers without decimals, money with two.</summary>
+    public static string FormatChartValue(decimal value, string unit) =>
+        (value % 1 == 0 ? value.ToString("N0", CultureInfo.InvariantCulture) : value.ToString("N2", CultureInfo.InvariantCulture))
+        + (unit.Length > 0 ? " " + unit : "");
 
     /// <summary>How a cell looks on paper (the Excel file keeps the real numbers and dates instead).</summary>
     public static string Format(object? value) => value switch
