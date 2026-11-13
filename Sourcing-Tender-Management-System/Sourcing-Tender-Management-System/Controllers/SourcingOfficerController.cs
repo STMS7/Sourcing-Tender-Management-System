@@ -169,7 +169,8 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
             .Include(t => t.EvaluationCriteria).Include(t => t.DocumentRequirements)
             .Include(t => t.Invitations).ThenInclude(i => i.Supplier)
             .Include(t => t.CommitteeMembers).ThenInclude(m => m.User)
-            .Include(t => t.EvaluationReports).Include(t => t.ProcurementRequest)
+            .Include(t => t.EvaluationReports).ThenInclude(r => r.RecommendedBid).ThenInclude(b => b!.Supplier)
+            .Include(t => t.ProcurementRequest)
             .AsSplitQuery().FirstOrDefaultAsync(t => t.Id == id);
         if (tender == null) return NotFound();
         ViewBag.Suppliers = await db.Suppliers.AsNoTracking().Where(s => s.IsActive &&

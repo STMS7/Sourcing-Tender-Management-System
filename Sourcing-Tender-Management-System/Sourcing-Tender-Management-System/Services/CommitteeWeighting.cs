@@ -16,7 +16,35 @@ public static class CommitteeWeighting
     public static readonly CommitteeMemberRole[] Evaluators =
         [CommitteeMemberRole.TechnicalRepresentative, CommitteeMemberRole.FinancialRepresentative];
 
+    /// <summary>Members who accept or deny the bid the evaluators agreed on.</summary>
+    public static readonly CommitteeMemberRole[] Reviewers =
+        [CommitteeMemberRole.SourcingManager, CommitteeMemberRole.DepartmentRepresentative];
+
+    public static readonly CommitteeMemberRole[] AllMembers = [.. Evaluators, .. Reviewers];
+
+    /// <summary>Comment prefix marking a reviewer's deny row in BidEvaluation.</summary>
+    public const string DeniedPrefix = "Denied: ";
+
+    public enum ReviewState { Pending, Accepted, Denied }
+
     public sealed record Proposal(CommitteeMemberRole Role, decimal Technical, decimal Financial);
+
+    public static bool IsReviewer(CommitteeMemberRole? role) => role != null && Reviewers.Contains(role.Value);
+
+    public static bool IsCommitteeRole(CommitteeMemberRole? role) => role != null && AllMembers.Contains(role.Value);
+
+    /// <summary>All four agree: evaluators agreed on a bid and every reviewer accepted that bid.</summary>
+    public static bool AllFourAgree(int? agreedBid, IReadOnlyDictionary<CommitteeMemberRole, ReviewState> reviews) =>
+        agreedBid != null && Reviewers.All(role => reviews.TryGetValue(role, out var state) && state == ReviewState.Accepted);
+
+    public static string RoleLabel(CommitteeMemberRole role) => role switch
+    {
+        CommitteeMemberRole.TechnicalRepresentative => "Technical member",
+        CommitteeMemberRole.FinancialRepresentative => "Financial member",
+        CommitteeMemberRole.SourcingManager => "Sourcing manager",
+        CommitteeMemberRole.DepartmentRepresentative => "Department representative",
+        _ => role.ToString()
+    };
 
     public sealed record AgreedWeights(decimal Technical, decimal Financial);
 
