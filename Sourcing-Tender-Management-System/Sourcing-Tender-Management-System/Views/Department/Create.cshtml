@@ -1,0 +1,7 @@
+@model Sourcing_Tender_Management_System.Models.ProcurementRequest
+@{ ViewData["Title"] = "Create Purchase Request"; }
+<h2>Create Purchase Request</h2>
+<form asp-action="Create" method="post">
+    <partial name="_RequestForm" model="Model" />
+</form>
+<p><a asp-action="Index">Back to requests</a></p>

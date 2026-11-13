@@ -1,0 +1,25 @@
+@model Sourcing_Tender_Management_System.Models.Clarification
+@using Sourcing_Tender_Management_System.Models
+@{ var recipients = (List<ApplicationUser>)ViewBag.Recipients; }
+@{ ViewData["Title"] = "New Clarification"; }
+<h2>New Clarification — @ViewBag.ContextLabel</h2>
+<div asp-validation-summary="All" class="text-danger"></div>
+@if (recipients.Any())
+{
+    <form asp-action="New" method="post">
+        <input type="hidden" name="ProcurementRequestId" value="@Model.ProcurementRequestId" />
+        <input type="hidden" name="TenderId" value="@Model.TenderId" />
+        <input type="hidden" name="BidId" value="@Model.BidId" />
+        <div class="mb-2"><label>Recipient</label><select name="RecipientUserId" class="form-select" required>
+        @foreach (var u in recipients)
+        {
+            <option value="@u.Id" selected="@(u.Id == Model.RecipientUserId)">@u.FullName (@u.Email)</option>
+        }
+        </select></div>
+        <div class="mb-2"><label>Subject</label><input name="Subject" value="@Model.Subject" maxlength="200" required class="form-control" /></div>
+        <div class="mb-2"><label>Question</label><textarea name="Question" maxlength="2000" required class="form-control">@Model.Question</textarea></div>
+        <button type="submit">Send</button>
+    </form>
+}
+else { <p>No authorized recipient is available for this process stage.</p> }
+<p><a asp-action="Index">Back to inbox</a></p>
