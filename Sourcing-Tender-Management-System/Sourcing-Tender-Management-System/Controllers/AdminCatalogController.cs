@@ -11,7 +11,7 @@ namespace Sourcing_Tender_Management_System.Controllers;
 public class AdminCatalogController(ApplicationDbContext db, RoleManager<IdentityRole> roleManager) : Controller
 {
     private static readonly HashSet<string> CoreRoles = new(StringComparer.OrdinalIgnoreCase)
-    { "Admin", "ProcurementOfficer", "EvaluationCommittee", "TopCommittee", "Supplier" };
+    { "Admin", "ProcurementOfficer", "EvaluationCommittee", "SourcingManager", "TopCommittee", "Supplier" };
 
     public async Task<IActionResult> Departments() => View(await db.Departments.OrderBy(x => x.Name).ToListAsync());
 
