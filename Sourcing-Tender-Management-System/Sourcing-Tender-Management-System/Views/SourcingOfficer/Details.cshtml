@@ -4,6 +4,8 @@
     var draft = Model.Status == TenderStatus.Draft;
     var suppliers = (List<Supplier>)ViewBag.Suppliers;
     var history = (List<WorkflowTransition>)ViewBag.History;
+    // Committee weight proposals are stored as hidden criteria; they are not scoring criteria.
+    var criteria = Model.EvaluationCriteria.Where(c => !Sourcing_Tender_Management_System.Services.CommitteeWeighting.IsWeightProposal(c)).ToList();
 }
 <a asp-action="Tenders">Back to my tenders</a>
 <h1 class="mt-3">@Model.Title</h1>
@@ -40,10 +42,10 @@
 </tbody></table></div>
 <h2>Evaluation criteria @(Model.EvaluationCriteriaLockedAt != null ? "— locked" : "")</h2>
 <p class="small text-secondary">Weights within each group must total 100%. Group scores use the technical / financial split above.</p>
-@if (Model.EvaluationCriteria.Count == 0) { <p>No evaluation criteria added.</p> }
+@if (criteria.Count == 0) { <p>No evaluation criteria added.</p> }
 else {
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Criterion</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Maximum score</th>@if (draft) { <th scope="col">Action</th> }</tr></thead><tbody>
-@foreach (var criterion in Model.EvaluationCriteria.OrderBy(c => c.Type).ThenBy(c => c.Name)) {
+@foreach (var criterion in criteria.OrderBy(c => c.Type).ThenBy(c => c.Name)) {
 <tr><td>@criterion.Name<br /><small>@criterion.Description</small></td><td>@criterion.Type</td><td>@criterion.Weight%</td><td>@criterion.MaximumScore</td>
 @if (draft) { <td><form asp-action="RemoveCriterion" method="post"><input type="hidden" name="id" value="@criterion.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@criterion.Name</span></button></form></td> }</tr>
 }
