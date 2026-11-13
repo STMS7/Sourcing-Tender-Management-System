@@ -6,7 +6,7 @@
 <div class="sourcing-workspace py-4">
     <nav class="sourcing-nav mb-4" aria-label="Sourcing officer">
         <a class="@(action == "Index" ? "active" : "")" asp-controller="SourcingOfficer" asp-action="Index">Overview</a>
-        <a class="@(action is "Requests" or "RequestDetails" ? "active" : "")" asp-controller="SourcingOfficer" asp-action="Requests">Approved requests</a>
+        <a class="@(action is "Requests" or "RequestDetails" or "AcceptRequest" ? "active" : "")" asp-controller="SourcingOfficer" asp-action="Requests">Purchase requests</a>
         <a class="@(action is "Tenders" or "Details" or "Create" or "Edit" or "Offers" ? "active" : "")" asp-controller="SourcingOfficer" asp-action="Tenders">My tenders</a>
         <a class="@(action is "Messages" or "Clarifications" or "AskClarification" ? "active" : "")" aria-current="@(action is "Messages" or "Clarifications" or "AskClarification" ? "page" : null)" asp-controller="SourcingOfficer" asp-action="Messages">Messages</a>
     </nav>

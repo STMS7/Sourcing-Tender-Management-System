@@ -23,6 +23,9 @@ else {
 @if (Model.Selected is not { } selected) { <p class="empty-state">Choose a conversation to read and respond.</p> }
 else {
 <h2 class="mt-0">@selected.Subject</h2><p><span class="status">@selected.Status</span></p>
+@if (selected.ProcurementRequestId is int requestId && (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))) {
+    <p><a asp-controller="Department" asp-action="Details" asp-route-id="@requestId">View request and review decision</a></p>
+}
 <ol class="message-thread list-unstyled" data-message-thread tabindex="0" aria-label="Message history">
 <li class="message-entry @(selected.AskedByUserId == userId ? "outgoing" : "")"><strong>@(selected.AskedByUserId == userId ? "You" : selected.AskedByUser.FullName)</strong><time class="small">@selected.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time><p class="preserve-lines mb-0">@selected.Question</p></li>
 @foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt)) {

@@ -2,20 +2,64 @@
 @{
     ViewData["Title"] = Model.Title;
     var conversations = (List<Clarification>)ViewBag.RequestConversations;
+    var canReview = ViewBag.CanReview is true;
+    var canChat = ViewBag.CanChat is true;
 }
-<a asp-action="Requests">Back to approved requests</a>
+<a asp-action="Requests">Back to purchase requests</a>
 <h1 class="mt-3">@Model.Title</h1>
 <p>@Model.RequestNumber · @Model.Department.Name · <span class="status">@Model.Status</span></p>
 <p>Requested by <strong>@Model.RequestedByUser.FullName</strong>.</p>
 <div class="actions mb-4">
+@if (canReview) {
+    <a class="btn btn-primary" asp-action="AcceptRequest" asp-route-id="@Model.Id">Accept and create tender</a>
+    @if (Model.Status == ProcurementRequestStatus.Submitted) {
+        <form asp-action="StartReview" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-primary" type="submit">Start review</button></form>
+    }
+}
+@if (canChat) {
     <a class="btn btn-outline-primary" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{Model.Id}")">Chat with requesting department</a>
-    <a class="btn btn-primary" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{Model.Id}")" asp-route-requestRevision="true">Request changes in chat</a>
+}
 </div>
+@if (Model.Status == ProcurementRequestStatus.Returned) {
+    <p class="alert alert-info">Returned to the department for changes. The department can edit and resubmit this request. Use the linked conversation for clarification.</p>
+} else if (Model.Status == ProcurementRequestStatus.Rejected) {
+    <p class="alert alert-info">This request was rejected. Its decision and message remain available in the history.</p>
+}
 <dl class="row"><dt class="col-sm-3">Reason</dt><dd class="col-sm-9 preserve-lines">@Model.Reason</dd><dt class="col-sm-3">Description</dt><dd class="col-sm-9 preserve-lines">@Model.Description</dd><dt class="col-sm-3">Required by</dt><dd class="col-sm-9">@(Model.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</dd><dt class="col-sm-3">Estimated budget</dt><dd class="col-sm-9">@Model.EstimatedBudget.ToString("N2")</dd></dl>
 <h2>Requested items</h2>
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit</th><th scope="col">Specifications</th></tr></thead><tbody>
 @foreach (var item in Model.Items) { <tr><td>@item.ItemName</td><td>@item.Quantity.ToString("N3")</td><td>@item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
 </tbody></table></div>
+@if (canReview) {
+    <section class="form-panel my-4" aria-labelledby="return-heading">
+        <h2 id="return-heading" class="mt-0">Return for changes</h2>
+        <p>Send a reason to the department so they can update this request and resubmit it.</p>
+        <form asp-action="ReturnRequest" method="post">
+            <input name="Id" value="@Model.Id" type="hidden" />
+            <label for="return-reason" class="form-label">Changes required</label>
+            <textarea id="return-reason" name="Reason" class="form-control mb-3" required maxlength="2000" rows="3"></textarea>
+            <button type="submit" class="btn btn-outline-primary">Return to department with message</button>
+        </form>
+    </section>
+    <details class="mb-4">
+        <summary class="text-danger">Reject request permanently</summary>
+        <p class="mt-3">The department will see your reason. Rejected requests cannot be edited or resubmitted.</p>
+        <form asp-action="RejectRequest" method="post">
+            <input name="Id" value="@Model.Id" type="hidden" />
+            <label for="reject-reason" class="form-label">Rejection reason</label>
+            <textarea id="reject-reason" name="Reason" class="form-control mb-3" required maxlength="2000" rows="3"></textarea>
+            <button type="submit" class="btn btn-danger">Reject request with message</button>
+        </form>
+    </details>
+}
+@if (Model.Reviews.Count > 0) {
+    <h2>Review history</h2>
+    <ul class="list-group list-group-flush mb-4">
+    @foreach (var review in Model.Reviews.OrderByDescending(r => r.ReviewedAt)) {
+        <li class="list-group-item px-0"><strong>@review.Decision</strong> · @review.ReviewerUser.FullName · @review.ReviewedAt.ToString("dd MMM yyyy HH:mm") UTC<p class="preserve-lines mb-0">@review.Reason</p></li>
+    }
+    </ul>
+}
 <h2>Department conversation</h2>
 <p class="text-secondary">Ask the request owner to clarify or revise quantities, specifications or other details. Questions and replies stay linked to this purchase request.</p>
 @if (conversations.Count == 0) {
@@ -29,6 +73,6 @@
 }
 @if ((bool)ViewBag.CanCreateTender) {
     <a class="btn btn-primary" asp-action="Create" asp-route-requestId="@Model.Id">Create tender draft</a>
-} else {
+} else if (Model.Status == ProcurementRequestStatus.ConvertedToTender) {
     <p class="text-secondary">This request has already been converted to a tender. Its department conversation remains available while sourcing is active.</p>
 }

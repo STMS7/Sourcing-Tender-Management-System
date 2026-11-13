@@ -3,6 +3,7 @@
 <h1>Sourcing officer dashboard</h1>
 <p class="text-secondary">Manage approved purchase requests, prepare tenders and move compliant offers to evaluation.</p>
 <div class="summary-strip">
+    <a asp-action="Requests">Requests awaiting review: <strong>@Model.IncomingRequests</strong></a>
     <a asp-action="Requests">Approved requests: <strong>@Model.ApprovedRequests</strong></a>
     <a asp-action="Tenders" asp-route-status="Draft">Draft tenders: <strong>@Model.DraftTenders</strong></a>
     <a asp-action="Tenders" asp-route-status="Published">Published tenders: <strong>@Model.PublishedTenders</strong></a>

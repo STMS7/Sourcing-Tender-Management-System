@@ -5,10 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
+using Sourcing_Tender_Management_System.Services;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
-// Separate from the existing SourcingOfficer and Messages controllers; no shared files changed.
+// Uses the shared sourcing policy for request conversations across both inboxes.
 [Authorize]
 [AutoValidateAntiforgeryToken]
 public class CycleChatController : Controller
@@ -28,7 +29,7 @@ public class CycleChatController : Controller
             _db.Roles.Any(r => r.Id == ur.RoleId && roles.Contains(r.Name!)));
     private bool IsActive(string id) => _db.Users.Any(u => u.Id == id && u.IsActive);
     private bool IsOfficer(string id) => HasRole(id, "SourcingOfficer", "ProcurementOfficer");
-    private bool IsDepartment(string id) => HasRole(id, "DepartmentRequester", "DepartmentRepresentative");
+    private bool IsDepartment(string id) => HasRole(id, "DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment");
     private bool IsCommittee(string id) => HasRole(id, "EvaluationCommittee", "TechnicalRepresentative", "FinancialRepresentative", "DepartmentRepresentative");
     private bool IsManager(string id) => HasRole(id, "SourcingManager");
     private bool IsTop(string id) => HasRole(id, "TopCommittee");
@@ -43,16 +44,12 @@ public class CycleChatController : Controller
         if (requestId.HasValue)
         {
             var request = _db.ProcurementRequests.FirstOrDefault(r => r.Id == requestId);
-            if (request == null || request.Status is not (ProcurementRequestStatus.Submitted or
-                ProcurementRequestStatus.UnderReview or ProcurementRequestStatus.Returned or ProcurementRequestStatus.Approved)) return false;
+            if (request == null) return false;
             string dept = IsDepartment(a) ? a : b;
             string officer = dept == a ? b : a;
             if (!IsDepartment(dept) || !IsOfficer(officer)) return false;
-            if (!_db.Users.Any(u => u.Id == dept && u.DepartmentId == request.DepartmentId)) return false;
-            bool assigned = _db.WorkAssignments.Any(w => w.Kind == AssignmentKind.ProcurementRequest &&
-                w.ProcurementRequestId == request.Id && w.CompletedAt == null);
-            return !assigned || _db.WorkAssignments.Any(w => w.Kind == AssignmentKind.ProcurementRequest &&
-                w.ProcurementRequestId == request.Id && w.AssignedToUserId == officer && w.CompletedAt == null);
+            return request.RequestedByUserId == dept &&
+                SourcingCommunicationPolicy.RequestsForCommunication(_db, officer).Any(r => r.Id == request.Id);
         }
         if (bidId.HasValue)
         {

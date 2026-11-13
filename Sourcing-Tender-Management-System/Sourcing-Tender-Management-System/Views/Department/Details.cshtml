@@ -36,8 +36,10 @@
     <a asp-action="Edit" asp-route-id="@Model.Id">Edit</a>
     <form asp-action="Submit" asp-route-id="@Model.Id" method="post"><button type="submit">Submit / Resubmit</button></form>
 }
-@if (Model.Status == ProcurementRequestStatus.Submitted || Model.Status == ProcurementRequestStatus.UnderReview || Model.Status == ProcurementRequestStatus.Returned || Model.Status == ProcurementRequestStatus.Approved)
+@if (Model.Status == ProcurementRequestStatus.Submitted || Model.Status == ProcurementRequestStatus.UnderReview || Model.Status == ProcurementRequestStatus.Returned || Model.Status == ProcurementRequestStatus.Approved ||
+    (Model.Status == ProcurementRequestStatus.ConvertedToTender && Model.Tenders.Any(t => t.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation)))
 {
     <a asp-controller="CycleChat" asp-action="New" asp-route-procurementRequestId="@Model.Id">Ask for clarification</a>
 }
+<p><a asp-controller="CycleChat" asp-action="Index">Messages and clarification responses</a></p>
 <p><a asp-action="Index">Back to requests</a></p>

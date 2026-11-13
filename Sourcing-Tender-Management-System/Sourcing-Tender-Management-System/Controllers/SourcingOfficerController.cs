@@ -18,6 +18,8 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     private string OfficerId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     private IQueryable<Tender> MyTenders() => SourcingCommunicationPolicy.TendersFor(db, OfficerId);
     private IQueryable<ProcurementRequest> AvailableRequests() => SourcingCommunicationPolicy.ApprovedRequestsFor(db, OfficerId);
+    private IQueryable<ProcurementRequest> ReviewableRequests() => SourcingCommunicationPolicy.ReviewableRequestsFor(db, OfficerId);
+    private IQueryable<ProcurementRequest> VisibleRequests() => SourcingCommunicationPolicy.VisibleRequestsFor(db, OfficerId);
     private bool CanReadOffers(Tender tender) =>
         tender.Status is not (TenderStatus.Draft or TenderStatus.Published or TenderStatus.Cancelled) &&
         tender.SubmissionDeadline <= DateTime.UtcNow &&
@@ -31,6 +33,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         var tenders = MyTenders();
         return View(new SourcingDashboardViewModel
         {
+            IncomingRequests = await ReviewableRequests().CountAsync(),
             ApprovedRequests = await AvailableRequests().CountAsync(),
             DraftTenders = await tenders.CountAsync(t => t.Status == TenderStatus.Draft),
             PublishedTenders = await tenders.CountAsync(t => t.Status == TenderStatus.Published),
@@ -44,11 +47,15 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         });
     }
 
-    public async Task<IActionResult> Requests(string? search)
+    public async Task<IActionResult> Requests(string? search, ProcurementRequestStatus? status = null)
     {
         search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         ViewBag.Search = search;
-        var query = AvailableRequests().AsNoTracking().Include(r => r.Department);
+        ViewBag.Status = status;
+        var query = VisibleRequests().AsNoTracking().Include(r => r.Department).Where(r =>
+            status != null ? r.Status == status :
+                r.Status == ProcurementRequestStatus.Submitted || r.Status == ProcurementRequestStatus.UnderReview ||
+                r.Status == ProcurementRequestStatus.Approved || r.Status == ProcurementRequestStatus.Returned);
         var rows = await query.Where(r => search == null || r.Title.Contains(search) ||
             r.RequestNumber.Contains(search)).OrderByDescending(r => r.RequestedAt).ToListAsync();
         if (Request.Headers["X-Sourcing-Live"] == "1")
@@ -61,10 +68,13 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
 
     public async Task<IActionResult> RequestDetails(int id)
     {
-        var request = await CommunicationRequests().AsNoTracking().Include(r => r.Department)
-            .Include(r => r.RequestedByUser).Include(r => r.Items).FirstOrDefaultAsync(r => r.Id == id);
+        var request = await VisibleRequests().AsNoTracking().Include(r => r.Department)
+            .Include(r => r.RequestedByUser).Include(r => r.Items).Include(r => r.Reviews).ThenInclude(r => r.ReviewerUser)
+            .AsSplitQuery().FirstOrDefaultAsync(r => r.Id == id);
         if (request == null) return NotFound();
         ViewBag.CanCreateTender = await AvailableRequests().AnyAsync(r => r.Id == id);
+        ViewBag.CanReview = await ReviewableRequests().AnyAsync(r => r.Id == id);
+        ViewBag.CanChat = await CommunicationRequests().AnyAsync(r => r.Id == id);
         ViewBag.RequestConversations = await db.Clarifications.AsNoTracking().Where(c => c.ProcurementRequestId == id &&
             c.BidId == null && (c.AskedByUserId == OfficerId || c.RecipientUserId == OfficerId))
             .OrderByDescending(c => c.AskedAt).Take(5).ToListAsync();
@@ -102,15 +112,37 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(SourcingTenderForm model)
+    public Task<IActionResult> Create(SourcingTenderForm model) => SaveTender(model, false);
+
+    [HttpGet]
+    public async Task<IActionResult> AcceptRequest(int id)
+    {
+        var request = await ReviewableRequests().AsNoTracking().Include(r => r.Items).FirstOrDefaultAsync(r => r.Id == id);
+        if (request == null) return NotFound();
+        ViewBag.AcceptingRequest = true;
+        ViewBag.Request = request;
+        await LoadCategories();
+        return View("TenderForm", new SourcingTenderForm { ProcurementRequestId = request.Id, Title = request.Title,
+            Description = request.Description, EstimatedValue = request.EstimatedBudget,
+            CategoryId = request.Items.FirstOrDefault()?.CategoryId ?? 0 });
+    }
+
+    [HttpPost]
+    public Task<IActionResult> AcceptRequest(SourcingTenderForm model) => SaveTender(model, true);
+
+    private async Task<IActionResult> SaveTender(SourcingTenderForm model, bool acceptRequest)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var request = await AvailableRequests().Include(r => r.Items).FirstOrDefaultAsync(r => r.Id == model.ProcurementRequestId);
+        var request = await (acceptRequest ? ReviewableRequests() : AvailableRequests())
+            .Include(r => r.Items).FirstOrDefaultAsync(r => r.Id == model.ProcurementRequestId);
         if (request == null) return NotFound();
+        if (await db.Tenders.AnyAsync(t => t.ProcurementRequestId == request.Id)) return Conflict("This request already has a tender.");
+        ViewBag.AcceptingRequest = acceptRequest;
         await ValidateTender(model);
         if (request.Items.Count == 0 || request.Items.Any(i => i.Quantity <= 0 || string.IsNullOrWhiteSpace(i.Unit)))
             ModelState.AddModelError("", "The approved request must contain items with positive quantities and units.");
         if (!ModelState.IsValid) return await InvalidTender(model, request);
+        await ClaimRequest(request.Id);
         var tender = new Tender
         {
             TenderNumber = "TND-" + Guid.NewGuid().ToString("N"), ProcurementRequestId = request.Id,
@@ -121,12 +153,99 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         ApplyForm(tender, model);
         db.Tenders.Add(tender);
         request.Status = ProcurementRequestStatus.ConvertedToTender;
+        if (acceptRequest)
+            db.ProcurementRequestReviews.Add(new ProcurementRequestReview { ProcurementRequestId = request.Id,
+                ReviewerUserId = OfficerId, Decision = RequestReviewDecision.Approved,
+                Reason = string.IsNullOrWhiteSpace(model.ReviewComment) ? "Accepted and converted to a tender draft." : model.ReviewComment.Trim() });
         await db.SaveChangesAsync();
+        await CompleteRequestAssignment(request.Id);
+        if (acceptRequest) RecordRequestEvent(request.Id, "AcceptAndCreateTender", WorkflowAction.Approved, WorkflowStage.Sourcing);
+        db.Notifications.Add(new Notification { UserId = request.RequestedByUserId, Title = "Purchase request accepted",
+            Message = $"{request.RequestNumber} has been converted to tender {tender.TenderNumber}.",
+            Type = NotificationType.Success, Link = $"/Department/Details/{request.Id}" });
         Log(tender, "CreateDraft", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
-        TempData["Success"] = "Tender draft created. Configure criteria, document requirements and suppliers before publishing.";
+        TempData["Success"] = acceptRequest ? "Request accepted and tender draft created. Receive supplier offers and complete compliance before sending to evaluation."
+            : "Tender draft created. Configure criteria, document requirements and suppliers before publishing.";
         return RedirectToAction(nameof(Details), new { id = tender.Id });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> StartReview(int id)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var request = await ReviewableRequests().FirstOrDefaultAsync(r => r.Id == id);
+        if (request == null) return NotFound();
+        await ClaimRequest(id);
+        request.Status = ProcurementRequestStatus.UnderReview;
+        RecordRequestEvent(id, "StartRequestReview", WorkflowAction.Assigned, WorkflowStage.RequestReview);
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        return RedirectToAction(nameof(RequestDetails), new { id });
+    }
+
+    [HttpPost]
+    public Task<IActionResult> ReturnRequest(SourcingRequestDecisionForm model) => DecideRequest(model, true);
+
+    [HttpPost]
+    public Task<IActionResult> RejectRequest(SourcingRequestDecisionForm model) => DecideRequest(model, false);
+
+    private async Task<IActionResult> DecideRequest(SourcingRequestDecisionForm model, bool returnForChanges)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var request = await ReviewableRequests().FirstOrDefaultAsync(r => r.Id == model.Id);
+        if (request == null) return NotFound();
+        if (await db.Tenders.AnyAsync(t => t.ProcurementRequestId == request.Id)) return Conflict("A converted request cannot be returned or rejected.");
+        if (string.IsNullOrWhiteSpace(model.Reason) || model.Reason.Length > 2000)
+            ModelState.AddModelError("", "Provide a reason of up to 2,000 characters to send to the department.");
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = Errors();
+            return RedirectToAction(nameof(RequestDetails), new { id = model.Id });
+        }
+        await ClaimRequest(request.Id);
+        request.Status = returnForChanges ? ProcurementRequestStatus.Returned : ProcurementRequestStatus.Rejected;
+        db.ProcurementRequestReviews.Add(new ProcurementRequestReview { ProcurementRequestId = request.Id,
+            ReviewerUserId = OfficerId, Decision = returnForChanges ? RequestReviewDecision.Returned : RequestReviewDecision.Rejected,
+            Reason = model.Reason.Trim() });
+        var conversation = new Clarification { ProcurementRequestId = request.Id, AskedByUserId = OfficerId,
+            RecipientUserId = request.RequestedByUserId, Subject = $"{(returnForChanges ? "Changes requested" : "Request rejected")} for {request.RequestNumber}",
+            Question = model.Reason.Trim(), Status = ClarificationStatus.Pending };
+        db.Clarifications.Add(conversation);
+        RecordRequestEvent(request.Id, returnForChanges ? "ReturnRequest" : "RejectRequest",
+            returnForChanges ? WorkflowAction.Returned : WorkflowAction.Rejected, WorkflowStage.RequestReview, model.Reason.Trim());
+        await db.SaveChangesAsync();
+        if (!returnForChanges) await CompleteRequestAssignment(request.Id);
+        db.Notifications.Add(new Notification { UserId = request.RequestedByUserId,
+            Title = returnForChanges ? "Purchase request returned for changes" : "Purchase request rejected",
+            Message = model.Reason.Trim(), Type = NotificationType.ActionRequired,
+            Link = $"/Department/Details/{request.Id}" });
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        TempData["Success"] = returnForChanges ? "Request returned to the department with your reason and a linked message. The department can edit and resubmit it."
+            : "Request rejected. Your decision and message are visible to the department.";
+        return RedirectToAction(nameof(RequestDetails), new { id = request.Id });
+    }
+
+    private async Task ClaimRequest(int id)
+    {
+        if (!await db.WorkAssignments.AnyAsync(a => a.Kind == AssignmentKind.ProcurementRequest &&
+            a.ProcurementRequestId == id && a.CompletedAt == null))
+            db.WorkAssignments.Add(new WorkAssignment { Kind = AssignmentKind.ProcurementRequest, ProcurementRequestId = id,
+                AssignedToUserId = OfficerId, AssignedByUserId = OfficerId, Notes = "Claimed for sourcing review." });
+    }
+    private async Task CompleteRequestAssignment(int id)
+    {
+        var assignments = await db.WorkAssignments.Where(a => a.Kind == AssignmentKind.ProcurementRequest &&
+            a.ProcurementRequestId == id && a.AssignedToUserId == OfficerId && a.CompletedAt == null).ToListAsync();
+        assignments.ForEach(a => a.CompletedAt = DateTime.UtcNow);
+    }
+    private void RecordRequestEvent(int id, string action, WorkflowAction workflowAction, WorkflowStage to, string? reason = null)
+    {
+        Audit(action, nameof(ProcurementRequest), id.ToString());
+        db.WorkflowTransitions.Add(new WorkflowTransition { ProcurementRequestId = id, FromStage = WorkflowStage.RequestReview,
+            ToStage = to, Action = workflowAction, PerformedByUserId = OfficerId, Reason = reason ?? action });
     }
 
     [HttpGet]

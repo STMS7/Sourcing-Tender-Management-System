@@ -17,8 +17,9 @@ before merging.
 | Screen | Route | Purpose |
 | --- | --- | --- |
 | Overview | /SourcingOfficer | Live counts, recent tenders, personal task filtering and optional browser speech search |
-| Approved requests | /SourcingOfficer/Requests | Search the sourcing queue |
-| Request details | /SourcingOfficer/RequestDetails/{id} | Read the approved request, source items and start a clarification or tender |
+| Purchase requests | /SourcingOfficer/Requests | Search incoming requests and filter review/history statuses |
+| Request details | /SourcingOfficer/RequestDetails/{id} | Review items, return/reject with a message, chat or accept |
+| Accept request | /SourcingOfficer/AcceptRequest/{id} | Accept a Submitted/UnderReview request and create its draft together |
 | Create draft | /SourcingOfficer/Create?requestId={id} | Copy approved request items into a tender |
 | My tenders | /SourcingOfficer/Tenders | Search and filter by current status |
 | Edit draft | /SourcingOfficer/Edit/{id} | Change draft configuration only |
@@ -28,17 +29,40 @@ before merging.
 | Recipient inbox | /Messages | Shared inbox and response forms for department, supplier and committee accounts |
 
 State-changing actions are POST requests protected by antiforgery validation:
-Create, Edit, AddCriterion, RemoveCriterion, AddRequirement, RemoveRequirement,
+StartReview, ReturnRequest, RejectRequest, AcceptRequest, Create, Edit, AddCriterion, RemoveCriterion, AddRequirement, RemoveRequirement,
 Invite, RemoveInvitation, Publish, Close, Compliance, ForwardToEvaluation,
 AskClarification, Reply and Resolve.
 
 ## Workflow implemented
 
-1. An approved request is available when it has no active request assignment or
-   has an active assignment to the current officer. Requests assigned only to
-   another officer are hidden.
-2. Creating a draft copies the request items, sets ownership from the signed-in
-   user, and marks the source request ConvertedToTender in one transaction.
+The Department integration has its own migrated SQL checks:
+
+```powershell
+dotnet run --project tests/DepartmentSourcing.Checks --artifacts-path "$env:TEMP/stms-department-checks"
+```
+
+The 39-check preview run also covers creation of its pending preview request.
+Use `-- --preview` to retain the isolated database and print its name for a
+Staging preview. Synthetic users `requester@example.test` and
+`officer@example.test` use `Preview-Only!4729`; these accounts exist only in
+the newly generated test database. The browser callback in
+`tests/DepartmentSourcing.Checks/browser-checks.js` targets that preview at
+`http://127.0.0.1:5188` and checks 20 points across the real two-account journey,
+including mobile overflow and the revised item snapshot. Screenshots go into
+`$env:TEMP/stms-sourcing-review/request-cycle`; create that directory first.
+
+1. Department submission makes a request Submitted and notifies available officers.
+   Submitted/UnderReview and legacy Approved requests are available when unassigned
+   or assigned to the current officer. Start review claims a pending request.
+   A formal return saves Returned, a reason/review and a linked message; the
+   department can edit and resubmit to that officer. Permanent rejection prevents
+   further edit/resubmission. Returned items and rejection history remain visible
+   to their reviewing officer.
+2. Accept and create tender validates the tender form, saves an approval review,
+   copies the latest request items, sets the signed-in officer as owner, completes
+   the request assignment and marks ConvertedToTender in one transaction.
+   Opening/cancelling the form or submitting invalid data leaves it pending.
+   The legacy Create route still supports previously Approved requests.
 3. The draft contains category, terms and UTC dates. Overall technical/financial
    weights belong to the evaluation committee, not the officer form.
    The officer configures criteria, document requirements and approved suppliers.
@@ -76,8 +100,9 @@ take over committee assignment.
 
 Clarification recipients are derived on the server:
 
-- Approved request, or converted request linked to an actively sourced tender:
-  its requesting user with DepartmentRepresentative or RequestingDepartment role.
+- Submitted/UnderReview/Approved request, an officer's returned request, or a
+  converted request linked to an actively sourced tender: its requesting user
+  with DepartmentRepresentative, DepartmentRequester or RequestingDepartment role.
 - Closed or UnderEvaluation tender's submitted bid, after the opening date:
   active Supplier-role accounts belonging to that bid's supplier.
 - Closed, UnderEvaluation or AwaitingManagerReview tender: active assigned
@@ -124,7 +149,8 @@ when the team finalizes the integration.
 
 ## Policies to confirm before merge
 
-- Whether unassigned approved requests belong in a shared sourcing queue.
+- Whether the team needs manager-controlled assignment instead of the current
+  shared unassigned-request queue.
 - Whether conversion should reserve a request at draft creation, as implemented,
   or at publication. This implementation prevents duplicate conversion by
   transitioning the request in a serializable transaction.
@@ -152,12 +178,12 @@ records the sent timestamp and makes the tender available to the actual
 EvaluationCommitteeController. The send action is unavailable before closure or
 after the handoff.
 
-RequestDetails includes Chat with requesting department and Request changes in
-chat. The revision shortcut preselects the request owner and supplies a subject
-containing the source request number. Sending creates a normal clarification
-thread; it does not return or reject the request or modify its approval status.
-The department edits request data through its own workflow. The officer can read
-the latest conversation statuses from the source request and reopen the thread.
+RequestDetails includes Chat with requesting department and a distinct Return for
+changes form. Return requires a reason, records the formal Returned review/state
+and opens a linked message. Ordinary chat leaves the request state unchanged.
+The department uses its own Edit and Submit / Resubmit controls, and can reply
+through CycleChat or the shared inbox. Both use the same request communication
+scope. The officer reads review reasons and the latest conversation statuses.
 Converted source requests remain readable to their sourcing officer while the
 communication stage is active; Create tender is hidden after conversion.
 

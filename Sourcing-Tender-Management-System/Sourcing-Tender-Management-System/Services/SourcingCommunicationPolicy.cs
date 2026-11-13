@@ -15,15 +15,36 @@ public class SourcingCommunicationPolicy(ApplicationDbContext db)
             a.TenderId == t.Id && a.Kind == AssignmentKind.Tender &&
             a.AssignedToUserId == officerId && a.CompletedAt == null));
 
-    public static IQueryable<ProcurementRequest> ApprovedRequestsFor(ApplicationDbContext db, string officerId) =>
-        db.ProcurementRequests.Where(r => r.Status == ProcurementRequestStatus.Approved &&
+    private static IQueryable<ProcurementRequest> AssignmentScopedRequests(ApplicationDbContext db, string officerId) =>
+        db.ProcurementRequests.Where(r =>
             (!db.WorkAssignments.Any(a => a.ProcurementRequestId == r.Id &&
                 a.Kind == AssignmentKind.ProcurementRequest && a.CompletedAt == null) ||
              db.WorkAssignments.Any(a => a.ProcurementRequestId == r.Id &&
                 a.Kind == AssignmentKind.ProcurementRequest && a.CompletedAt == null && a.AssignedToUserId == officerId)));
 
+    public static IQueryable<ProcurementRequest> ApprovedRequestsFor(ApplicationDbContext db, string officerId) =>
+        AssignmentScopedRequests(db, officerId).Where(r => r.Status == ProcurementRequestStatus.Approved);
+
+    public static IQueryable<ProcurementRequest> ReviewableRequestsFor(ApplicationDbContext db, string officerId) =>
+        AssignmentScopedRequests(db, officerId).Where(r =>
+            r.Status == ProcurementRequestStatus.Submitted || r.Status == ProcurementRequestStatus.UnderReview);
+
+    public static IQueryable<ProcurementRequest> VisibleRequestsFor(ApplicationDbContext db, string officerId) =>
+        db.ProcurementRequests.Where(r => ApprovedRequestsFor(db, officerId).Any(a => a.Id == r.Id) ||
+            ReviewableRequestsFor(db, officerId).Any(a => a.Id == r.Id) ||
+            ((r.Status == ProcurementRequestStatus.Returned || r.Status == ProcurementRequestStatus.Rejected) &&
+                (db.ProcurementRequestReviews.Any(v => v.ProcurementRequestId == r.Id && v.ReviewerUserId == officerId) ||
+                 db.WorkAssignments.Any(a => a.Kind == AssignmentKind.ProcurementRequest && a.ProcurementRequestId == r.Id &&
+                     a.AssignedToUserId == officerId))) ||
+            (r.Status == ProcurementRequestStatus.ConvertedToTender && TendersFor(db, officerId).Any(t => t.ProcurementRequestId == r.Id)));
+
     public static IQueryable<ProcurementRequest> RequestsForCommunication(ApplicationDbContext db, string officerId) =>
         db.ProcurementRequests.Where(r => ApprovedRequestsFor(db, officerId).Any(a => a.Id == r.Id) ||
+            ReviewableRequestsFor(db, officerId).Any(a => a.Id == r.Id) ||
+            (r.Status == ProcurementRequestStatus.Returned && AssignmentScopedRequests(db, officerId).Any(a => a.Id == r.Id) &&
+                (db.ProcurementRequestReviews.Any(v => v.ProcurementRequestId == r.Id && v.ReviewerUserId == officerId) ||
+                 db.WorkAssignments.Any(a => a.Kind == AssignmentKind.ProcurementRequest && a.ProcurementRequestId == r.Id &&
+                     a.AssignedToUserId == officerId && a.CompletedAt == null))) ||
             (r.Status == ProcurementRequestStatus.ConvertedToTender && TendersFor(db, officerId).Any(t =>
                 t.ProcurementRequestId == r.Id && (t.Status == TenderStatus.Draft || t.Status == TenderStatus.Published ||
                     t.Status == TenderStatus.Closed || t.Status == TenderStatus.UnderEvaluation))));
@@ -34,7 +55,7 @@ public class SourcingCommunicationPolicy(ApplicationDbContext db)
         {
             var request = await RequestsForCommunication(db, officerId).FirstOrDefaultAsync(r => r.Id == form.ProcurementRequestId);
             if (request == null) return null;
-            return await UsersInRoles("DepartmentRepresentative", "RequestingDepartment")
+            return await UsersInRoles("DepartmentRepresentative", "DepartmentRequester", "RequestingDepartment")
                 .Where(u => u.Id == request.RequestedByUserId && u.Id != officerId).ToListAsync();
         }
         if (form.TenderId == null || form.ProcurementRequestId != null) return null;

@@ -7,16 +7,12 @@ ApplicationDbContext. No database migration is introduced by this review.
 
 ## Verified repository boundary
 
-The reviewed origin/main commit a624828 includes the officer module, authentication,
-top committee, sourcing manager and the technical/financial EvaluationCommitteeController.
-Handoff is now tested against the real evaluation controller and its authenticated
-technical and financial pages. Requesting department and supplier workflow
-controllers are still not present in that reviewed main tree.
-
-Tests verify migrated SQL schema compatibility, producer/consumer data contracts
-and actual evaluation-page receipt. They do not establish compatibility with
-teammates' unpushed request/supplier pages. Repeat the complete purchasing journey
-when those pages are available.
+This checkout integrates Raghad's DepartmentController and CycleChatController
+with the officer module. Department submission, sourcing review, formal return,
+chat reply, department edit/resubmission and acceptance into a tender are tested
+through the real controllers and authenticated browser pages. Existing evaluation
+handoff tests remain applicable. This does not establish compatibility with
+supplier pages that are absent from this checkout.
 
 ## Shared names and routes
 
@@ -26,11 +22,13 @@ when those pages are available.
 | Staff user | ApplicationUser, with DepartmentId and IsActive |
 | Supplier user | ApplicationUser, with SupplierId and IsActive |
 | Officer roles | SourcingOfficer or legacy ProcurementOfficer |
-| Requesting department role | DepartmentRepresentative; RequestingDepartment is also recognized if the team creates that role |
+| Requesting department role | DepartmentRepresentative, DepartmentRequester or RequestingDepartment |
 | Supplier role | Supplier |
 | Evaluation roles | EvaluationCommittee, SourcingManager, DepartmentRepresentative, FinancialRepresentative, TechnicalRepresentative |
 | Officer entry | /SourcingOfficer |
-| Approved request detail | /SourcingOfficer/RequestDetails/{requestId} |
+| Purchase request detail | /SourcingOfficer/RequestDetails/{requestId} |
+| Accept and create draft | GET/POST /SourcingOfficer/AcceptRequest |
+| Return for changes / reject | POST /SourcingOfficer/ReturnRequest or /SourcingOfficer/RejectRequest |
 | Tender entry | /SourcingOfficer/Details/{tenderId} |
 | Officer messages | /SourcingOfficer/Messages |
 | Recipient inbox | /Messages?conversationId={clarificationId} |
@@ -50,10 +48,16 @@ Each item needs ItemName, positive Quantity, Unit and Specifications as
 appropriate. CategoryId is optional on request items, but creating a tender
 requires choosing an existing Category.
 
-An authorized upstream review must set Status to
-ProcurementRequestStatus.Approved. The officer cannot approve a request.
-Submitted, UnderReview, Rejected and Returned requests do not enter the sourcing
-queue.
+DepartmentController creates Draft requests and submits them as Submitted,
+notifying available officers. The default officer queue includes Submitted,
+UnderReview, Returned and legacy Approved requests within its assignment scope.
+Rejected and ConvertedToTender history can be selected by status.
+StartReview claims the request and sets UnderReview. ReturnRequest requires a
+reason, sets Returned, records a ProcurementRequestReview and creates a linked
+Clarification addressed to the request owner, plus a notification. The department
+can edit Returned requests and resubmit them to the same assigned officer.
+RejectRequest records a permanent Rejected decision and message; it cannot be
+edited or resubmitted. Sending ordinary chat alone does not return a request.
 
 An active request WorkAssignment must use:
 
@@ -62,11 +66,16 @@ An active request WorkAssignment must use:
 - AssignedToUserId = an officer user.
 - CompletedAt = null.
 
-Unassigned approved requests are currently available to all officers. A request
-assigned only to another officer is excluded. Creating a draft copies source
-items into TenderItems and changes the request to ConvertedToTender atomically.
-The requesting page must read this state back; it must not reset it to Approved
-or modify an already-published tender by editing the source request.
+Unassigned Submitted/UnderReview/Approved requests are available to officers.
+A request assigned only to another officer is excluded. AcceptRequest saves the
+approval review, copies the latest request items into a Draft tender, completes
+the request assignment and sets ConvertedToTender in one serializable transaction.
+The acceptance GET and invalid POST do not approve or convert anything. The
+legacy Create route still consumes already-Approved requests. A second acceptance
+cannot create another tender. Department edit/submit rejects converted requests.
+Department accounts need an active DepartmentId for DepartmentController.
+Request conversations in both CycleChat and the officer/shared inbox use the
+same request communication policy and the named request owner.
 
 ## Sourcing to supplier
 
@@ -209,8 +218,9 @@ The officer composer derives recipients through SourcingCommunicationPolicy.
 Read access is limited to the named sender/recipient; replies recheck active
 roles, relationships and stage. No role can use the inbox as a user directory.
 
-Department messaging is available for approved requests or converted requests
-linked to tenders in Draft, Published, Closed or UnderEvaluation. Supplier
+Department messaging is available for Submitted/UnderReview/Approved requests,
+the reviewing officer's Returned requests, or converted requests linked to
+tenders in Draft, Published, Closed or UnderEvaluation. Supplier
 messaging is available after bidding closes/opens, while Closed or
 UnderEvaluation. Evaluation-member messaging is available while Closed,
 UnderEvaluation or AwaitingManagerReview. Historical threads stay readable to
@@ -226,16 +236,17 @@ The SQL checks use the actual migration chain and migration-seeded role IDs.
 The fixture mirrors the application's Identity store options, including the
 128-character key setting supplied by AddDefaultIdentity.
 
-Verified contracts include approved request conversion, supplier invitation
+Verified contracts include department submission, formal return/message,
+department edit/resubmission, atomic acceptance and legacy approved conversion, supplier invitation
 responses, bid item joins, mandatory documents, compliance/eligibility gates,
 committee membership, report arrival, stage restrictions and two-party messages.
 
 Before final team acceptance, run the real pages through:
 
-department request → authorized approval → officer tender → supplier acceptance
+department request → officer review/return and resubmission → acceptance/tender → supplier acceptance
 and bid → compliance → committee report → manager review.
 
-The remaining prerequisite is implementation of the requesting-department and
-supplier workflow pages against these contracts and agreement on the policy items already listed in
-sourcing-officer.md. Current test coverage is not proof that unimplemented
-pages are conflict-free.
+Department pages are integrated and tested. Supplier workflow pages must still
+be integrated against these contracts, and the team must agree on the policy
+items listed in sourcing-officer.md. Current test coverage is not proof that
+unimplemented pages are conflict-free.

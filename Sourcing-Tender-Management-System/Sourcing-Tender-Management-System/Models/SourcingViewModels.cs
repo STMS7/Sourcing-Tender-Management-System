@@ -4,6 +4,7 @@ namespace Sourcing_Tender_Management_System.Models;
 
 public class SourcingDashboardViewModel
 {
+    public int IncomingRequests { get; set; }
     public int ApprovedRequests { get; set; }
     public int DraftTenders { get; set; }
     public int PublishedTenders { get; set; }
@@ -23,6 +24,13 @@ public class SourcingTenderForm
     [Required, Display(Name = "Submission deadline (UTC)")] public DateTime? SubmissionDeadline { get; set; }
     [Display(Name = "Bid opening date (UTC)")] public DateTime? OpeningDate { get; set; }
     [Range(typeof(decimal), "0", "9999999999999999.99"), Display(Name = "Estimated value")] public decimal EstimatedValue { get; set; }
+    [StringLength(2000), Display(Name = "Approval note (optional)")] public string? ReviewComment { get; set; }
+}
+
+public class SourcingRequestDecisionForm
+{
+    [Range(1, int.MaxValue)] public int Id { get; set; }
+    [Required, StringLength(2000)] public string Reason { get; set; } = "";
 }
 
 public class SourcingCriterionForm
