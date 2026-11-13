@@ -5,9 +5,15 @@
     var open = tender.Status == TenderStatus.UnderEvaluation;
     var preparing = tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null;
     var offersReleased = tender.Status is TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision or TenderStatus.Awarded;
-    string RoleLabel(CommitteeMemberRole role) => role == CommitteeMemberRole.TechnicalRepresentative ? "Technical member" : "Financial member";
     string BidLabel(int? id) => Model.Bids.FirstOrDefault(b => b.Id == id) is { } b ? $"{b.Supplier.CompanyName} ({b.BidNumber})" : "Not chosen";
+    string ReviewLabel(CommitteeWeighting.ReviewState s) => s switch
+    {
+        CommitteeWeighting.ReviewState.Accepted => "Accepted",
+        CommitteeWeighting.ReviewState.Denied => "Denied",
+        _ => "Pending"
+    };
     var criteria = tender.EvaluationCriteria.Where(c => !CommitteeWeighting.IsWeightProposal(c)).OrderBy(c => c.Type).ThenBy(c => c.Name).ToList();
+    var myReview = Model.Reviews.GetValueOrDefault(Model.MyRole);
     ViewData["Title"] = "Evaluate " + tender.TenderNumber;
 }
 <div id="evaluation-details-search-results">
@@ -15,20 +21,30 @@
 <div class="sourcing-workspace py-4">
 <a asp-action="Index">Back to my tenders</a>
 <h1 class="mt-3">@tender.Title</h1>
-<p>@tender.TenderNumber · You are the <strong>@RoleLabel(Model.MyRole)</strong> · Status: <span class="status">@tender.Status</span></p>
+<p>@tender.TenderNumber · You are the <strong>@CommitteeWeighting.RoleLabel(Model.MyRole)</strong> · Status: <span class="status">@tender.Status</span></p>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "evaluation-details-search", ResultsId = "evaluation-details-search-results", Label = "Search visible bids, items and criteria" })" />
+@if (Model.SubmittedReport is { } report) {
 <section class="mb-5">
-<h2>@(preparing ? "Pre-publication approval" : "Approved evaluation weights")</h2>
+<div class="alert alert-success" role="status">All four members agreed. Report round @report.Round was sent to the sourcing officer
+@(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") + " UTC"). Chosen bid: <strong>@report.RecommendedBid?.Supplier.CompanyName (@report.RecommendedBid?.BidNumber)</strong>. Report status: @report.Status.</div>
+<pre class="preserve-lines">@report.Summary</pre>
+</section>
+}
+
+<section class="mb-5">
+<h2>@(preparing ? "Pre-publication approval (technical and financial members)" : "Approved evaluation weights")</h2>
 <p class="text-secondary">Each member proposes a technical and a financial weight (total 100%). The agreed weight of each type is the average of both members' proposals.</p>
 @if (preparing) { <p class="alert alert-info">Review the locked criteria, terms and specifications below before approving. This tender is not published and no supplier offers are shown. Both members must submit before publication.</p> }
 @if (Model.AgreedWeights is { } agreed) {
 <div class="table-responsive"><table class="table"><caption>Agreed weights are final.</caption><thead><tr><th scope="col">Member</th><th scope="col">Technical</th><th scope="col">Financial</th></tr></thead><tbody>
-@foreach (var p in Model.Proposals) { <tr><td>@RoleLabel(p.Role)</td><td>@p.Technical%</td><td>@p.Financial%</td></tr> }
+@foreach (var p in Model.Proposals) { <tr><td>@CommitteeWeighting.RoleLabel(p.Role)</td><td>@p.Technical%</td><td>@p.Financial%</td></tr> }
 <tr><th scope="row">Agreed (average)</th><th>@agreed.Technical%</th><th>@agreed.Financial%</th></tr>
 </tbody></table></div>
+} else if (Model.IsReviewer) {
+<p>Waiting for the technical and financial members to submit their weights.</p>
 } else {
 <p>Your proposal: @(Model.MyProposal is { } mine ? $"technical {mine.Technical}%, financial {mine.Financial}%" : "not submitted").
 Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both submit)" : "not submitted").</p>
@@ -46,11 +62,16 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 }
 </section>
 
-@if (offersReleased) {
+@if (open) {
 <section class="mb-5">
-<h2>Step 2 — Choose one bid</h2>
+<h2>Step 2 — Agreed bid (technical and financial members)</h2>
+@if (Model.LastDenial is { } denial) {
+<div class="alert alert-warning" role="alert">@CommitteeWeighting.RoleLabel(denial.Role) denied the previous agreed bid on @denial.At.ToString("dd MMM yyyy HH:mm") UTC. Reason: @denial.Reason. The technical and financial members must choose again.</div>
+}
 @if (Model.AgreedBidId is int agreedBid) {
-<div class="alert alert-success" role="status">Both members agreed on <strong>@BidLabel(agreedBid)</strong>.</div>
+<div class="alert alert-success" role="status">Technical and financial members agreed on <strong>@BidLabel(agreedBid)</strong>.</div>
+} else if (Model.IsReviewer) {
+<p>Waiting for the technical and financial members to agree on one bid.</p>
 } else {
 <p>Your choice: @BidLabel(Model.MyChoiceBidId). Other member: @(Model.OtherChoiceBidId == null ? "not chosen" : Model.BothChosen ? BidLabel(Model.OtherChoiceBidId) : "chosen").</p>
 @if (Model.BothChosen) { <div class="alert alert-warning" role="alert">The two members chose different bids. Discuss and change a choice until both match.</div> }
@@ -58,6 +79,33 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 }
 </section>
 
+<section class="mb-5">
+<h2>Step 3 — Sourcing manager and department decision</h2>
+@if (Model.AgreedBidId == null) {
+<p class="text-secondary">Starts after the technical and financial members agree on a bid.</p>
+} else {
+<ul>@foreach (var role in CommitteeWeighting.Reviewers) { <li>@CommitteeWeighting.RoleLabel(role): <strong>@ReviewLabel(Model.Reviews.GetValueOrDefault(role))</strong></li> }</ul>
+@if (Model.IsReviewer) {
+<p>Your decision: <strong>@ReviewLabel(myReview)</strong>. All four members must agree on the same bid before the report goes to the sourcing officer.</p>
+<div class="row g-3">
+<div class="col-md-6"><form asp-action="Review" method="post" class="form-panel">
+<input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="decision" value="accept" />
+<p>Accept <strong>@BidLabel(Model.AgreedBidId)</strong>.</p>
+<button type="submit" class="btn btn-success" disabled="@(myReview == CommitteeWeighting.ReviewState.Accepted)">Accept</button>
+</form></div>
+<div class="col-md-6"><form asp-action="Review" method="post" class="form-panel">
+<input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="decision" value="deny" />
+<label for="deny-reason" class="form-label">Reason for denying</label>
+<textarea id="deny-reason" name="reason" maxlength="900" required class="form-control mb-2" rows="2"></textarea>
+<button type="submit" class="btn btn-outline-danger">Deny — technical and financial choose again</button>
+</form></div>
+</div>
+}
+}
+</section>
+}
+
+@if (offersReleased) {
 <section class="mb-5">
 <h2>Compliant bids</h2>
 @if (Model.Bids.Count == 0) { <p class="empty-state">No compliant bids were forwarded.</p> }
@@ -75,7 +123,7 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 }
 </tbody></table></div>
 @if (bid.Documents.Count > 0) { <p><strong>Documents:</strong> @string.Join(", ", bid.Documents.Select(d => d.FileName))</p> }
-@if (open && Model.AgreedWeights != null && Model.AgreedBidId == null && bid.Id != Model.MyChoiceBidId) {
+@if (open && !Model.IsReviewer && Model.AgreedWeights != null && Model.AgreedBidId == null && bid.Id != Model.MyChoiceBidId) {
 <form asp-action="ChooseBid" method="post"><input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="bidId" value="@bid.Id" /><button type="submit" class="btn btn-primary">Choose this bid</button></form>
 }
 </article>

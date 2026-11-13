@@ -1,4 +1,5 @@
 @model List<EvaluationCommitteeTenderRow>
+@using Sourcing_Tender_Management_System.Services
 @{
     ViewData["Title"] = "Evaluation committee";
 }
@@ -6,20 +7,19 @@
 <link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
 <div class="sourcing-workspace py-4">
 <h1>Tender preparation and evaluation</h1>
-<p class="text-secondary">Approve criteria and weights while the tender is a draft. Evaluate compliant offers only after the sourcing officer completes bidding and compliance.</p>
+<p class="text-secondary">Technical and financial members approve criteria and weights while the tender is a draft. After bidding and compliance, all four members evaluate the compliant offers.</p>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "evaluation-search", ResultsId = "evaluation-search-results", Label = "Search assigned preparation and evaluation tenders" })" />
 @if (Model.Count == 0) { <p class="empty-state">No tenders are assigned to you for evaluation.</p> }
 else {
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Tender</th><th scope="col">Your role</th><th scope="col">Status</th><th scope="col">Your weights</th><th scope="col">Weights agreed</th><th scope="col">Bid agreed</th></tr></thead><tbody>
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Tender</th><th scope="col">Your role</th><th scope="col">Status</th><th scope="col">Stage</th><th scope="col">Agreed weights</th></tr></thead><tbody>
 @foreach (var row in Model) {
 <tr data-search-item><td><a asp-action="Evaluate" asp-route-id="@row.Tender.Id">@row.Tender.Title</a><br /><small>@row.Tender.TenderNumber</small></td>
-<td>@(row.Role == CommitteeMemberRole.TechnicalRepresentative ? "Technical" : "Financial")</td>
+<td>@CommitteeWeighting.RoleLabel(row.Role)</td>
 <td><span class="status">@row.Tender.Status</span></td>
-<td>@(row.MyWeightsSubmitted ? "Submitted" : "Pending")</td>
-<td>@(row.WeightsAgreed ? $"{row.Tender.TechnicalWeight}% / {row.Tender.FinancialWeight}%" : "Not yet")</td>
-<td>@(row.BidAgreed ? "Yes" : "Not yet")</td></tr>
+<td>@row.Stage @if (row.ActionNeeded) { <strong class="text-danger">· your action needed</strong> }</td>
+<td>@(CommitteeWeighting.Agree(CommitteeWeighting.ReadProposals(row.Tender.EvaluationCriteria)) is { } w ? $"{w.Technical}% / {w.Financial}%" : "Not yet")</td></tr>
 }
 </tbody></table></div>
 }
