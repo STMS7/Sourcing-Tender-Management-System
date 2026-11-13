@@ -33,6 +33,15 @@ public class SourcingRequestDecisionForm
     [Required, StringLength(2000)] public string Reason { get; set; } = "";
 }
 
+public class SourcingCommitteeForm
+{
+    [Range(1, int.MaxValue)] public int TenderId { get; set; }
+    [Required] public string ManagerUserId { get; set; } = "";
+    [Required] public string DepartmentUserId { get; set; } = "";
+    [Required] public string TechnicalUserId { get; set; } = "";
+    [Required] public string FinancialUserId { get; set; } = "";
+}
+
 public class SourcingCriterionForm
 {
     public int TenderId { get; set; }

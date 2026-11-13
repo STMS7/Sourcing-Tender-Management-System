@@ -70,7 +70,8 @@ public class SourcingCommunicationPolicy(ApplicationDbContext db)
             if (bid == null) return null;
             return await UsersInRoles("Supplier").Where(u => u.SupplierId == bid.SupplierId && u.Id != officerId).ToListAsync();
         }
-        if (tender.Status is not (TenderStatus.Closed or TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview)) return [];
+        if (!(tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview ||
+            (tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null))) return [];
         return await UsersInRoles("EvaluationCommittee", "SourcingManager", "DepartmentRepresentative", "FinancialRepresentative", "TechnicalRepresentative")
             .Where(u => u.Id != officerId && db.TenderCommitteeMembers.Any(m =>
                 m.TenderId == tender.Id && m.CommitteeType == CommitteeType.Evaluation && m.UserId == u.Id)).ToListAsync();

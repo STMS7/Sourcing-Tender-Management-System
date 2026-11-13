@@ -4,8 +4,8 @@
 }
 <link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
 <div class="sourcing-workspace py-4">
-<h1>Tenders to evaluate</h1>
-<p class="text-secondary">Tenders the sourcing officer forwarded to you as the technical or financial member of the evaluation committee.</p>
+<h1>Tender preparation and evaluation</h1>
+<p class="text-secondary">Approve criteria and weights while the tender is a draft. Evaluate compliant offers only after the sourcing officer completes bidding and compliance.</p>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 @if (Model.Count == 0) { <p class="empty-state">No tenders are assigned to you for evaluation.</p> }

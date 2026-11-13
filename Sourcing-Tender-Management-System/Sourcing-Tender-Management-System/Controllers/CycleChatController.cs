@@ -65,8 +65,9 @@ public class CycleChatController : Controller
                     w.AssignedToUserId == officerId && w.CompletedAt == null);
         }
         var tender = _db.Tenders.FirstOrDefault(t => t.Id == tenderId);
-        if (tender == null || tender.Status is not (TenderStatus.Closed or TenderStatus.UnderEvaluation or
-            TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision)) return false;
+        if (tender == null || !(tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation or
+            TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision ||
+            (tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null))) return false;
         bool OfficerOfTender(string id) => IsOfficer(id) && (tender.CreatedByUserId == id ||
             _db.WorkAssignments.Any(w => w.TenderId == tender.Id && w.Kind == AssignmentKind.Tender &&
                 w.AssignedToUserId == id && w.CompletedAt == null));
@@ -77,7 +78,8 @@ public class CycleChatController : Controller
         bool Eval(string id) => IsCommittee(id) && EvaluationMember(id);
         bool Manager(string id) => IsManager(id) && EvaluationMember(id);
         bool Top(string id) => IsTop(id) && TopMember(id);
-        if (tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation)
+        if (tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation ||
+            (tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null))
         {
             if ((OfficerOfTender(a) && Eval(b)) || (OfficerOfTender(b) && Eval(a))) return true;
             if ((Eval(a) && Manager(b)) || (Eval(b) && Manager(a))) return true;

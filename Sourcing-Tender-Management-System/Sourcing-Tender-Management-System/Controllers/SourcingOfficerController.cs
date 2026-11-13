@@ -13,7 +13,7 @@ namespace Sourcing_Tender_Management_System.Controllers;
 
 [Authorize(Roles = "ProcurementOfficer,SourcingOfficer")]
 [AutoValidateAntiforgeryToken]
-public class SourcingOfficerController(ApplicationDbContext db) : Controller
+public partial class SourcingOfficerController(ApplicationDbContext db) : Controller
 {
     private string OfficerId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     private IQueryable<Tender> MyTenders() => SourcingCommunicationPolicy.TendersFor(db, OfficerId);
@@ -286,16 +286,19 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     {
         var tender = await MyTenders().AsNoTracking().Include(t => t.Items).Include(t => t.Category)
             .Include(t => t.EvaluationCriteria).Include(t => t.DocumentRequirements)
-            .Include(t => t.Invitations).ThenInclude(i => i.Supplier)
+            .Include(t => t.Invitations).ThenInclude(i => i.Supplier).ThenInclude(s => s.SupplierCategories)
             .Include(t => t.CommitteeMembers).ThenInclude(m => m.User)
             .Include(t => t.EvaluationReports).Include(t => t.ProcurementRequest)
             .AsSplitQuery().FirstOrDefaultAsync(t => t.Id == id);
         if (tender == null) return NotFound();
         ViewBag.Suppliers = await db.Suppliers.AsNoTracking().Where(s => s.IsActive &&
             s.RegistrationStatus == SupplierRegistrationStatus.Approved &&
+            s.SupplierCategories.Any(c => c.CategoryId == tender.CategoryId) &&
             !db.TenderInvitations.Any(i => i.TenderId == id && i.SupplierId == s.Id))
             .OrderBy(s => s.CompanyName).ToListAsync();
         ViewBag.CanReadOffers = CanReadOffers(tender);
+        ViewBag.PrePublicationApproved = await EvaluationPreparation.Approved(db, tender);
+        await LoadCommitteeCandidates();
         ViewBag.Handoff = await CheckEvaluationHandoff(tender);
         ViewBag.EvaluationSentAt = await db.WorkflowTransitions.Where(w => w.TenderId == id &&
             w.FromStage == WorkflowStage.Compliance && w.ToStage == WorkflowStage.Evaluation &&
@@ -335,6 +338,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var criterion = await db.EvaluationCriteria.FirstOrDefaultAsync(c => c.Id == id && MyTenders().Any(t => t.Id == c.TenderId));
         if (criterion == null) return NotFound();
+        if (CommitteeWeighting.IsWeightProposal(criterion)) return Conflict("Committee weight proposals cannot be removed by the sourcing officer.");
         var tender = await MyTenders().FirstAsync(t => t.Id == criterion.TenderId);
         if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null) return Conflict("Criteria are locked.");
         db.EvaluationCriteria.Remove(criterion);
@@ -350,7 +354,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var tender = await MyTenders().Include(t => t.DocumentRequirements).FirstOrDefaultAsync(t => t.Id == model.TenderId);
         if (tender == null) return NotFound();
-        if (tender.Status != TenderStatus.Draft) return Conflict("Document requirements are locked.");
+        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null) return Conflict("Document requirements are locked.");
         if (string.IsNullOrWhiteSpace(model.DocumentType)) ModelState.AddModelError("", "Enter a document type.");
         if (tender.DocumentRequirements.Any(r => r.DocumentType.Equals(model.DocumentType?.Trim(), StringComparison.OrdinalIgnoreCase)))
             ModelState.AddModelError("", "This document requirement already exists.");
@@ -370,7 +374,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         var requirement = await db.TenderDocumentRequirements.FirstOrDefaultAsync(r => r.Id == id && MyTenders().Any(t => t.Id == r.TenderId));
         if (requirement == null) return NotFound();
         var tender = await MyTenders().FirstAsync(t => t.Id == requirement.TenderId);
-        if (tender.Status != TenderStatus.Draft) return Conflict("Document requirements are locked.");
+        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null) return Conflict("Document requirements are locked.");
         db.TenderDocumentRequirements.Remove(requirement);
         Log(tender, "RemoveDocumentRequirement", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
         await db.SaveChangesAsync();
@@ -387,8 +391,9 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         if (tender.Status != TenderStatus.Draft) return Conflict("Configure invitations before publishing.");
         var ids = (supplierIds ?? []).Distinct().ToArray();
         var suppliers = await db.Suppliers.Where(s => ids.Contains(s.Id) && s.IsActive &&
-            s.RegistrationStatus == SupplierRegistrationStatus.Approved).ToListAsync();
-        if (ids.Length == 0 || ids.Length != suppliers.Count) return BadRequest("Choose approved, active suppliers.");
+            s.RegistrationStatus == SupplierRegistrationStatus.Approved &&
+            s.SupplierCategories.Any(c => c.CategoryId == tender.CategoryId)).ToListAsync();
+        if (ids.Length == 0 || ids.Length != suppliers.Count) return BadRequest("Choose approved, active suppliers registered in this tender's category.");
         foreach (var supplier in suppliers.Where(s => tender.Invitations.All(i => i.SupplierId != s.Id)))
             tender.Invitations.Add(new TenderInvitation { SupplierId = supplier.Id, InvitedByUserId = OfficerId });
         Log(tender, "PrepareInvitations", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
@@ -418,22 +423,29 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var tender = await MyTenders().Include(t => t.EvaluationCriteria).Include(t => t.Items)
-            .Include(t => t.Invitations).ThenInclude(i => i.Supplier).FirstOrDefaultAsync(t => t.Id == id);
+            .Include(t => t.Invitations).ThenInclude(i => i.Supplier).ThenInclude(s => s.SupplierCategories)
+            .Include(t => t.CommitteeMembers).FirstOrDefaultAsync(t => t.Id == id);
         if (tender == null) return NotFound();
         if (tender.Status != TenderStatus.Draft) return Conflict("Only a draft can be published.");
         if (tender.SubmissionDeadline <= DateTime.UtcNow || tender.OpeningDate < tender.SubmissionDeadline ||
             tender.Items.Count == 0 || string.IsNullOrWhiteSpace(tender.TermsAndConditions))
             ModelState.AddModelError("", "Complete the terms, items and future deadline.");
         foreach (var type in Enum.GetValues<CriterionType>())
-            if (tender.EvaluationCriteria.Where(c => c.Type == type).Sum(c => c.Weight) != 100)
+            if (tender.EvaluationCriteria.Where(c => c.Type == type && !c.Name.StartsWith(CommitteeWeighting.ProposalPrefix)).Sum(c => c.Weight) != 100)
                 ModelState.AddModelError("", $"{type} criteria must total 100% within their group.");
         if (tender.Invitations.Count == 0 || tender.Invitations.Any(i => !i.Supplier.IsActive ||
-            i.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved))
-            ModelState.AddModelError("", "Select at least one supplier. Every selected supplier must still be approved and active.");
+            i.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved ||
+            !i.Supplier.SupplierCategories.Any(c => c.CategoryId == tender.CategoryId)))
+            ModelState.AddModelError("", "Select at least one supplier. Every selected supplier must be approved, active and registered in this tender's category.");
+        if (!await EvaluationPreparation.Approved(db, tender))
+            ModelState.AddModelError("", "Obtain technical and financial approval of the locked criteria and weights before publication.");
+        foreach (var issue in await EvaluationPreparation.MemberIssues(db, tender)) ModelState.AddModelError("", issue);
+        if (await db.Bids.AnyAsync(b => b.TenderId == id))
+            ModelState.AddModelError("", "A draft containing offers cannot be published through preparation.");
         if (!ModelState.IsValid) return FormError(id);
         tender.Status = TenderStatus.Published;
         tender.PublishedAt = DateTime.UtcNow;
-        tender.EvaluationCriteriaLockedAt = DateTime.UtcNow;
+        // Preserve the earlier preparation lock used by the committee approval.
         foreach (var invitation in tender.Invitations)
         {
             invitation.InvitedAt = DateTime.UtcNow;
@@ -509,7 +521,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var bid = await SubmittedOffers(db.Bids).Include(b => b.Tender).ThenInclude(t => t.DocumentRequirements)
-            .Include(b => b.Tender).ThenInclude(t => t.Items).Include(b => b.Supplier)
+            .Include(b => b.Tender).ThenInclude(t => t.Items).Include(b => b.Supplier).ThenInclude(s => s.SupplierCategories)
             .Include(b => b.Items).Include(b => b.Documents)
             .FirstOrDefaultAsync(b => b.Id == model.BidId && MyTenders().Any(t => t.Id == b.TenderId));
         if (bid == null) return NotFound();
@@ -545,7 +557,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var tender = await MyTenders().Include(t => t.Items).Include(t => t.DocumentRequirements)
-            .Include(t => t.CommitteeMembers).ThenInclude(m => m.User).FirstOrDefaultAsync(t => t.Id == id);
+            .Include(t => t.CommitteeMembers).ThenInclude(m => m.User).Include(t => t.EvaluationCriteria).FirstOrDefaultAsync(t => t.Id == id);
         if (tender == null) return NotFound();
         if (tender.Status != TenderStatus.Closed || !CanReadOffers(tender)) return Conflict("Complete the bidding stage first.");
         var readiness = await CheckEvaluationHandoff(tender);
@@ -713,7 +725,8 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         else
         {
             page.Contexts = await MyTenders().AsNoTracking().Where(t => t.Status == TenderStatus.Closed ||
-                t.Status == TenderStatus.UnderEvaluation || t.Status == TenderStatus.AwaitingManagerReview)
+                t.Status == TenderStatus.UnderEvaluation || t.Status == TenderStatus.AwaitingManagerReview ||
+                (t.Status == TenderStatus.Draft && t.EvaluationCriteriaLockedAt != null))
                 .OrderByDescending(t => t.CreatedAt).Select(t => new SourcingMessageContext
                 { Key = "tender:" + t.Id, Label = t.TenderNumber + " — " + t.Title }).ToListAsync();
             threads = threads.Where(c => c.TenderId != null && c.BidId == null && c.ProcurementRequestId == null);
@@ -773,8 +786,10 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
             result.Issues.Add("Receive supplier offers, close bidding after its deadline and wait for the opening date before sending to evaluation.");
             return result;
         }
+        if (!await EvaluationPreparation.Approved(db, tender))
+            result.Issues.Add("This tender has no valid pre-publication approval of criteria and weights. Do not change weights after bids; resolve the legacy tender through the team's documented procedure.");
         var bids = await SubmittedOffers(db.Bids).Where(b => b.TenderId == tender.Id)
-            .Include(b => b.Supplier).Include(b => b.Items).Include(b => b.Documents).AsSplitQuery().ToListAsync();
+            .Include(b => b.Supplier).ThenInclude(s => s.SupplierCategories).Include(b => b.Items).Include(b => b.Documents).AsSplitQuery().ToListAsync();
         result.SubmittedOffers = bids.Count;
         result.CompliantOffers = bids.Count(b => b.ComplianceStatus == ComplianceDecision.Compliant);
         if (bids.Count == 0 || result.CompliantOffers == 0)
@@ -786,21 +801,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         foreach (var bid in bids.Where(b => b.ComplianceStatus == ComplianceDecision.Compliant))
             if (SourcingBidEligibility.Failure(tender, bid, accepted.Contains(bid.SupplierId)) is string failure)
                 result.Issues.Add($"{bid.BidNumber}: {failure}");
-        var members = tender.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation).ToList();
-        var positions = new[] { CommitteeMemberRole.SourcingManager, CommitteeMemberRole.DepartmentRepresentative,
-            CommitteeMemberRole.FinancialRepresentative, CommitteeMemberRole.TechnicalRepresentative };
-        if (members.Count != 4 || members.Select(m => m.UserId).Distinct().Count() != 4 ||
-            members.Any(m => !m.User.IsActive) || positions.Any(role => !members.Any(m => m.RoleType == role)))
-            result.Issues.Add("Assign four active evaluation members: sourcing manager, department, financial and technical representatives.");
-        var memberIds = members.Select(m => m.UserId).ToList();
-        var roles = await (from assignment in db.UserRoles
-            join role in db.Roles on assignment.RoleId equals role.Id
-            where memberIds.Contains(assignment.UserId)
-            select new { assignment.UserId, role.Name }).ToListAsync();
-        foreach (var member in members.Where(m => m.RoleType != null))
-            if (!roles.Any(r => r.UserId == member.UserId && (r.Name == member.RoleType.ToString() ||
-                (member.RoleType == CommitteeMemberRole.DepartmentRepresentative && r.Name == "RequestingDepartment"))))
-                result.Issues.Add($"{member.User.FullName} needs the {member.RoleType} account role to receive this handoff.");
+        result.Issues.AddRange(await EvaluationPreparation.MemberIssues(db, tender));
         return result;
     }
     private void Audit(string action, string entity, string? id) =>

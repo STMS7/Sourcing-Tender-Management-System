@@ -3,6 +3,8 @@
 @{
     var tender = Model.Tender;
     var open = tender.Status == TenderStatus.UnderEvaluation;
+    var preparing = tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null;
+    var offersReleased = tender.Status is TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision or TenderStatus.Awarded;
     string RoleLabel(CommitteeMemberRole role) => role == CommitteeMemberRole.TechnicalRepresentative ? "Technical member" : "Financial member";
     string BidLabel(int? id) => Model.Bids.FirstOrDefault(b => b.Id == id) is { } b ? $"{b.Supplier.CompanyName} ({b.BidNumber})" : "Not chosen";
     var criteria = tender.EvaluationCriteria.Where(c => !CommitteeWeighting.IsWeightProposal(c)).OrderBy(c => c.Type).ThenBy(c => c.Name).ToList();
@@ -17,8 +19,9 @@
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 
 <section class="mb-5">
-<h2>Step 1 — Weights</h2>
+<h2>@(preparing ? "Pre-publication approval" : "Approved evaluation weights")</h2>
 <p class="text-secondary">Each member proposes a technical and a financial weight (total 100%). The agreed weight of each type is the average of both members' proposals.</p>
+@if (preparing) { <p class="alert alert-info">Review the locked criteria, terms and specifications below before approving. This tender is not published and no supplier offers are shown. Both members must submit before publication.</p> }
 @if (Model.AgreedWeights is { } agreed) {
 <div class="table-responsive"><table class="table"><caption>Agreed weights are final.</caption><thead><tr><th scope="col">Member</th><th scope="col">Technical</th><th scope="col">Financial</th></tr></thead><tbody>
 @foreach (var p in Model.Proposals) { <tr><td>@RoleLabel(p.Role)</td><td>@p.Technical%</td><td>@p.Financial%</td></tr> }
@@ -27,19 +30,21 @@
 } else {
 <p>Your proposal: @(Model.MyProposal is { } mine ? $"technical {mine.Technical}%, financial {mine.Financial}%" : "not submitted").
 Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both submit)" : "not submitted").</p>
-@if (open) {
+@if (preparing) {
 <form asp-action="SubmitWeights" method="post" class="form-panel">
 <input type="hidden" name="tenderId" value="@tender.Id" />
 <div class="row g-3">
 <div class="col-md-4"><label for="technicalWeight" class="form-label">Technical weight (%)</label><input id="technicalWeight" name="technicalWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Technical" /></div>
 <div class="col-md-4"><label for="financialWeight" class="form-label">Financial weight (%)</label><input id="financialWeight" name="financialWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Financial" /></div>
 </div>
-<div class="actions mt-3"><button type="submit" class="btn btn-primary">@(Model.MyProposal == null ? "Submit weights" : "Update weights")</button></div>
+<p class="small mt-3">Submitting confirms your approval of the displayed criteria and your proposed weight split.</p>
+<div class="actions mt-3"><button type="submit" class="btn btn-primary">@(Model.MyProposal == null ? "Approve criteria and submit weights" : "Update preparation approval")</button></div>
 </form>
 }
 }
 </section>
 
+@if (offersReleased) {
 <section class="mb-5">
 <h2>Step 2 — Choose one bid</h2>
 @if (Model.AgreedBidId is int agreedBid) {
@@ -75,10 +80,23 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 }
 </section>
 
+} else {
+    <p class="text-secondary">Supplier offers stay sealed until bidding closes, compliance is completed and the sourcing officer forwards them for evaluation.</p>
+}
+<section class="mb-5">
+<h2>Preparation details</h2>
+<p class="preserve-lines">@tender.Description</p>
+<p><strong>Deadline:</strong> @tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</p>
+<p class="preserve-lines"><strong>Terms:</strong> @tender.TermsAndConditions</p>
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Specifications</th></tr></thead><tbody>
+@foreach (var item in tender.Items) { <tr><td>@item.ItemName</td><td>@item.Quantity @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
+</tbody></table></div>
+<p><strong>Required documents:</strong> @(tender.DocumentRequirements.Count == 0 ? "None configured" : string.Join(", ", tender.DocumentRequirements.Select(d => d.DocumentType + (d.IsMandatory ? " (mandatory)" : " (optional)"))))</p>
+</section>
 @if (criteria.Count > 0) {
 <section class="mb-5">
 <h2>Tender evaluation criteria</h2>
-<ul>@foreach (var c in criteria) { <li>@c.Name (@c.Type, @c.Weight%)</li> }</ul>
+<ul>@foreach (var c in criteria) { <li><strong>@c.Name</strong> (@c.Type, @c.Weight%, maximum score @c.MaximumScore)<p class="preserve-lines">@c.Description</p></li> }</ul>
 </section>
 }
 </div>

@@ -13,7 +13,7 @@
     <p class="small text-secondary">Enter dates in UTC. If no opening date is specified, bids may be opened after the deadline and closure.</p>
     <div class="mb-3"><label asp-for="TermsAndConditions" class="form-label"></label><textarea asp-for="TermsAndConditions" class="form-control" rows="5" placeholder="Quality specifications, delivery conditions, payment requirements…"></textarea><span asp-validation-for="TermsAndConditions" class="text-danger"></span></div>
     <div class="mb-3"><label asp-for="EstimatedValue" class="form-label"></label><input asp-for="EstimatedValue" type="number" min="0" step=".01" class="form-control" /></div>
-    <p class="small text-secondary">The technical and financial evaluation committee determines the overall evaluation weights. Agreed weights will appear in the tender details.</p>
+    <p class="small text-secondary">The technical and financial members approve criteria and overall evaluation weights before publication. Request their approval from the tender details after preparing the draft.</p>
     @if (accepting) { <div class="mb-3"><label asp-for="ReviewComment" class="form-label"></label><textarea asp-for="ReviewComment" class="form-control" rows="3" maxlength="2000"></textarea><span asp-validation-for="ReviewComment" class="text-danger"></span></div> }
     <div class="actions"><button class="btn btn-primary" type="submit">@(accepting ? "Accept and create draft" : "Save draft")</button><a class="btn btn-link" asp-action="@(editing ? "Details" : accepting ? "RequestDetails" : "Requests")" asp-route-id="@(editing ? Model.Id : accepting ? Model.ProcurementRequestId : (int?)null)">Cancel</a></div>
 </form>

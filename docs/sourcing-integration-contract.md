@@ -79,7 +79,10 @@ same request communication policy and the named request owner.
 
 ## Sourcing to supplier
 
-The officer reads approved, active Supplier records. Supplier accounts must
+The officer reads approved, active Supplier records with a SupplierCategory
+link matching Tender.CategoryId. Missing category links never imply eligibility.
+The picker and Invite/Publish actions enforce this; compliance and handoff
+recheck it. The supplier registration/profile module must persist those links. Supplier accounts must
 reference Supplier.Id through ApplicationUser.SupplierId. A user ID is not a
 supplier company ID.
 
@@ -90,7 +93,7 @@ suppliers as live invitations.
 For actionable participation, supplier pages must verify:
 
 - The signed-in account belongs to the invitation's SupplierId.
-- The supplier is approved and active.
+- The supplier is approved, active and linked to the tender category.
 - Tender.Status is Published and the UTC deadline has not elapsed.
 - The invitation is eligible and has not been declined/expired.
 
@@ -150,6 +153,8 @@ The officer download handler enforces transaction access independently.
 
 ## Evaluation and manager handoff
 
+POST AssignEvaluationCommittee can select existing users on an unlocked draft.
+The team may also populate the same memberships through its shared module.
 Committee assignment must create four active, distinct TenderCommitteeMembers
 with CommitteeType.Evaluation and the following RoleType values:
 
@@ -165,7 +170,7 @@ with Kind.Tender and TenderId.
 Each committee position also needs its matching Identity role. The handoff
 checks this so TechnicalRepresentative and FinancialRepresentative accounts can
 actually open the receiving evaluation pages. The department position also
-recognizes RequestingDepartment where the team uses that role alias.
+recognizes DepartmentRequester and RequestingDepartment role aliases.
 
 Successful officer handoff sets Tender.Status to UnderEvaluation and creates
 committee notifications/tasks. The evaluation page must select the tender's
@@ -183,22 +188,38 @@ Status.PendingManagerReview, SubmittedAt in UTC, and
 TenderStatus.AwaitingManagerReview. The officer tracking screen reads those
 fields directly. A manager's subsequent decisions belong to the manager module.
 
-Officer edits to scoring criteria lock at publication through
-EvaluationCriteriaLockedAt. Supplier pages must not change those criteria.
-The existing weighting convention is 100% within each criterion group.
-The overall TechnicalWeight/FinancialWeight split belongs to the technical and
-financial committee, and is not part of the officer's Create/Edit input contract.
-Officer pages display pending until both evaluators submit complete proposals,
-then show the averaged agreed split read-only. Existing numeric defaults in the entity are not
-evidence of an agreed evaluation decision.
+## Pre-publication approval contract
 
-The current committee implementation independently stores proposal metadata in
-__weight: EvaluationCriterion rows and writes agreed group weights during
-evaluation. That existing team behavior is not changed by the officer-cycle
-correction. Officer criterion input now rejects that reserved prefix. The team
-still needs to reconcile the committee proposal timing with the brief's
-pre-approved-weight requirement; it is not a policy the officer module can
-approve on its own.
+1. Populate items, terms, future dates, technical and financial criteria totalling
+   100% within each group, document requirements and the four committee members.
+2. POST /SourcingOfficer/RequestWeightApproval locks the Draft using
+   EvaluationCriteriaLockedAt and notifies the technical/financial members.
+   Tender.Status stays Draft. This is preparation approval, not bid handoff.
+3. /EvaluationCommittee/Evaluate/{id} shows locked preparation to its assigned
+   active technical/financial user, with no supplier offers. Each submits
+   POST /EvaluationCommittee/SubmitWeights with tenderId, technicalWeight and
+   financialWeight. Each pair must total 100%; the existing averaging convention
+   is preserved. Submitting also approves the displayed locked criteria.
+4. The existing __weight: EvaluationCriterion rows hold proposals. Workflow
+   records bind each approval to the current member and preparation lock time.
+   A combined approval event is recorded when both have submitted. No migration
+   or new persisted field is required. These rows are excluded from criterion
+   totals and cannot be created/deleted through the officer's criterion forms.
+5. Publish verifies the agreed pair matches stored tender weights, both current
+   members have approval evidence since the lock and before publication, all
+   four members retain their roles, and selected suppliers match the category.
+6. ReopenPreparation works only on unpublished drafts without bids. It removes
+   proposals, clears the lock and notifies members. Old history remains for audit
+   but cannot approve the newer preparation. Committee assignment, criteria,
+   terms and dates must remain unchanged during approval; reopen first to edit.
+7. SubmitWeights refuses published tenders and any tender already containing
+   bids. Published/Closed committee pages show no offer contents. Only the later
+   compliance handoff exposes compliant offers for evaluation.
+
+Legacy numeric defaults and post-bid proposals are not evidence of approval
+before publication. Existing published tenders without valid evidence are
+flagged, not silently rewritten or backdated; follow the team's documented
+legacy-tender procedure. The officer cannot choose a winner by changing weights.
 
 ## Messages
 
@@ -223,7 +244,8 @@ the reviewing officer's Returned requests, or converted requests linked to
 tenders in Draft, Published, Closed or UnderEvaluation. Supplier
 messaging is available after bidding closes/opens, while Closed or
 UnderEvaluation. Evaluation-member messaging is available while Closed,
-UnderEvaluation or AwaitingManagerReview. Historical threads stay readable to
+UnderEvaluation or AwaitingManagerReview, plus locked Draft preparation for
+committee clarification. Historical threads stay readable to
 their participants after the active window; new replies are blocked.
 
 Send recipient users to /Messages. Officer accounts are redirected to their
