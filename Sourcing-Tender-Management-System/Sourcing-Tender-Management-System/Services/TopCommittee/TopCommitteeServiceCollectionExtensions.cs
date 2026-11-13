@@ -1,3 +1,5 @@
+using Sourcing_Tender_Management_System.Services.Reports;
+
 namespace Sourcing_Tender_Management_System.Services.TopCommittee;
 
 public static class TopCommitteeServiceCollectionExtensions
@@ -8,6 +10,7 @@ public static class TopCommitteeServiceCollectionExtensions
         services.AddScoped<ITopCommitteeService, TopCommitteeService>();
         services.AddScoped<ITopCommitteeVotingService, TopCommitteeVotingService>();
         services.AddScoped<ITopCommitteeStatisticsService, TopCommitteeStatisticsService>();
+        services.AddReports(); // the reports pages (/Reports) live in this module's folders too
         return services;
     }
 }
