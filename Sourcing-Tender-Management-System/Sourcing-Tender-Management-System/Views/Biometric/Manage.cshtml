@@ -1,0 +1,92 @@
+@model BiometricManageViewModel
+@{
+    ViewData["Title"] = "My biometrics";
+}
+
+<div id="bio-root" data-return-url="/">
+    @Html.AntiForgeryToken()
+
+    <h1 class="h3 mb-3">My biometrics</h1>
+    <div id="bio-status" class="alert alert-info">
+        Register a fingerprint device or your face to sign in without typing a password.
+        Your password keeps working too.
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">Fingerprint devices</div>
+                <div class="card-body">
+                    @if (Model.Passkeys.Count == 0)
+                    {
+                        <p class="text-muted">No device registered yet.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-group mb-3">
+                        @foreach (var p in Model.Passkeys)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold">@p.Label</div>
+                                    <div class="small text-muted">
+                                        Added @p.AddedAt.ToString("yyyy-MM-dd") |
+                                        @(p.LastUsedAt is { } used ? "last used " + used.ToString("yyyy-MM-dd") : "never used")
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-remove-passkey="@p.Id">Remove</button>
+                            </li>
+                        }
+                        </ul>
+                    }
+                    <div class="input-group">
+                        <input id="passkeyLabel" type="text" class="form-control" maxlength="150" placeholder="Name this device (for example: My phone)" />
+                        <button id="btnPasskeyRegister" type="button" class="btn btn-primary">Register fingerprint</button>
+                    </div>
+                    <div class="form-text mt-2">
+                        If this computer has no fingerprint reader or Windows Hello, choose
+                        "Use a phone or tablet" in the window that opens, scan the QR code with your phone,
+                        and confirm with the phone's fingerprint.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">Face recognition</div>
+                <div class="card-body">
+                    <p>
+                        @if (Model.FaceTemplateCount == 0)
+                        {
+                            <span class="text-muted">No face registered yet.</span>
+                        }
+                        else
+                        {
+                            <span>@Model.FaceTemplateCount face sample(s) stored (encrypted, no photo is kept).</span>
+                        }
+                    </p>
+                    <div class="form-check mb-3">
+                        <input id="faceReplace" class="form-check-input" type="checkbox" checked />
+                        <label class="form-check-label" for="faceReplace">Replace my existing face samples</label>
+                    </div>
+                    <button id="btnFaceEnroll" type="button" class="btn btn-primary">Register my face</button>
+                    @if (Model.FaceTemplateCount > 0)
+                    {
+                        <button id="btnFaceRemove" type="button" class="btn btn-outline-danger ms-2">Remove</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="facePanel" class="d-none text-center mt-4">
+        <video id="faceVideo" playsinline muted autoplay
+               style="width:100%;max-width:360px;border-radius:.5rem;transform:scaleX(-1);background:#000"></video>
+        <div id="faceHint" class="fw-semibold mt-2"></div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/biometric/biometric.js" asp-append-version="true"></script>
+}

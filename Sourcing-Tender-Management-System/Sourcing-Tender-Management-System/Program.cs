@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
+using Sourcing_Tender_Management_System.Data.Seed;
+using Sourcing_Tender_Management_System.Services.TopCommittee;
 using Sourcing_Tender_Management_System.Models;
 
 namespace Sourcing_Tender_Management_System
@@ -47,6 +49,8 @@ namespace Sourcing_Tender_Management_System
                 };
             });
             builder.Services.AddControllersWithViews();
+            builder.Services.AddTopCommittee();
+            builder.Services.AddBiometrics(builder.Configuration);
 
             var app = builder.Build();
 
@@ -56,6 +60,7 @@ namespace Sourcing_Tender_Management_System
             if (app.Environment.IsDevelopment())
             {
                 app.UseMigrationsEndPoint();
+                TopCommitteeDevSeeder.SeedAsync(app.Services).GetAwaiter().GetResult();
             }
             else
             {

@@ -1,0 +1,104 @@
+@model TopCommitteeDashboardViewModel
+@{
+    ViewData["Title"] = "Top Committee";
+}
+
+<h1 class="h3 mb-3">Top Committee</h1>
+<partial name="_Nav" model="@("Index")" />
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100"><div class="card-body">
+            <div class="display-6">@Model.AwaitingDecisionCount</div>
+            <div class="text-muted">Awaiting decision</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100 @(Model.MyPendingVotesCount > 0 ? "border-warning" : "")"><div class="card-body">
+            <div class="display-6">@Model.MyPendingVotesCount</div>
+            <div class="text-muted">Waiting for my vote</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100"><div class="card-body">
+            <div class="display-6">@Model.DecidedCount</div>
+            <div class="text-muted">Decided so far</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100"><div class="card-body">
+            <div class="display-6">@Model.AwaitingTotalEstimatedValue.ToString("N0")</div>
+            <div class="text-muted">Estimated value awaiting</div>
+        </div></div>
+    </div>
+</div>
+
+<h2 class="h5">Tenders awaiting the committee's decision</h2>
+@if (Model.AwaitingTenders.Count == 0)
+{
+    <div class="alert alert-secondary">Nothing is waiting for a decision.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Tender</th>
+                    <th>Category</th>
+                    <th class="text-end">Estimated value</th>
+                    <th class="text-center">Bids</th>
+                    <th>Recommended supplier</th>
+                    <th class="text-center">Votes</th>
+                    <th>My vote</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var t in Model.AwaitingTenders)
+            {
+                <tr>
+                    <td>
+                        <div class="fw-semibold">@t.TenderNumber</div>
+                        <div class="small text-muted">@t.Title</div>
+                        @if (t.Round > 1)
+                        {
+                            <span class="badge text-bg-secondary">Round @t.Round</span>
+                        }
+                    </td>
+                    <td>@t.CategoryName</td>
+                    <td class="text-end">@t.EstimatedValue.ToString("N2")</td>
+                    <td class="text-center">@t.BidCount</td>
+                    <td>
+                        @if (t.RecommendedSupplierName is not null)
+                        {
+                            <div>@t.RecommendedSupplierName</div>
+                            <div class="small text-muted">@t.RecommendedAmount?.ToString("N2")</div>
+                        }
+                        else
+                        {
+                            <span class="text-muted">-</span>
+                        }
+                    </td>
+                    <td class="text-center">@t.VotesCast / @t.VotesTotal</td>
+                    <td>
+                        @if (t.MyVote is { } mine)
+                        {
+                            <partial name="_Badge" model="@mine.ToString()" />
+                        }
+                        else
+                        {
+                            <span class="text-muted">not a member</span>
+                        }
+                    </td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-primary" asp-action="Details" asp-route-id="@t.TenderId">
+                            @(t.MyVote == CommitteeDecision.Pending ? "Review and vote" : "Review")
+                        </a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

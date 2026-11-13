@@ -1,0 +1,77 @@
+@model TopCommitteeHistoryViewModel
+@{
+    ViewData["Title"] = "Decision history";
+}
+
+<h1 class="h3 mb-3">Top Committee</h1>
+<partial name="_Nav" model="@("History")" />
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-sm-8 col-md-5">
+        <input type="search" name="search" value="@Model.Search" class="form-control"
+               placeholder="Search by tender number or title" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-primary" type="submit">Search</button>
+        @if (!string.IsNullOrEmpty(Model.Search))
+        {
+            <a class="btn btn-link" asp-action="History">Clear</a>
+        }
+    </div>
+</form>
+
+@if (Model.Decisions.Count == 0)
+{
+    <div class="alert alert-secondary">No decisions found.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Tender</th>
+                    <th>Decided</th>
+                    <th>Outcome</th>
+                    <th class="text-center">Approve / Reject / Return</th>
+                    <th>Recommended supplier</th>
+                    <th>Awarded to</th>
+                    <th>Tender status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var d in Model.Decisions)
+            {
+                <tr>
+                    <td>
+                        <div class="fw-semibold">@d.TenderNumber</div>
+                        <div class="small text-muted">@d.Title</div>
+                        @if (d.Round > 1)
+                        {
+                            <span class="badge text-bg-secondary">Round @d.Round</span>
+                        }
+                    </td>
+                    <td>@d.DecidedAt?.ToString("yyyy-MM-dd")</td>
+                    <td><partial name="_Badge" model="@d.Outcome.ToString()" /></td>
+                    <td class="text-center">@d.ApprovedVotes / @d.RejectedVotes / @d.ReturnedVotes</td>
+                    <td>@(d.RecommendedSupplierName ?? "-")</td>
+                    <td>
+                        @if (d.AwardedSupplierName is not null)
+                        {
+                            <div>@d.AwardedSupplierName</div>
+                            <div class="small text-muted">@d.AwardedAmount?.ToString("N2")</div>
+                        }
+                        else
+                        {
+                            <span class="text-muted">-</span>
+                        }
+                    </td>
+                    <td><partial name="_Badge" model="@d.TenderStatus.ToString()" /></td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@d.TenderId">Details</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
