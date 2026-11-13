@@ -1,0 +1,21 @@
+@using Sourcing_Tender_Management_System.Models.Reports
+@model ReportDocument
+@{
+    ViewData["Title"] = Model.Title;
+    var id = (int)(Context.Request.RouteValues["id"] is string s && int.TryParse(s, out var parsed) ? parsed : 0);
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <a asp-action="Show" asp-route-kind="Tenders" class="small">&larr; Tender reports</a>
+        <h1 class="h3 mb-1">@Model.Title</h1>
+        <div class="text-muted">@Model.Description</div>
+        <div class="text-muted small">Generated @Model.GeneratedAt.ToString("yyyy-MM-dd HH:mm") UTC</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-success" asp-action="TenderExcel" asp-route-id="@id">Download Excel</a>
+        <a class="btn btn-danger" asp-action="TenderPdf" asp-route-id="@id">Download PDF</a>
+    </div>
+</div>
+
+<partial name="_ReportBody" model="Model" />

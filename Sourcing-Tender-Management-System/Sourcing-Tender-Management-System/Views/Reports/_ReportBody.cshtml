@@ -1,0 +1,93 @@
+@using Sourcing_Tender_Management_System.Models.Reports
+@using Sourcing_Tender_Management_System.Services.Reports
+@model ReportDocument
+@{ var doc = Model; }
+
+<div class="row g-3 mb-4">
+    @foreach (var tile in doc.Tiles)
+    {
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card text-center h-100"><div class="card-body">
+                <div class="h4 mb-0">@tile.Value</div>
+                <div class="text-muted small">@tile.Label</div>
+            </div></div>
+        </div>
+    }
+</div>
+
+@if (doc.Charts.Count > 0)
+{
+    <div class="row g-3 mb-4">
+        @foreach (var chart in doc.Charts)
+        {
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">@chart.Title</h2>
+                        @foreach (var point in chart.Points)
+                        {
+                            var percent = chart.Max == 0 ? 0 : Math.Max(2, (int)Math.Round(point.Value / chart.Max * 100));
+                            var valueText = ReportExporter.FormatChartValue(point.Value, chart.Unit);
+                            <div class="d-flex align-items-center gap-2 mb-1 small">
+                                <div class="text-truncate" style="width:34%" title="@point.Label">@point.Label</div>
+                                <div class="flex-grow-1 bg-light rounded"><div class="bg-primary rounded" style="width:@(percent)%;height:14px" role="img" aria-label="@point.Label: @valueText"></div></div>
+                                <div class="text-end text-nowrap" style="min-width:72px">@valueText</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@foreach (var table in doc.Tables)
+{
+    <section class="mb-4">
+        <h2 class="h5 mb-1">@table.Title <span class="badge text-bg-light">@table.Rows.Count</span></h2>
+        @if (!string.IsNullOrWhiteSpace(table.Note))
+        {
+            <div class="text-muted small mb-1">@table.Note</div>
+        }
+
+        @if (table.Rows.Count == 0)
+        {
+            <div class="text-muted">No data to show.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-hover align-middle">
+                    <thead>
+                        <tr>
+                            @for (var c = 0; c < table.Columns.Count; c++)
+                            {
+                                <th class="@(table.IsNumericColumn(c) ? "text-end" : "")">@table.Columns[c]</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in table.Rows)
+                        {
+                            <tr>
+                                @for (var c = 0; c < table.Columns.Count; c++)
+                                {
+                                    var value = c < row.Length ? row[c] : null;
+                                    var numeric = table.IsNumericColumn(c);
+                                    if (value is ReportLink link)
+                                    {
+                                        <td><a asp-controller="Reports" asp-action="@link.Action" asp-route-id="@link.Id">@link.Text</a></td>
+                                    }
+                                    else
+                                    {
+                                        <td class="@(numeric ? "text-end" : "")">@(numeric && value is null ? "-" : ReportExporter.Format(value))</td>
+                                    }
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
