@@ -1,0 +1,28 @@
+@* Fingerprint and face sign-in options for the sign-in page.
+   Included from Views/Auth/Login.cshtml with a single line:
+       <partial name="~/Views/Biometric/_LoginOptions.cshtml" />
+   Everything else (markup, script, behaviour) lives in the biometric module. The page that includes it
+   only needs an email box with id "Email" (used by face sign-in) and a form with an anti-forgery token. *@
+@{
+    // The page the person wanted before being asked to sign in; the server only follows local addresses.
+    var returnUrl = Context.Request.Query["returnUrl"].ToString();
+}
+<div id="bio-root" data-return-url="@returnUrl" class="col-md-5 mt-4 px-0">
+    <hr />
+    <h2 class="h5">Or sign in with</h2>
+    <div id="bio-status" class="alert d-none" role="alert"></div>
+    <div class="d-grid gap-2">
+        <button id="btnPasskeyLogin" type="button" class="btn btn-outline-primary">Fingerprint</button>
+        <button id="btnFaceLogin" type="button" class="btn btn-outline-primary">Face recognition</button>
+    </div>
+    <div class="form-text mt-2">
+        Fingerprint uses your device (or your phone through a QR code) and needs no email.
+        For face recognition, type your email above first.
+    </div>
+    <div id="facePanel" class="d-none text-center mt-3">
+        <video id="faceVideo" playsinline muted autoplay
+               style="width:100%;max-width:360px;border-radius:.5rem;transform:scaleX(-1);background:#000"></video>
+        <div id="faceHint" class="fw-semibold mt-2"></div>
+    </div>
+</div>
+<script src="~/biometric/biometric.js" asp-append-version="true"></script>

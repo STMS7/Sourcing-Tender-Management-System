@@ -1,0 +1,12 @@
+@model string
+@{
+    var css = Model switch
+    {
+        "Approved" or "Awarded" or "Accepted" or "Compliant" or "Success" => "text-bg-success",
+        "Rejected" or "Cancelled" or "NonCompliant" or "Disqualified" => "text-bg-danger",
+        "Pending" or "UnderEvaluation" or "PendingClarification" => "text-bg-warning",
+        "ReturnedForRevision" or "ReturnedForDetails" => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+}
+<span class="badge @css">@Model</span>
