@@ -18,11 +18,17 @@ namespace Sourcing_Tender_Management_System
                 options.UseSqlServer(connectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-            builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+            builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
+                {
+                    options.SignIn.RequireConfirmedAccount = true;
+                    options.User.RequireUniqueEmail = true;
+                })
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>();
             builder.Services.ConfigureApplicationCookie(options =>
             {
+                options.LoginPath = "/Auth/Login";
+                options.AccessDeniedPath = "/Auth/AccessDenied";
                 options.Events.OnValidatePrincipal = async context =>
                 {
                     await SecurityStampValidator.ValidatePrincipalAsync(context);
@@ -30,7 +36,10 @@ namespace Sourcing_Tender_Management_System
 
                     var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
                     var user = await userManager.GetUserAsync(context.Principal);
-                    if (user is null || !user.IsActive)
+                    var supplierApproved = user?.SupplierId is null || await context.HttpContext.RequestServices
+                        .GetRequiredService<ApplicationDbContext>().Suppliers.AsNoTracking()
+                        .AnyAsync(x => x.Id == user.SupplierId && x.IsActive && x.RegistrationStatus == SupplierRegistrationStatus.Approved);
+                    if (user is null || !user.IsActive || !supplierApproved)
                     {
                         context.RejectPrincipal();
                         await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
@@ -58,18 +67,24 @@ namespace Sourcing_Tender_Management_System
             app.UseHttpsRedirection();
             app.UseRouting();
 
-            // Accounts are created from the Admin area, including direct requests to Register.
+            // Only the dedicated supplier registration flow may create public accounts.
             app.Use(async (context, next) =>
             {
                 if (context.Request.Path.Equals("/Identity/Account/Register", StringComparison.OrdinalIgnoreCase))
                 {
-                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    context.Response.Redirect("/Auth/RegisterSupplier");
+                    return;
+                }
+                if (context.Request.Path.Equals("/Identity/Account/Login", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.Redirect("/Auth/Login");
                     return;
                 }
 
                 await next();
             });
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapStaticAssets();

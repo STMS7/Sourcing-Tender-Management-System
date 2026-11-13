@@ -4,8 +4,8 @@
 <h1>Suppliers</h1>
 @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
 @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
-<p>Create a supplier record before creating its user account.</p>
-@foreach (var item in Model.Prepend(new Sourcing_Tender_Management_System.Models.Supplier()))
+<p>Suppliers register their own accounts. Review registrations here.</p>
+@foreach (var item in Model)
 {
     var isNew = item.Id == 0;
     <details class="card mb-2" open="@isNew">
@@ -17,6 +17,12 @@
             <div class="col-md-6"><label class="form-label">Registration number</label><input name="registrationNumber" value="@item.RegistrationNumber" class="form-control" required maxlength="100" /></div>
             <div class="col-md-6"><label class="form-label">Email</label><input name="email" value="@item.Email" type="email" class="form-control" required maxlength="256" /></div>
             <div class="col-md-6"><label class="form-label">Tax number</label><input name="taxNumber" value="@item.TaxNumber" class="form-control" maxlength="100" /></div>
+            <div class="col-md-6"><label class="form-label">License number</label><input name="licenseNumber" value="@item.LicenseNumber" class="form-control" maxlength="100" /></div>
+            <div class="col-md-6"><label class="form-label">License expiry</label><input name="licenseExpiresAt" value="@item.LicenseExpiresAt?.ToString("yyyy-MM-dd")" type="date" class="form-control" /></div>
+            <div class="col-md-6"><label class="form-label">Legal verification</label><select name="legalVerificationStatus" class="form-select">
+                @foreach (var status in Enum.GetValues<DocumentVerificationStatus>())
+                { <option value="@status" selected="@(item.LegalVerificationStatus == status)">@status</option> }
+            </select></div>
             <div class="col-md-6"><label class="form-label">Phone</label><input name="phoneNumber" value="@item.PhoneNumber" class="form-control" maxlength="30" /></div>
             <div class="col-md-6"><label class="form-label">Address</label><input name="address" value="@item.Address" class="form-control" maxlength="500" /></div>
             <div class="col-md-6"><label class="form-label">Registration status</label><select name="registrationStatus" class="form-select">
@@ -24,13 +30,31 @@
                 { <option value="@status" selected="@(item.RegistrationStatus == status)">@status</option> }
             </select></div>
             <div class="col-md-6"><label class="form-label">Decision reason</label><input name="reviewReason" value="@item.ReviewReason" class="form-control" maxlength="2000" /></div>
-            <div class="col-md-6 form-check ms-3"><input type="checkbox" name="isActive" value="true" checked="@(isNew || item.IsActive)" class="form-check-input" id="activeSupplier-@item.Id" /><label for="activeSupplier-@item.Id">Active</label></div>
+            <div class="col-md-6 form-check ms-3"><input type="checkbox" name="isActive" value="true" checked="@(item.IsActive || item.RegistrationStatus == SupplierRegistrationStatus.Pending)" class="form-check-input" id="activeSupplier-@item.Id" /><label for="activeSupplier-@item.Id">Active after approval</label></div>
             <div class="col-12"><button class="btn btn-primary" type="submit">Save supplier</button></div>
         </form>
         @if (!isNew)
         {
             var categories = (IReadOnlyList<Category>)ViewBag.Categories;
             var links = ((IReadOnlyList<SupplierCategory>)ViewBag.SupplierCategories).Where(x => x.SupplierId == item.Id).ToList();
+            var documents = ((IReadOnlyList<SupplierDocument>)ViewBag.SupplierDocuments).Where(x => x.SupplierId == item.Id).ToList();
+            <div class="card-body border-top">
+                <strong>Registration documents</strong>
+                @foreach (var document in documents)
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-2 my-2">
+                        <a asp-action="DownloadSupplierDocument" asp-route-id="@document.Id">@document.DocumentType: @document.FileName</a>
+                        <span>@document.VerificationStatus</span>
+                        <form asp-action="ReviewSupplierDocument" method="post" class="d-flex gap-2">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@document.Id" />
+                            <input name="notes" value="@document.VerificationNotes" maxlength="1000" class="form-control" placeholder="Review notes" />
+                            <button class="btn btn-sm btn-outline-success" name="status" value="Verified">Verify</button>
+                            <button class="btn btn-sm btn-outline-danger" name="status" value="Rejected">Reject</button>
+                        </form>
+                    </div>
+                }
+            </div>
             <div class="card-body border-top">
                 <strong>Categories:</strong>
                 @foreach (var link in links)
