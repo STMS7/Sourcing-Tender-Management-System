@@ -1,0 +1,46 @@
+@model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
+@using Sourcing_Tender_Management_System.Models
+@{
+    ViewData["Title"] = "My Purchase Requests";
+}
+<h2>My Purchase Requests</h2>
+<p><a asp-action="Dashboard">Dashboard</a> | <a asp-action="Create">Create Request</a> | <a asp-controller="CycleChat" asp-action="Index">Clarifications</a></p>
+<form method="get" asp-action="Index">
+    <input name="search" value="@ViewBag.Search" placeholder="Search title / number" />
+    <select name="status">
+        <option value="">All statuses</option>
+        @foreach (var status in Enum.GetValues<ProcurementRequestStatus>())
+        {
+            <option value="@status" selected="@(Convert.ToString(ViewBag.Status) == status.ToString())">@status</option>
+        }
+    </select>
+    <button type="submit">Search</button>
+</form>
+<table class="table table-bordered">
+    <thead><tr><th>Number</th><th>Title</th><th>Priority</th><th>Required</th><th>Budget</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var r in Model)
+    {
+        <tr>
+            <td>@r.RequestNumber</td><td>@r.Title</td><td>@r.Priority</td>
+            <td>@r.RequiredByDate?.ToString("yyyy-MM-dd")</td><td>@r.EstimatedBudget</td>
+            <td>@r.Status</td>
+            <td>
+                <a asp-action="Details" asp-route-id="@r.Id">Details</a>
+                @if (r.Status == ProcurementRequestStatus.Draft || r.Status == ProcurementRequestStatus.Returned)
+                {
+                    <a asp-action="Edit" asp-route-id="@r.Id">Edit</a>
+                    <form asp-action="Submit" asp-route-id="@r.Id" method="post" style="display:inline">
+                        <button type="submit">Submit</button>
+                    </form>
+                }
+                @if (r.Status == ProcurementRequestStatus.Draft)
+                {
+                    <a asp-action="Delete" asp-route-id="@r.Id">Delete</a>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+@if (!Model.Any()) { <p>No purchase requests found.</p> }

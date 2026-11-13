@@ -1,0 +1,8 @@
+@model Sourcing_Tender_Management_System.Models.ProcurementRequest
+@{ ViewData["Title"] = "Delete Draft"; }
+<h2>Delete Draft</h2>
+<p>Delete @Model.RequestNumber – @Model.Title? Only a Draft without related process records can be deleted.</p>
+<form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+    <button type="submit" class="btn btn-danger">Confirm Delete</button>
+</form>
+<p><a asp-action="Index">Cancel</a></p>
