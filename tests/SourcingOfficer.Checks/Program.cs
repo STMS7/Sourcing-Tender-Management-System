@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.DependencyInjection;
 using Sourcing_Tender_Management_System.Controllers;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
@@ -15,9 +16,16 @@ using Sourcing_Tender_Management_System.Models;
 // Destructive operations are limited to this newly generated, isolated test database.
 var databaseName = "STMS_SourcingChecks_" + Guid.NewGuid().ToString("N");
 var connection = $@"Server=(localdb)\MSSQLLocalDB;Database={databaseName};Trusted_Connection=True;TrustServerCertificate=True";
-var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(connection).Options;
+// Match Program.cs's AddDefaultIdentity configuration when building the EF model.
+// A bare DbContext has different Identity key-length defaults than the application.
+using var applicationServices = new ServiceCollection()
+    .Configure<IdentityOptions>(identity => identity.Stores.MaxLengthForKeys = 128)
+    .BuildServiceProvider();
+var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(connection)
+    .UseApplicationServiceProvider(applicationServices).Options;
 var checks = 0;
 var preview = args.Contains("--preview");
+var roleIds = new Dictionary<string, string>();
 void Check(bool condition, string message)
 {
     if (!condition) throw new Exception("FAILED: " + message);
@@ -53,15 +61,18 @@ try
 {
     await using (var db = new ApplicationDbContext(options))
     {
-        await db.Database.EnsureCreatedAsync();
+        // Exercise the team's actual migration chain, including seeded roles and indexes.
+        await db.Database.MigrateAsync();
+        Check(!(await db.Database.GetPendingMigrationsAsync()).Any(), "The actual team migrations apply without pending schema changes");
         foreach (var id in new[] { "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
             db.Users.Add(new ApplicationUser { Id = id, FullName = id, UserName = id, NormalizedUserName = id.ToUpperInvariant(), IsActive = true });
-        foreach (var name in new[] { "ProcurementOfficer", "SourcingOfficer", "Supplier", "DepartmentRepresentative", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative" })
-            db.Roles.Add(new IdentityRole(name) { Id = name, NormalizedName = name.ToUpperInvariant() });
+        roleIds = await db.Roles.ToDictionaryAsync(r => r.Name!, r => r.Id);
+        Check(new[] { "ProcurementOfficer", "SourcingOfficer", "Supplier", "DepartmentRepresentative", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative" }
+            .All(roleIds.ContainsKey), "Migration-seeded role names match the communication and sourcing modules");
         foreach (var (user, role) in new[] { ("officer", "ProcurementOfficer"), ("other", "ProcurementOfficer"),
             ("requester", "DepartmentRepresentative"), ("supplier-user", "Supplier"), ("manager", "SourcingManager"),
             ("department", "DepartmentRepresentative"), ("financial", "FinancialRepresentative"), ("technical", "TechnicalRepresentative") })
-            db.UserRoles.Add(new IdentityUserRole<string> { UserId = user, RoleId = role });
+            db.UserRoles.Add(new IdentityUserRole<string> { UserId = user, RoleId = roleIds[role] });
         var department = new Department { Name = "Production" };
         var category = new Category { Name = "Food ingredients" };
         var supplier = new Supplier { CompanyName = "Food Supplier", RegistrationNumber = "REG-CHECKS", Email = "supplier@example.test", RegistrationStatus = SupplierRegistrationStatus.Approved };
@@ -128,12 +139,24 @@ try
     await using (var db = new ApplicationDbContext(options))
     {
         (await db.Tenders.FindAsync(tenderId))!.SubmissionDeadline = DateTime.UtcNow.AddHours(-1);
-        var bid = new Bid { TenderId = tenderId, SupplierId = supplierId, BidNumber = "BID-CHECKS", Status = BidStatus.Submitted, TotalAmount = 2500 };
+        var invitation = await db.TenderInvitations.SingleAsync();
+        invitation.Status = InvitationStatus.Accepted;
+        invitation.RespondedAt = DateTime.UtcNow;
+        var bid = new Bid { TenderId = tenderId, SupplierId = supplierId, BidNumber = "BID-CHECKS", Status = BidStatus.Submitted, TotalAmount = 2500,
+            Items = [new BidItem { TenderItemId = (await db.TenderItems.SingleAsync()).Id,
+                UnitPrice = .50m, TotalPrice = 2500m, TechnicalResponse = "Food-grade sugar in sealed food-safe packaging." }] };
         db.Bids.Add(bid);
         await db.SaveChangesAsync(); bidId = bid.Id;
     }
     await Act(c => c.Close(tenderId));
     Check(await Act(c => c.Offers(tenderId)) is ViewResult { Model: List<Bid> offers } && offers.Count == 1, "Submitted offers are readable after closure");
+    Check(await Act(c => c.Details(tenderId)) is ViewResult { Model: Tender invitationResult } &&
+        invitationResult.Invitations.Single().Status == InvitationStatus.Accepted,
+        "Supplier invitation responses are consumed by the officer details page");
+    Check(await Act(c => c.Offers(tenderId)) is ViewResult { Model: List<Bid> itemResult } &&
+        itemResult.Single().Items.Single().TenderItem.ItemName == "Sugar" &&
+        itemResult.Single().Items.Single().TechnicalResponse!.Contains("Food-grade"),
+        "Supplier bid item prices and technical responses join the correct tender item");
     await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.Compliant, Reason = "Checked" }));
     await using (var db = new ApplicationDbContext(options))
         Check((await db.Bids.FindAsync(bidId))!.ComplianceStatus == ComplianceDecision.Pending, "Missing mandatory documents block a compliant outcome");
@@ -150,6 +173,38 @@ try
         db.BidDocuments.Add(new BidDocument { BidId = bidId, TenderDocumentRequirementId = (await db.TenderDocumentRequirements.SingleAsync()).Id, FileName = "quality.pdf", FilePath = "private/quality.pdf" });
         await db.SaveChangesAsync();
     }
+    await using (var db = new ApplicationDbContext(options))
+    {
+        (await db.TenderInvitations.SingleAsync()).Status = InvitationStatus.Declined;
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.Compliant, Reason = "Invalid invitation" }));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        Check((await db.Bids.FindAsync(bidId))!.ComplianceStatus == ComplianceDecision.PendingClarification,
+            "A declined invitation cannot produce a compliant bid");
+        (await db.TenderInvitations.SingleAsync()).Status = InvitationStatus.Accepted;
+        db.BidItems.Remove(await db.BidItems.SingleAsync());
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.Compliant, Reason = "Incomplete item list" }));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        Check((await db.Bids.FindAsync(bidId))!.ComplianceStatus == ComplianceDecision.PendingClarification,
+            "An offer without quoted items cannot produce a compliant bid");
+        db.BidItems.Add(new BidItem { BidId = bidId, TenderItemId = (await db.TenderItems.SingleAsync()).Id,
+            UnitPrice = -.50m, TotalPrice = -2500m, TechnicalResponse = "Food-grade sugar in sealed food-safe packaging." });
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.Compliant, Reason = "Invalid prices" }));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        Check((await db.Bids.FindAsync(bidId))!.ComplianceStatus == ComplianceDecision.PendingClarification,
+            "Negative item amounts cannot produce a compliant bid");
+        var item = await db.BidItems.SingleAsync();
+        item.UnitPrice = .50m; item.TotalPrice = 2500m;
+        await db.SaveChangesAsync();
+    }
     await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.Compliant, Reason = "Certificate and requirements checked" }));
     await Act(c => c.ForwardToEvaluation(tenderId));
     await using (var db = new ApplicationDbContext(options))
@@ -158,6 +213,19 @@ try
         var positions = new[] { ("manager", CommitteeMemberRole.SourcingManager), ("department", CommitteeMemberRole.DepartmentRepresentative),
             ("financial", CommitteeMemberRole.FinancialRepresentative), ("technical", CommitteeMemberRole.TechnicalRepresentative) };
         foreach (var (user, role) in positions) db.TenderCommitteeMembers.Add(new TenderCommitteeMember { TenderId = tenderId, UserId = user, Role = role.ToString(), RoleType = role });
+        await db.SaveChangesAsync();
+    }
+    await using (var db = new ApplicationDbContext(options))
+    {
+        (await db.Suppliers.FindAsync(supplierId))!.IsActive = false;
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.ForwardToEvaluation(tenderId));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Closed,
+            "Handoff revalidates supplier eligibility after the compliance review");
+        (await db.Suppliers.FindAsync(supplierId))!.IsActive = true;
         await db.SaveChangesAsync();
     }
     await Act(c => c.ForwardToEvaluation(tenderId));
@@ -260,7 +328,7 @@ try
         "Losing a participant role blocks new responses");
     await using (var db = new ApplicationDbContext(options))
     {
-        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "requester", RoleId = "DepartmentRepresentative" });
+        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "requester", RoleId = roleIds["DepartmentRepresentative"] });
         (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.Awarded;
         await db.SaveChangesAsync();
     }
@@ -272,6 +340,36 @@ try
     await using (var db = new ApplicationDbContext(options))
     {
         (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.UnderEvaluation;
+        await db.SaveChangesAsync();
+    }
+    int reportId;
+    await using (var db = new ApplicationDbContext(options))
+    {
+        var report = new EvaluationReport { TenderId = tenderId, Round = 1, PreparedByUserId = "manager",
+            Summary = "Consolidated technical and financial evaluation.", RecommendedBidId = bidId,
+            Status = RecommendationStatus.PendingManagerReview, SubmittedAt = DateTime.UtcNow };
+        db.EvaluationReports.Add(report);
+        (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.AwaitingManagerReview;
+        await db.SaveChangesAsync();
+        reportId = report.Id;
+    }
+    Check(await Act(c => c.Details(tenderId)) is ViewResult { Model: Tender reportResult } &&
+        reportResult.Status == TenderStatus.AwaitingManagerReview &&
+        reportResult.EvaluationReports.Single().Status == RecommendationStatus.PendingManagerReview &&
+        reportResult.EvaluationReports.Single().SubmittedAt != null,
+        "Committee-submitted reports and manager-review state reach the officer tracking screen");
+    Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null))
+        is ViewResult { Model: SourcingMessagesViewModel managerReviewMessages } && managerReviewMessages.Recipients.Count == 4,
+        "Assigned committee communication remains available while its report awaits manager review");
+    Check(await Act(c => c.Messages("Supplier", "bid:" + bidId, null)) is NotFoundResult,
+        "Supplier messaging closes at manager review while existing history remains available");
+    await using (var db = new ApplicationDbContext(options))
+    {
+        // Preview remains in evaluation so all three contact categories can be tried.
+        (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.UnderEvaluation;
+        var report = (await db.EvaluationReports.FindAsync(reportId))!;
+        report.Status = RecommendationStatus.Draft;
+        report.SubmittedAt = null;
         await db.SaveChangesAsync();
     }
     Console.WriteLine($"All {checks} sourcing workflow checks passed.");

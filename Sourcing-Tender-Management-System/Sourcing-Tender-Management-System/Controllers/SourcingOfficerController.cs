@@ -379,14 +379,20 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var bid = await SubmittedOffers(db.Bids).Include(b => b.Tender).ThenInclude(t => t.DocumentRequirements)
-            .Include(b => b.Documents).FirstOrDefaultAsync(b => b.Id == model.BidId && MyTenders().Any(t => t.Id == b.TenderId));
+            .Include(b => b.Tender).ThenInclude(t => t.Items).Include(b => b.Supplier)
+            .Include(b => b.Items).Include(b => b.Documents)
+            .FirstOrDefaultAsync(b => b.Id == model.BidId && MyTenders().Any(t => t.Id == b.TenderId));
         if (bid == null) return NotFound();
         if (!CanReadOffers(bid.Tender) || bid.Tender.Status != TenderStatus.Closed) return Conflict("Compliance review is only available before evaluation.");
         if (model.Decision == ComplianceDecision.Pending || string.IsNullOrWhiteSpace(model.Reason))
             ModelState.AddModelError("", "Choose a review outcome and provide a reason.");
-        if (model.Decision == ComplianceDecision.Compliant && bid.Tender.DocumentRequirements.Any(r => r.IsMandatory &&
-            !bid.Documents.Any(d => d.TenderDocumentRequirementId == r.Id)))
-            ModelState.AddModelError("", "Mandatory documents are missing. Request clarification or mark the bid non-compliant.");
+        if (model.Decision == ComplianceDecision.Compliant)
+        {
+            var acceptedInvitation = await db.TenderInvitations.AnyAsync(i => i.TenderId == bid.TenderId &&
+                i.SupplierId == bid.SupplierId && i.Status == InvitationStatus.Accepted);
+            if (SourcingBidEligibility.Failure(bid.Tender, bid, acceptedInvitation) is string failure)
+                ModelState.AddModelError("", failure);
+        }
         if (!ModelState.IsValid)
         {
             TempData["Error"] = Errors();
@@ -408,13 +414,20 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
     public async Task<IActionResult> ForwardToEvaluation(int id)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var tender = await MyTenders().Include(t => t.CommitteeMembers).ThenInclude(m => m.User).FirstOrDefaultAsync(t => t.Id == id);
+        var tender = await MyTenders().Include(t => t.Items).Include(t => t.DocumentRequirements)
+            .Include(t => t.CommitteeMembers).ThenInclude(m => m.User).FirstOrDefaultAsync(t => t.Id == id);
         if (tender == null) return NotFound();
         if (tender.Status != TenderStatus.Closed || !CanReadOffers(tender)) return Conflict("Complete the bidding stage first.");
-        var bids = await SubmittedOffers(db.Bids).Where(b => b.TenderId == id).ToListAsync();
+        var bids = await SubmittedOffers(db.Bids).Where(b => b.TenderId == id)
+            .Include(b => b.Supplier).Include(b => b.Items).Include(b => b.Documents).ToListAsync();
         if (bids.Count == 0 || !bids.Any(b => b.ComplianceStatus == ComplianceDecision.Compliant) ||
             bids.Any(b => b.ComplianceStatus is ComplianceDecision.Pending or ComplianceDecision.PendingClarification))
             ModelState.AddModelError("", "Resolve all compliance reviews and retain at least one compliant offer.");
+        var acceptedSuppliers = await db.TenderInvitations.Where(i => i.TenderId == id && i.Status == InvitationStatus.Accepted)
+            .Select(i => i.SupplierId).ToListAsync();
+        foreach (var bid in bids.Where(b => b.ComplianceStatus == ComplianceDecision.Compliant))
+            if (SourcingBidEligibility.Failure(tender, bid, acceptedSuppliers.Contains(bid.SupplierId)) is string failure)
+                ModelState.AddModelError("", $"{bid.BidNumber}: {failure}");
         var members = tender.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation).ToList();
         var requiredRoles = new[] { CommitteeMemberRole.SourcingManager, CommitteeMemberRole.DepartmentRepresentative,
             CommitteeMemberRole.FinancialRepresentative, CommitteeMemberRole.TechnicalRepresentative };
