@@ -21,6 +21,8 @@ public class AdminController(
         ViewBag.DepartmentCount = await db.Departments.CountAsync();
         ViewBag.CategoryCount = await db.Categories.CountAsync();
         ViewBag.SupplierCount = await db.Suppliers.CountAsync();
+        ViewBag.PendingSupplierCount = await db.Suppliers.CountAsync(x => x.RegistrationStatus == SupplierRegistrationStatus.Pending);
+        ViewBag.ProcurementRequestCount = await db.ProcurementRequests.CountAsync();
         ViewBag.TenderCount = await db.Tenders.CountAsync();
         return View();
     }
@@ -61,6 +63,8 @@ public class AdminController(
     public async Task<IActionResult> CreateUser(AdminCreateUserViewModel model)
     {
         await ValidateAssignmentsAsync(model.Role, model.DepartmentId, model.SupplierId);
+        if (model.Role == "Supplier" || model.SupplierId.HasValue)
+            ModelState.AddModelError(nameof(model.Role), "Suppliers register their own accounts.");
         if (await userManager.FindByEmailAsync(model.Email) is not null)
             ModelState.AddModelError(nameof(model.Email), "This email is already in use.");
         if (!ModelState.IsValid)
@@ -108,7 +112,7 @@ public class AdminController(
         var user = await userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
         var roles = await userManager.GetRolesAsync(user);
-        await LoadOptionsAsync();
+        await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue);
         return View(new AdminEditUserViewModel
         {
             Id = user.Id,
@@ -133,6 +137,18 @@ public class AdminController(
             ModelState.AddModelError(nameof(model.Email), "This email is already in use.");
 
         var currentRoles = await userManager.GetRolesAsync(user);
+        if (user.SupplierId.HasValue)
+        {
+            if (model.Role != "Supplier" || model.SupplierId != user.SupplierId)
+                ModelState.AddModelError(nameof(model.Role), "A supplier account must keep its Supplier role and supplier record.");
+            if (!string.Equals(model.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+                ModelState.AddModelError(nameof(model.Email), "Supplier login email must match the supplier record.");
+            if (model.IsActive && !await db.Suppliers.AnyAsync(x => x.Id == user.SupplierId &&
+                x.IsActive && x.RegistrationStatus == SupplierRegistrationStatus.Approved))
+                ModelState.AddModelError(nameof(model.IsActive), "Approve and activate the supplier first.");
+        }
+        else if (model.Role == "Supplier" || model.SupplierId.HasValue)
+            ModelState.AddModelError(nameof(model.Role), "Suppliers register their own accounts.");
         if (currentRoles.Contains("Admin") && (!model.IsActive || model.Role != "Admin"))
         {
             if (user.Id == userManager.GetUserId(User))
@@ -143,14 +159,15 @@ public class AdminController(
 
         if (!ModelState.IsValid)
         {
-            await LoadOptionsAsync();
+            await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue);
             return View(model);
         }
 
         user.FullName = model.FullName.Trim();
         user.Email = model.Email.Trim();
         user.UserName = model.Email.Trim();
-        user.EmailConfirmed = true;
+        user.EmailConfirmed = user.SupplierId is null || await db.Suppliers.AnyAsync(x => x.Id == user.SupplierId &&
+            x.RegistrationStatus == SupplierRegistrationStatus.Approved);
         user.DepartmentId = model.Role == "Supplier" ? null : model.DepartmentId;
         user.SupplierId = model.Role == "Supplier" ? model.SupplierId : null;
         user.IsActive = model.IsActive;
@@ -160,7 +177,7 @@ public class AdminController(
         if (!updated.Succeeded)
         {
             AddErrors(updated);
-            await LoadOptionsAsync();
+            await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue);
             return View(model);
         }
 
@@ -168,18 +185,18 @@ public class AdminController(
         if (oldRoles.Length > 0)
         {
             var removed = await userManager.RemoveFromRolesAsync(user, oldRoles);
-            if (!removed.Succeeded) { AddErrors(removed); await LoadOptionsAsync(); return View(model); }
+            if (!removed.Succeeded) { AddErrors(removed); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
         }
         if (!currentRoles.Contains(model.Role))
         {
             var added = await userManager.AddToRoleAsync(user, model.Role);
-            if (!added.Succeeded) { AddErrors(added); await LoadOptionsAsync(); return View(model); }
+            if (!added.Succeeded) { AddErrors(added); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
         }
 
         if (!model.IsActive)
         {
             var stampUpdated = await userManager.UpdateSecurityStampAsync(user);
-            if (!stampUpdated.Succeeded) { AddErrors(stampUpdated); await LoadOptionsAsync(); return View(model); }
+            if (!stampUpdated.Succeeded) { AddErrors(stampUpdated); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
         }
         await LogUserActionAsync("Update", user.Id);
         await transaction.CommitAsync();
@@ -229,9 +246,10 @@ public class AdminController(
             ModelState.AddModelError("SupplierId", "Choose a supplier for this account.");
     }
 
-    private async Task LoadOptionsAsync()
+    private async Task LoadOptionsAsync(bool includeSupplier = false)
     {
-        ViewBag.Roles = new SelectList(await roleManager.Roles.OrderBy(x => x.Name).Select(x => x.Name).ToListAsync());
+        ViewBag.Roles = new SelectList(await roleManager.Roles.Where(x => includeSupplier || x.Name != "Supplier")
+            .OrderBy(x => x.Name).Select(x => x.Name).ToListAsync());
         ViewBag.Departments = new SelectList(await db.Departments.OrderBy(x => x.Name).ToListAsync(), "Id", "Name");
         ViewBag.Suppliers = new SelectList(await db.Suppliers.OrderBy(x => x.CompanyName).ToListAsync(), "Id", "CompanyName");
     }

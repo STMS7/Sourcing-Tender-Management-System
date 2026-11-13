@@ -1,0 +1,11 @@
+@model ProcurementRequest
+@{ ViewData["Title"] = Model.Title; }
+<a asp-action="Requests">Back to approved requests</a>
+<h1 class="mt-3">@Model.Title</h1>
+<p>@Model.RequestNumber · @Model.Department.Name · <span class="status">@Model.Status</span></p>
+<dl class="row"><dt class="col-sm-3">Reason</dt><dd class="col-sm-9 preserve-lines">@Model.Reason</dd><dt class="col-sm-3">Description</dt><dd class="col-sm-9 preserve-lines">@Model.Description</dd><dt class="col-sm-3">Required by</dt><dd class="col-sm-9">@(Model.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</dd><dt class="col-sm-3">Estimated budget</dt><dd class="col-sm-9">@Model.EstimatedBudget.ToString("N2")</dd></dl>
+<h2>Requested items</h2>
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit</th><th scope="col">Specifications</th></tr></thead><tbody>
+@foreach (var item in Model.Items) { <tr><td>@item.ItemName</td><td>@item.Quantity.ToString("N3")</td><td>@item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
+</tbody></table></div>
+<div class="actions"><a class="btn btn-primary" asp-action="Create" asp-route-requestId="@Model.Id">Create tender draft</a><a class="btn btn-outline-primary" asp-action="Clarifications" asp-route-requestId="@Model.Id">Clarify with requesting department</a></div>

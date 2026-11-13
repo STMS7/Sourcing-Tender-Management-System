@@ -1,0 +1,217 @@
+@model TopCommitteeReviewViewModel
+@{
+    ViewData["Title"] = Model.TenderNumber;
+}
+
+<h1 class="h3 mb-3">Top Committee</h1>
+<partial name="_Nav" model="@("")" />
+
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+    <div>
+        <h2 class="h4 mb-1">@Model.TenderNumber - @Model.Title</h2>
+        <div class="text-muted">@Model.CategoryName | Estimated value @Model.EstimatedValue.ToString("N2")</div>
+    </div>
+    <div><partial name="_Badge" model="@Model.Status.ToString()" /></div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.Description))
+{
+    <p>@Model.Description</p>
+}
+
+@* ---------- Vote ---------- *@
+@if (Model.Report.IsAwaitingDecision && Model.MyVote == CommitteeDecision.Pending)
+{
+    var recommended = Model.Bids.FirstOrDefault(b => b.IsRecommended);
+    <div class="card border-primary mb-4">
+        <div class="card-header bg-primary text-white">Your decision</div>
+        <div class="card-body">
+            <p class="mb-3">
+                The evaluation committee recommends
+                <strong>@(recommended?.SupplierName ?? "no supplier")</strong>@(recommended is null ? "" : $" ({recommended.TotalAmount:N2} {recommended.Currency})").
+                A justification is required if you reject or ask for more details.
+            </p>
+            <form asp-action="Vote" method="post">
+                <input type="hidden" name="EvaluationReportId" value="@Model.Report.EvaluationReportId" />
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="Decision" id="dApprove" value="@((int)CommitteeDecision.Approved)" required>
+                        <label class="form-check-label" for="dApprove">Approve the recommended supplier</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="Decision" id="dReject" value="@((int)CommitteeDecision.Rejected)">
+                        <label class="form-check-label" for="dReject">Reject the recommendation</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="Decision" id="dReturn" value="@((int)CommitteeDecision.ReturnedForRevision)">
+                        <label class="form-check-label" for="dReturn">Ask for more details (return the tender)</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="reason">Justification / notes</label>
+                    <textarea class="form-control" id="reason" name="Reason" rows="3" maxlength="2000"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary"
+                        onclick="return confirm('Your vote cannot be changed after it is recorded. Continue?');">
+                    Record my vote
+                </button>
+            </form>
+        </div>
+    </div>
+}
+else if (Model.MyVote is { } mine && mine != CommitteeDecision.Pending)
+{
+    <div class="alert alert-info">You voted: <partial name="_Badge" model="@mine.ToString()" />. A recorded vote cannot be changed.</div>
+}
+else if (Model.MyVote is null)
+{
+    <div class="alert alert-secondary">You are not a voting member on this decision (read-only).</div>
+}
+
+@* ---------- Report ---------- *@
+<div class="card mb-4">
+    <div class="card-header">Consolidated evaluation report (round @Model.Report.Round)</div>
+    <div class="card-body">
+        <p>@Model.Report.Summary</p>
+        @if (!string.IsNullOrWhiteSpace(Model.Report.RecommendationReason))
+        {
+            <p class="mb-1"><strong>Reason for the recommendation:</strong> @Model.Report.RecommendationReason</p>
+        }
+        <div class="small text-muted">
+            Prepared by @Model.Report.PreparedBy
+            @if (Model.Report.SubmittedAt is { } submitted)
+            {
+                <text> | submitted @submitted.ToString("yyyy-MM-dd")</text>
+            }
+            | weights: technical @Model.TechnicalWeight.ToString("0.##")% / financial @Model.FinancialWeight.ToString("0.##")%
+        </div>
+    </div>
+</div>
+
+@* ---------- Bids ---------- *@
+<h3 class="h5">Bids compared</h3>
+<div class="table-responsive mb-4">
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>Supplier</th>
+                <th class="text-end">Amount</th>
+                <th class="text-center">Delivery (days)</th>
+                <th class="text-center">Technical</th>
+                <th class="text-center">Financial</th>
+                <th class="text-center">Weighted</th>
+                <th>Compliance</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var b in Model.Bids)
+        {
+            <tr class="@(b.IsRecommended ? "table-primary" : "")">
+                <td>
+                    <div class="fw-semibold">@b.SupplierName</div>
+                    <div class="small text-muted">@b.BidNumber | @b.DocumentCount documents</div>
+                    @if (!string.IsNullOrWhiteSpace(b.ReportNotes))
+                    {
+                        <div class="small">@b.ReportNotes</div>
+                    }
+                </td>
+                <td class="text-end">@b.TotalAmount.ToString("N2") @b.Currency</td>
+                <td class="text-center">@b.DeliveryDays</td>
+                <td class="text-center">@b.TechnicalScore?.ToString("0.##")</td>
+                <td class="text-center">@b.FinancialScore?.ToString("0.##")</td>
+                <td class="text-center fw-semibold">@b.WeightedTotal?.ToString("0.##")</td>
+                <td>
+                    @if (b.ComplianceDecision is { } c)
+                    {
+                        <partial name="_Badge" model="@c.ToString()" />
+                    }
+                </td>
+                <td>
+                    @if (b.IsAwarded) { <span class="badge text-bg-success">Awarded</span> }
+                    else if (b.IsRecommended) { <span class="badge text-bg-primary">Recommended</span> }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@* ---------- Approvals and votes ---------- *@
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <h3 class="h5">Review before the committee</h3>
+        @if (Model.ManagerApprovals.Count == 0)
+        {
+            <div class="text-muted">No earlier approval steps recorded.</div>
+        }
+        else
+        {
+            <ul class="list-group">
+            @foreach (var a in Model.ManagerApprovals)
+            {
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <strong>@a.Level - @a.ApproverName</strong>
+                        <partial name="_Badge" model="@a.Status.ToString()" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(a.Comments)) { <div class="small">@a.Comments</div> }
+                    @if (a.DecidedAt is { } when) { <div class="small text-muted">@when.ToString("yyyy-MM-dd")</div> }
+                </li>
+            }
+            </ul>
+        }
+    </div>
+    <div class="col-md-6">
+        <h3 class="h5">Committee votes</h3>
+        <ul class="list-group">
+        @foreach (var v in Model.CommitteeVotes)
+        {
+            <li class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <strong>@v.MemberName</strong>
+                    <partial name="_Badge" model="@v.Decision.ToString()" />
+                </div>
+                @if (!string.IsNullOrWhiteSpace(v.Reason)) { <div class="small">@v.Reason</div> }
+                @if (v.DecidedAt is { } when) { <div class="small text-muted">@when.ToString("yyyy-MM-dd")</div> }
+            </li>
+        }
+        </ul>
+    </div>
+</div>
+
+@* ---------- Original request and criteria ---------- *@
+@if (Model.Request is { } r)
+{
+    <h3 class="h5">Original purchase request</h3>
+    <div class="card mb-4"><div class="card-body">
+        <div class="fw-semibold">@r.RequestNumber - @r.Title</div>
+        <div class="small text-muted mb-2">
+            @r.DepartmentName | requested by @r.RequestedBy | priority @r.Priority |
+            budget @r.EstimatedBudget.ToString("N2")
+        </div>
+        @if (!string.IsNullOrWhiteSpace(r.Description)) { <p>@r.Description</p> }
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Item</th><th class="text-end">Quantity</th><th>Unit</th></tr></thead>
+            <tbody>
+            @foreach (var i in r.Items)
+            {
+                <tr><td>@i.ItemName</td><td class="text-end">@i.Quantity.ToString("0.###")</td><td>@i.Unit</td></tr>
+            }
+            </tbody>
+        </table>
+    </div></div>
+}
+
+<h3 class="h5">Evaluation criteria</h3>
+<table class="table table-sm w-auto">
+    <thead><tr><th>Criterion</th><th>Type</th><th class="text-end">Weight</th><th class="text-end">Max score</th></tr></thead>
+    <tbody>
+    @foreach (var c in Model.Criteria)
+    {
+        <tr><td>@c.Name</td><td>@c.Type</td><td class="text-end">@c.Weight.ToString("0.##")</td><td class="text-end">@c.MaximumScore.ToString("0.##")</td></tr>
+    }
+    </tbody>
+</table>
+
+<a class="btn btn-link ps-0" asp-action="Index">&larr; Back to the dashboard</a>
