@@ -299,7 +299,6 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             .OrderBy(s => s.CompanyName).ToListAsync();
         ViewBag.CanReadOffers = CanReadOffers(tender);
         ViewBag.PrePublicationApproved = await EvaluationPreparation.Approved(db, tender);
-        await LoadCommitteeCandidates();
         ViewBag.Handoff = await CheckEvaluationHandoff(tender);
         ViewBag.EvaluationSentAt = await db.WorkflowTransitions.Where(w => w.TenderId == id &&
             w.FromStage == WorkflowStage.Compliance && w.ToStage == WorkflowStage.Evaluation &&

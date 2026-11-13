@@ -1,6 +1,5 @@
 using System.Data;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Services;
@@ -9,51 +8,9 @@ namespace Sourcing_Tender_Management_System.Controllers;
 
 public partial class SourcingOfficerController
 {
-    private async Task LoadCommitteeCandidates()
-    {
-        var candidates = new Dictionary<CommitteeMemberRole, List<SelectListItem>>();
-        foreach (var position in EvaluationPreparation.Positions)
-        {
-            var name = position.ToString();
-            candidates[position] = await db.Users.AsNoTracking().Where(u => u.IsActive && u.Id != OfficerId &&
-                db.UserRoles.Any(a => a.UserId == u.Id && db.Roles.Any(r => r.Id == a.RoleId &&
-                    (r.Name == name || (position == CommitteeMemberRole.DepartmentRepresentative &&
-                        (r.Name == "DepartmentRequester" || r.Name == "RequestingDepartment"))))))
-                .OrderBy(u => u.FullName).Select(u => new SelectListItem(u.FullName, u.Id)).ToListAsync();
-        }
-        ViewBag.CommitteeCandidates = candidates;
-    }
-
+    // Kept as a denied legacy route so older clients cannot assign committee members.
     [HttpPost]
-    public async Task<IActionResult> AssignEvaluationCommittee(SourcingCommitteeForm model)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var tender = await MyTenders().Include(t => t.CommitteeMembers).FirstOrDefaultAsync(t => t.Id == model.TenderId);
-        if (tender == null) return NotFound();
-        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null ||
-            await db.Bids.AnyAsync(b => b.TenderId == tender.Id)) return Conflict("Assign the committee before requesting preparation approval.");
-        var choices = new Dictionary<CommitteeMemberRole, string> {
-            [CommitteeMemberRole.SourcingManager] = model.ManagerUserId,
-            [CommitteeMemberRole.DepartmentRepresentative] = model.DepartmentUserId,
-            [CommitteeMemberRole.TechnicalRepresentative] = model.TechnicalUserId,
-            [CommitteeMemberRole.FinancialRepresentative] = model.FinancialUserId };
-        await LoadCommitteeCandidates();
-        var candidates = (Dictionary<CommitteeMemberRole, List<SelectListItem>>)ViewBag.CommitteeCandidates;
-        if (choices.Values.Distinct().Count() != 4 || choices.Any(c => !candidates[c.Key].Any(u => u.Value == c.Value)))
-            ModelState.AddModelError("", "Choose four distinct, active users with the required committee roles.");
-        if (!ModelState.IsValid) return FormError(tender.Id);
-        db.TenderCommitteeMembers.RemoveRange(tender.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation));
-        await db.SaveChangesAsync();
-        foreach (var choice in choices)
-            db.TenderCommitteeMembers.Add(new TenderCommitteeMember { TenderId = tender.Id, UserId = choice.Value,
-                CommitteeType = CommitteeType.Evaluation, RoleType = choice.Key, Role = choice.Key.ToString() });
-        Log(tender, "AssignEvaluationCommittee", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
-        TempData["Success"] = "Evaluation committee assigned. Request criteria and weight approval before publication.";
-        return RedirectToAction(nameof(Details), new { id = tender.Id });
-    }
-
+    public Task<IActionResult> AssignEvaluationCommittee(SourcingCommitteeForm model) => Task.FromResult<IActionResult>(Forbid());
     [HttpPost]
     public async Task<IActionResult> RequestWeightApproval(int id)
     {

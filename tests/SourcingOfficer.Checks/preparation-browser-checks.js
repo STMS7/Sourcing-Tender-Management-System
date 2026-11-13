@@ -24,10 +24,14 @@ async page => {
         // Permit rerunning this check only against its own unpublished synthetic draft.
         await page.goto(base + '/SourcingOfficer/Details/3');
         check(await page.getByRole('heading', { name: 'Browser preparation and category verification', exact: true }).isVisible(), 'Rerun targets its own synthetic draft');
-        await page.getByText('Reopen draft and reset approval', { exact: true }).click();
-        await page.getByRole('button', { name: 'Reopen preparation and reset approvals', exact: true }).click();
-        for (const name of ['Quality specifications', 'Delivery quality', 'Total cost', 'Food Supplier'])
-            await page.getByRole('button', { name: 'Remove ' + name, exact: true }).click();
+        if (await page.getByText('Reopen draft and reset approval', { exact: true }).count()) {
+            await page.getByText('Reopen draft and reset approval', { exact: true }).click();
+            await page.getByRole('button', { name: 'Reopen preparation and reset approvals', exact: true }).click();
+        }
+        for (const name of ['Quality specifications', 'Delivery quality', 'Total cost', 'Food Supplier']) {
+            const remove = page.getByRole('button', { name: 'Remove ' + name, exact: true });
+            if (await remove.count()) await remove.click();
+        }
         await page.getByRole('link', { name: 'Edit draft', exact: true }).click();
     }
     check(await page.locator('[name="TechnicalWeight"],[name="FinancialWeight"]').count() === 0, 'Officer cannot set overall weights');
@@ -55,11 +59,35 @@ async page => {
         }
         await page.getByRole('button', { name: 'Add criterion', exact: true }).click();
     }
+    check(await page.locator('#ManagerUserId,#DepartmentUserId,#TechnicalUserId,#FinancialUserId').count() === 0,
+        'Officer has no committee assignment controls');
+    const sourceToken = await page.locator('input[name="__RequestVerificationToken"]').first().inputValue();
+    const deniedAssignment = await page.request.post(base + '/SourcingOfficer/AssignEvaluationCommittee', { form: {
+        TenderId: id, ManagerUserId: 'manager', DepartmentUserId: 'department', TechnicalUserId: 'technical',
+        FinancialUserId: 'financial', __RequestVerificationToken: sourceToken
+    }, maxRedirects: 0 });
+    check(deniedAssignment.status() === 403 || (deniedAssignment.status() === 302 &&
+        (deniedAssignment.headers().location || '').includes('AccessDenied')), 'Officer legacy assignment route is denied');
+    const deniedAdmin = await page.request.get(base + '/AdminCommittee/Details/' + id, { maxRedirects: 0 });
+    check(deniedAdmin.status() === 403 || (deniedAdmin.status() === 302 &&
+        (deniedAdmin.headers().location || '').includes('AccessDenied')), 'Officer cannot open Admin committee assignment');
+    await login('admin', '/AdminCommittee');
+    check(await page.getByRole('heading', { name: 'Evaluation committees', exact: true }).isVisible(),
+        'Admin can find tender committee assignments');
+    await capture('admin-list-desktop', 1440, 1000);
+    await capture('admin-list-mobile', 390, 844);
+    await page.goto(base + '/AdminCommittee/Details/' + id);
     await page.locator('#ManagerUserId').selectOption('manager');
     await page.locator('#DepartmentUserId').selectOption('department');
     await page.locator('#TechnicalUserId').selectOption('technical');
     await page.locator('#FinancialUserId').selectOption('financial');
+    await capture('admin-assignment-desktop', 1440, 1000);
+    await capture('admin-assignment-mobile', 390, 844);
     await page.getByRole('button', { name: 'Save evaluation committee', exact: true }).click();
+    await page.waitForFunction(() => document.body.innerText.includes('Evaluation committee assigned.'));
+    await login('officer', '/SourcingOfficer/Details/' + id);
+    check((await page.locator('body').innerText()).includes('technical — TechnicalRepresentative'),
+        'Admin assignments reach the officer read-only tracking section');
     await page.getByLabel('Food Supplier', { exact: true }).check();
     await page.getByRole('button', { name: 'Add selected suppliers', exact: true }).click();
     const financialCriterionId = await page.locator('form[action$="/RemoveCriterion"]').evaluateAll(forms =>
@@ -122,6 +150,17 @@ async page => {
         tenderId: id, technicalWeight: '99', financialWeight: '1', __RequestVerificationToken: token
     } });
     check(late.status() === 409, 'Forged late weight submission is blocked by server');
+    await login('admin', '/AdminCommittee/Details/' + id);
+    check(await page.locator('#ManagerUserId,#DepartmentUserId,#TechnicalUserId,#FinancialUserId').count() === 0,
+        'Admin sees published committee as read-only');
+    const adminToken = await page.locator('input[name="__RequestVerificationToken"]').first().inputValue();
+    const lateAssignment = await page.request.post(base + '/AdminCommittee/Assign', { form: {
+        TenderId: id, ManagerUserId: 'manager', DepartmentUserId: 'department', TechnicalUserId: 'technical',
+        FinancialUserId: 'financial', __RequestVerificationToken: adminToken
+    } });
+    check(lateAssignment.status() === 409, 'Admin cannot reassign committee after publication');
+    const noAssignmentToken = await page.request.post(base + '/AdminCommittee/Assign', { form: { TenderId: id } });
+    check(noAssignmentToken.status() === 400, 'Admin assignment requires antiforgery protection');
     // The second synthetic tender has offers and valid approval evidence preceding publication.
     await login('officer', '/SourcingOfficer/Details/2');
     check(await page.getByRole('button', { name: 'Send tender and compliant offers to evaluation committee', exact: true }).isEnabled(),

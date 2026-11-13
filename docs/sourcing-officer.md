@@ -33,7 +33,9 @@ before merging.
 State-changing actions are POST requests protected by antiforgery validation:
 StartReview, ReturnRequest, RejectRequest, AcceptRequest, Create, Edit, AddCriterion, RemoveCriterion, AddRequirement, RemoveRequirement,
 Invite, RemoveInvitation, Publish, Close, Compliance, ForwardToEvaluation,
-AskClarification, Reply, Resolve, AssignEvaluationCommittee, RequestWeightApproval and ReopenPreparation.
+AskClarification, Reply, Resolve, RequestWeightApproval and ReopenPreparation.
+The legacy AssignEvaluationCommittee action always denies access. Assignment
+is performed exclusively through Admin's /AdminCommittee module.
 
 ## Workflow implemented
 
@@ -67,8 +69,8 @@ including mobile overflow and the revised item snapshot. Screenshots go into
    The legacy Create route still supports previously Approved requests.
 3. The draft contains category, terms and UTC dates. All criterion weights and
    overall technical/financial weights belong exclusively to the committee.
-   The officer configures criteria/documents, assigns the four committee members,
-   and requests pre-publication approval. Preparation locks; both technical and
+   The officer configures criteria/documents, waits for Admin to assign the four
+   committee members, and requests pre-publication approval. Preparation locks; both technical and
    financial members assign weights to their own criterion groups (100% each)
    and submit their proposed overall split against the locked criteria.
    The averaged split becomes approved before publication. Suppliers must be
@@ -106,6 +108,11 @@ SourcingManager, DepartmentRepresentative, FinancialRepresentative and
 TechnicalRepresentative. The draft committee form selects existing active users
 with the matching account roles; it never creates or changes their roles.
 Committee assignments become locked when preparation approval is requested.
+Admin assigns members from Administration → Evaluation committees. The officer
+has no assignment controls and its legacy assignment endpoint returns Forbid.
+Admin's endpoint rechecks the active database role, validates four distinct
+eligible employees and notifies the officer after saving. Reassignment requires
+an unlocked, unpublished draft without bids; reopen preparation first if needed.
 
 Clarification recipients are derived on the server:
 
@@ -235,9 +242,11 @@ Legacy published tenders without prior approval are flagged and blocked at
 handoff; resolve those through the team's documented procedure, without
 retroactively inventing approval evidence.
 
-Verified: 109 sourcing SQL checks, 44 committee SQL checks and 38 department SQL
-checks (191 total). The preparation browser journey passed 39 checks on its rerun,
-including one synthetic-draft rerun guard (38 checks on a fresh fixture). It
+Verified: 112 sourcing SQL checks, 44 committee SQL checks and 38 department SQL
+checks (194 total). The preparation browser journey passed 48 checks on its rerun,
+including one synthetic-draft rerun guard, plus three separate checks for published
+Admin read-only state, late reassignment rejection and antiforgery (51 browser
+checks total). The maintained callback includes these checks (50 on a fresh fixture). It
 exercises committee-only inputs, forged officer/cross-group/late submissions,
 both approvals, actual publication and compliant-offer handoff. Existing
 request/return/resubmission/acceptance browser checks remain separate.

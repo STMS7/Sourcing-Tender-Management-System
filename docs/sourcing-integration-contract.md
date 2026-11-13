@@ -11,8 +11,8 @@ This checkout integrates Raghad's DepartmentController and CycleChatController
 with the officer module. Department submission, sourcing review, formal return,
 chat reply, department edit/resubmission and acceptance into a tender are tested
 through the real controllers and authenticated browser pages. Existing evaluation
-handoff tests remain applicable. This does not establish compatibility with
-supplier pages that are absent from this checkout.
+handoff tests remain applicable. Supplier pages are present in this checkout,
+but their complete end-to-end workflow is not covered by this verification.
 
 ## Shared names and routes
 
@@ -153,8 +153,17 @@ The officer download handler enforces transaction access independently.
 
 ## Evaluation and manager handoff
 
-POST AssignEvaluationCommittee can select existing users on an unlocked draft.
-The team may also populate the same memberships through its shared module.
+Committee assignment is Admin-only, per the team's confirmed ownership.
+GET /AdminCommittee lists tenders; GET /AdminCommittee/Details/{id} shows the
+assignment form. POST /AdminCommittee/Assign accepts TenderId, ManagerUserId,
+DepartmentUserId, TechnicalUserId and FinancialUserId. It requires antiforgery,
+an active Admin database role and an unlocked, unpublished Draft without bids.
+The former /SourcingOfficer/AssignEvaluationCommittee route always denies access.
+The officer views assignments and requests approval; it cannot choose members.
+Admin changes are transactional and record an audit entry, workflow event and
+notification linked to the officer's tender. Invalid member selections preserve
+existing assignments. Locked preparation must be reopened by the officer before
+Admin can reassign; published committees cannot change through this endpoint.
 Committee assignment must create four active, distinct TenderCommitteeMembers
 with CommitteeType.Evaluation and the following RoleType values:
 
@@ -191,7 +200,8 @@ fields directly. A manager's subsequent decisions belong to the manager module.
 ## Pre-publication approval contract
 
 1. Populate items, terms, future dates, at least one technical and one financial
-   criterion, document requirements and the four committee members. The officer
+   criterion and document requirements. Admin assigns the four committee members
+   through /AdminCommittee; the officer waits for that assignment. The officer
    defines criterion names/types/maximum scores, but cannot assign any weights.
    New criterion weights are zero pending committee input; forged Weight fields
    are ignored by the officer endpoint.

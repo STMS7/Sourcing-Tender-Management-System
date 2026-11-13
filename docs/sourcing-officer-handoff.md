@@ -17,7 +17,9 @@ uses the existing shared database and roles; no migration is required.
    Complete its category, terms, future deadline and optional opening date.
 4. Add at least one technical and one financial scoring criterion without weights.
    The officer defines names, types and maximum scores; all weights are committee-only.
-   Configure required documents and select the four committee members.
+   Configure required documents. Admin opens Administration → Evaluation committees,
+   selects this tender and assigns four distinct active members with the required
+   account roles. The officer can only view those members.
 5. Select approved, active suppliers registered in the tender category.
    Prepared invitations are not sent until publication.
 6. Click **Lock preparation and request weight approval**. The tender remains
@@ -30,7 +32,8 @@ uses the existing shared database and roles; no migration is required.
 7. After approval, **Publish and send invitations** becomes available.
    The server rechecks approval, membership, supplier categories and dates.
    If preparation needs changes before publication, reopen it, edit and obtain
-   both approvals again. Reopening resets all criterion weights to zero and removes
+   both approvals again. Admin can reassign members only while preparation is
+   unlocked; officer accounts cannot assign members. Reopening resets all criterion weights to zero and removes
    the overall proposals. Published preparation cannot be reopened this way.
 8. Suppliers accept invitations and submit their offers through their module.
    The officer cannot read sealed offers before the deadline, closure and
@@ -83,8 +86,8 @@ dotnet run --project tests/SourcingOfficer.Checks --artifacts-path "$env:TEMP/st
 dotnet run --project tests/EvaluationCommittee.Checks --artifacts-path "$env:TEMP/stms-evaluation-checks"
 ```
 
-The migrated SQL suites passed 38 department, 109 officer and 44 committee checks
-(191 total).
+The migrated SQL suites passed 38 department, 112 officer and 44 committee checks
+(194 total).
 They use newly generated isolated LocalDB databases and delete them on normal
 runs. The officer preview flags `-- --preview --handoff-preview` retain a
 synthetic database and print its name.
@@ -93,12 +96,14 @@ For browser verification, publish the app and run it in Staging against that
 isolated database at port 5189. Create
 `$env:TEMP/stms-sourcing-review/preparation` for captures and run the
 `tests/SourcingOfficer.Checks/preparation-browser-checks.js` callback through
-Playwright CLI. The fresh journey checks 38 points; the verified rerun checked
-39 including its synthetic-draft guard. Desktop/mobile captures cover officer
+Playwright CLI. The verified rerun checked 48 points plus three separate published
+Admin/antiforgery checks (51 total); the maintained callback includes all of them
+(50 on a fresh fixture). Desktop/mobile captures cover Admin tender listing and
+assignment, officer
 criterion creation, locked preparation, technical weighting and financial weighting.
 Preview accounts use
 `Preview-Only!4729` with officer@example.test, technical@example.test and
-financial@example.test. These are test-fixture identities only.
+financial@example.test and admin@example.test. These are test-fixture identities only.
 
 The tests establish these producer/consumer contracts and actual authenticated
 committee receipt. Supplier input in this specific journey is synthetic; this

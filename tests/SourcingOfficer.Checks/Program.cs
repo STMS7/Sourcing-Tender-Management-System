@@ -45,6 +45,16 @@ async Task<TResult> Act<TResult>(Func<SourcingOfficerController, Task<TResult>> 
     };
     return await action(controller);
 }
+async Task<IActionResult> AdminAct(Func<AdminCommitteeController, Task<IActionResult>> action, string userId = "admin")
+{
+    await using var db = new ApplicationDbContext(options);
+    var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+        new[] { new Claim(ClaimTypes.NameIdentifier, userId), new Claim(ClaimTypes.Role, "Admin") }, "checks")) };
+    var controller = new AdminCommitteeController(db) {
+        ControllerContext = new ControllerContext { HttpContext = http },
+        TempData = new TempDataDictionary(http, new MemoryTempData()) };
+    return await action(controller);
+}
 async Task<TResult> RecipientAct<TResult>(Func<MessagesController, Task<TResult>> action, string userId)
 {
     await using var db = new ApplicationDbContext(options);
@@ -100,12 +110,12 @@ try
         // Exercise the team's actual migration chain, including seeded roles and indexes.
         await db.Database.MigrateAsync();
         Check(!(await db.Database.GetPendingMigrationsAsync()).Any(), "The actual team migrations apply without pending schema changes");
-        foreach (var id in new[] { "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
+        foreach (var id in new[] { "admin", "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
             db.Users.Add(new ApplicationUser { Id = id, FullName = id, UserName = id, NormalizedUserName = id.ToUpperInvariant(), IsActive = true });
         roleIds = await db.Roles.ToDictionaryAsync(r => r.Name!, r => r.Id);
         Check(new[] { "ProcurementOfficer", "SourcingOfficer", "Supplier", "DepartmentRepresentative", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative" }
             .All(roleIds.ContainsKey), "Migration-seeded role names match the communication and sourcing modules");
-        foreach (var (user, role) in new[] { ("officer", "ProcurementOfficer"), ("other", "ProcurementOfficer"),
+        foreach (var (user, role) in new[] { ("admin", "Admin"), ("officer", "ProcurementOfficer"), ("other", "ProcurementOfficer"),
             ("requester", "DepartmentRepresentative"), ("supplier-user", "Supplier"), ("manager", "SourcingManager"),
             ("department", "DepartmentRepresentative"), ("financial", "FinancialRepresentative"), ("technical", "TechnicalRepresentative") })
             db.UserRoles.Add(new IdentityUserRole<string> { UserId = user, RoleId = roleIds[role] });
@@ -219,8 +229,13 @@ try
         Check(await db.TenderInvitations.CountAsync() == 1, "Duplicate supplier selections create one invitation");
     Check(await Act(c => c.AssignEvaluationCommittee(new SourcingCommitteeForm { TenderId = tenderId,
         ManagerUserId = "manager", DepartmentUserId = "department", TechnicalUserId = "technical", FinancialUserId = "financial" }))
-        is RedirectToActionResult, "Officer assigns four authorized committee members before publication");
-    Check(await Act(c => c.AssignEvaluationCommittee(new SourcingCommitteeForm { TenderId = tenderId,
+        is ForbidResult, "Officer cannot assign the committee through the legacy endpoint");
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId }), "officer")
+        is ForbidResult, "Admin assignment rechecks the database role despite a forged Admin claim");
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId,
+        ManagerUserId = "manager", DepartmentUserId = "department", TechnicalUserId = "technical", FinancialUserId = "financial" }))
+        is RedirectToActionResult, "Admin assigns four authorized committee members before publication");
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId,
         ManagerUserId = "manager", DepartmentUserId = "department", TechnicalUserId = "technical", FinancialUserId = "technical" }))
         is RedirectToActionResult, "Invalid committee selection returns validation feedback");
     await using (var db = new ApplicationDbContext(options))
@@ -229,6 +244,8 @@ try
     Check(await Act(c => c.RequestWeightApproval(tenderId), "other") is NotFoundResult,
         "Another officer cannot request preparation approval");
     await Act(c => c.RequestWeightApproval(tenderId));
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId }))
+        is ConflictObjectResult, "Admin cannot reassign a locked preparation committee");
     Check(await EvaluatorAct("technical", c => c.Evaluate(tenderId)) is ViewResult {
         Model: EvaluationCommitteeViewModel prep } && prep.Bids.Count == 0,
         "Committee receives draft preparation without supplier offers");
@@ -642,7 +659,7 @@ try
     if (preview)
     {
         await using var db = new ApplicationDbContext(options);
-        foreach (var accountId in new[] { "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
+        foreach (var accountId in new[] { "admin", "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
         {
             var account = (await db.Users.FindAsync(accountId))!;
             account.UserName = account.Email = accountId + "@example.test";

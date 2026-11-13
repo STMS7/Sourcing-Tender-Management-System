@@ -5,7 +5,6 @@
     var draft = Model.Status == TenderStatus.Draft;
     var preparing = draft && Model.EvaluationCriteriaLockedAt == null;
     var preApproved = ViewBag.PrePublicationApproved is true;
-    var candidates = (Dictionary<CommitteeMemberRole, List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>>)ViewBag.CommitteeCandidates;
     var suppliers = (List<Supplier>)ViewBag.Suppliers;
     var history = (List<WorkflowTransition>)ViewBag.History;
     var handoff = (SourcingEvaluationReadiness)ViewBag.Handoff;
@@ -40,7 +39,7 @@
 @if (Model.ProcurementRequestId != null && Model.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation) {
     <p><a asp-action="RequestDetails" asp-route-id="@Model.ProcurementRequestId">Open source request and department chat</a></p>
 }
-@if (draft) { <p class="text-secondary">Prepare the terms, dates, criteria and documents, assign the committee, then request pre-publication approval. Both technical and financial members must approve before publishing.</p> }
+@if (draft) { <p class="text-secondary">Prepare the terms, dates, criteria and documents, then request pre-publication approval once the committee has been assigned. Both technical and financial members must approve before publishing.</p> }
 @if (Model.Status == TenderStatus.Published) { <p class="text-secondary">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
 @if (!draft && !preApproved) {
     <p class="alert alert-warning">This historical tender has no verified approval recorded before publication. Do not change weights after receiving offers. Resolve it through the team's documented procedure before evaluation.</p>
@@ -110,19 +109,7 @@ else {
 }
 <h2>Committee and pre-publication approval</h2>
 @if (preparing) {
-    <p>Select four distinct users with the appropriate account roles. This assigns existing employees; it does not change their roles.</p>
-    <form asp-action="AssignEvaluationCommittee" method="post" class="form-panel">
-        <input name="TenderId" value="@Model.Id" type="hidden" />
-        @foreach (var position in candidates.Keys) {
-            var field = position switch { CommitteeMemberRole.SourcingManager => "ManagerUserId", CommitteeMemberRole.DepartmentRepresentative => "DepartmentUserId", CommitteeMemberRole.TechnicalRepresentative => "TechnicalUserId", _ => "FinancialUserId" };
-            var current = Model.CommitteeMembers.FirstOrDefault(m => m.CommitteeType == CommitteeType.Evaluation && m.RoleType == position)?.UserId;
-            <div class="mb-3"><label for="@field" class="form-label">@position</label><select id="@field" name="@field" class="form-select" required>
-                <option value="">Choose a member</option>
-                @foreach (var candidate in candidates[position]) { <option value="@candidate.Value" selected="@(candidate.Value == current)">@candidate.Text</option> }
-            </select></div>
-        }
-        <button class="btn btn-outline-primary" type="submit">Save evaluation committee</button>
-    </form>
+    <p class="text-secondary">Admin assigns the evaluation committee. You can view the assigned members below and request approval once the committee is ready. Contact Admin if members are missing or need to change.</p>
     <form asp-action="RequestWeightApproval" method="post" class="my-3"><input name="id" value="@Model.Id" type="hidden" /><button class="btn btn-primary" type="submit">Lock preparation and request weight approval</button></form>
 } else if (draft) {
     <p class="alert @(preApproved ? "alert-success" : "alert-info")">@(preApproved ? "Criteria and weights approved before publication. Complete supplier selection, then publish." : "Preparation locked. Waiting for the assigned technical and financial members to approve the criteria and weights.")</p>
