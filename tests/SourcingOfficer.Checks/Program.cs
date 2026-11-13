@@ -135,6 +135,21 @@ try
         Check(await db.AuditLogs.AnyAsync() && await db.WorkflowTransitions.AnyAsync(), "Audit and workflow events are saved");
     }
     Check(await Act(c => c.Create(form)) is NotFoundResult, "Duplicate conversion is prevented");
+    await using (var db = new ApplicationDbContext(options))
+    {
+        var draft = (await db.Tenders.FindAsync(tenderId))!;
+        draft.TechnicalWeight = 23; draft.FinancialWeight = 77;
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.Edit(new SourcingTenderForm { Id = tenderId, ProcurementRequestId = requestId,
+        Title = "Sugar tender", TermsAndConditions = "Food grade; sealed packaging.", CategoryId = categoryId,
+        SubmissionDeadline = DateTime.UtcNow.AddDays(2) }));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        var edited = (await db.Tenders.FindAsync(tenderId))!;
+        Check(edited.TechnicalWeight == 23 && edited.FinancialWeight == 77,
+            "Officer draft editing preserves stored evaluation weights instead of assigning or resetting them");
+    }
     Check(await Act(c => c.RequestDetails(requestId)) is ViewResult convertedRequest &&
         convertedRequest.Model is ProcurementRequest { Status: ProcurementRequestStatus.ConvertedToTender } &&
         convertedRequest.ViewData["CanCreateTender"] is false,
@@ -288,6 +303,14 @@ try
     Check(await EvaluatorAct("financial", c => c.Evaluate(tenderId))
         is ViewResult { Model: EvaluationCommitteeViewModel receivedFinancial } && receivedFinancial.Bids.Count == 1,
         "The financial committee's real controller receives the same eligible tender");
+    await EvaluatorAct("technical", c => c.SubmitWeights(tenderId, 80, 20));
+    await EvaluatorAct("financial", c => c.SubmitWeights(tenderId, 60, 40));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        var evaluated = (await db.Tenders.FindAsync(tenderId))!;
+        Check(evaluated.TechnicalWeight == 70 && evaluated.FinancialWeight == 30,
+            "Actual technical and financial committee proposals determine the overall weights");
+    }
     Check(await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.NonCompliant, Reason = "Late change" })) is ConflictObjectResult, "Compliance cannot change after handoff");
     Check(await Act(c => c.ForwardToEvaluation(tenderId)) is ConflictObjectResult, "Duplicate evaluation handoff is rejected");
     Check(await Act(c => c.Index()) is ViewResult, "Dashboard queries execute successfully");

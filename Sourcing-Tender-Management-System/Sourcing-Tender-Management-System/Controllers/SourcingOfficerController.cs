@@ -141,7 +141,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
             Id = tender.Id, ProcurementRequestId = tender.ProcurementRequestId ?? 0,
             Title = tender.Title, Description = tender.Description, TermsAndConditions = tender.TermsAndConditions ?? "",
             CategoryId = tender.CategoryId, SubmissionDeadline = tender.SubmissionDeadline, OpeningDate = tender.OpeningDate,
-            EstimatedValue = tender.EstimatedValue, TechnicalWeight = tender.TechnicalWeight, FinancialWeight = tender.FinancialWeight
+            EstimatedValue = tender.EstimatedValue
         });
     }
 
@@ -303,9 +303,8 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         if (tender == null) return NotFound();
         if (tender.Status != TenderStatus.Draft) return Conflict("Only a draft can be published.");
         if (tender.SubmissionDeadline <= DateTime.UtcNow || tender.OpeningDate < tender.SubmissionDeadline ||
-            tender.Items.Count == 0 || string.IsNullOrWhiteSpace(tender.TermsAndConditions) ||
-            tender.TechnicalWeight <= 0 || tender.FinancialWeight <= 0 || tender.TechnicalWeight + tender.FinancialWeight != 100)
-            ModelState.AddModelError("", "Complete the terms, items, future deadline and valid evaluation weights.");
+            tender.Items.Count == 0 || string.IsNullOrWhiteSpace(tender.TermsAndConditions))
+            ModelState.AddModelError("", "Complete the terms, items and future deadline.");
         foreach (var type in Enum.GetValues<CriterionType>())
             if (tender.EvaluationCriteria.Where(c => c.Type == type).Sum(c => c.Weight) != 100)
                 ModelState.AddModelError("", $"{type} criteria must total 100% within their group.");
@@ -628,7 +627,6 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         if (!await db.Categories.AnyAsync(c => c.Id == form.CategoryId)) ModelState.AddModelError(nameof(form.CategoryId), "Choose an existing category.");
         if (form.SubmissionDeadline == null || form.SubmissionDeadline <= DateTime.UtcNow) ModelState.AddModelError(nameof(form.SubmissionDeadline), "Choose a future deadline in UTC.");
         if (form.OpeningDate != null && form.OpeningDate < form.SubmissionDeadline) ModelState.AddModelError(nameof(form.OpeningDate), "Opening cannot precede the submission deadline.");
-        if (form.TechnicalWeight + form.FinancialWeight != 100) ModelState.AddModelError("", "Technical and financial weights must total 100%.");
     }
 
     private static void ApplyForm(Tender tender, SourcingTenderForm form)
@@ -637,7 +635,7 @@ public class SourcingOfficerController(ApplicationDbContext db) : Controller
         tender.TermsAndConditions = form.TermsAndConditions.Trim(); tender.CategoryId = form.CategoryId;
         tender.SubmissionDeadline = DateTime.SpecifyKind(form.SubmissionDeadline!.Value, DateTimeKind.Utc);
         tender.OpeningDate = form.OpeningDate is { } opening ? DateTime.SpecifyKind(opening, DateTimeKind.Utc) : null;
-        tender.EstimatedValue = form.EstimatedValue; tender.TechnicalWeight = form.TechnicalWeight; tender.FinancialWeight = form.FinancialWeight;
+        tender.EstimatedValue = form.EstimatedValue;
     }
     private async Task LoadCategories() => ViewBag.Categories = new SelectList(await db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync(), "Id", "Name");
     private async Task<IActionResult> InvalidTender(SourcingTenderForm form, ProcurementRequest? request = null)

@@ -174,10 +174,14 @@ Status.PendingManagerReview, SubmittedAt in UTC, and
 TenderStatus.AwaitingManagerReview. The officer tracking screen reads those
 fields directly. A manager's subsequent decisions belong to the manager module.
 
-Evaluation criteria and weights are locked at publication through
-EvaluationCriteriaLockedAt. Committee and supplier pages must not change them.
-The existing weighting convention is 100% within each criterion group, with the
-tender's TechnicalWeight/FinancialWeight controlling the group split.
+Officer edits to scoring criteria lock at publication through
+EvaluationCriteriaLockedAt. Supplier pages must not change those criteria.
+The existing weighting convention is 100% within each criterion group.
+The overall TechnicalWeight/FinancialWeight split belongs to the technical and
+financial committee, and is not part of the officer's Create/Edit input contract.
+Officer pages display pending until both evaluators submit complete proposals,
+then show the averaged agreed split read-only. Existing numeric defaults in the entity are not
+evidence of an agreed evaluation decision.
 
 The current committee implementation independently stores proposal metadata in
 __weight: EvaluationCriterion rows and writes agreed group weights during
