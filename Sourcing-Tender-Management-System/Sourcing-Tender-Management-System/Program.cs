@@ -37,6 +37,7 @@ namespace Sourcing_Tender_Management_System
                     }
                 };
             });
+            builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.SupplierFileStore>();
             builder.Services.AddControllersWithViews();
 
             var app = builder.Build();

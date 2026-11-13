@@ -3,3 +3,6 @@ bin/
 obj/
 *.user
 *.suo
+
+# Local supplier uploads
+**/App_Data/SupplierFiles/

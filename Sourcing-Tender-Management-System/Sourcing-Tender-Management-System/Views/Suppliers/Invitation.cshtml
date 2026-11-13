@@ -1,0 +1,94 @@
+@model TenderInvitation
+@{
+    ViewData["Title"] = "Invitation Details";
+    var tender = Model.Tender;
+    var open = tender.Status == TenderStatus.Published && tender.SubmissionDeadline > DateTime.UtcNow
+        && (tender.PublishedAt is null || tender.PublishedAt <= DateTime.UtcNow);
+}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h2 mb-0">Invitation Details</h1>
+    <a asp-action="Invitations" class="btn btn-outline-secondary">Back to invitations</a>
+</div>
+@if (TempData["SupplierNotice"] is string notice)
+{
+    <div class="alert alert-info" role="status">@notice</div>
+}
+<div class="card mb-4"><div class="card-body">
+    <h2 class="h4">@tender.Title</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-4">Tender number</dt><dd class="col-sm-8">@tender.TenderNumber</dd>
+        <dt class="col-sm-4">Tender status</dt><dd class="col-sm-8">@tender.Status</dd>
+        <dt class="col-sm-4">Submission deadline (UTC)</dt><dd class="col-sm-8">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm")</dd>
+        <dt class="col-sm-4">Your response</dt><dd class="col-sm-8"><span class="badge bg-secondary">@Model.Status</span></dd>
+        @if (Model.RespondedAt.HasValue)
+        {
+            <dt class="col-sm-4">Responded on (UTC)</dt><dd class="col-sm-8">@Model.RespondedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
+        }
+    </dl>
+    <h3 class="h6 mt-3">Description</h3>
+    <p class="text-break" style="white-space: pre-wrap">@(tender.Description ?? "No description provided.")</p>
+    <h3 class="h6">Terms and conditions</h3>
+    <p class="text-break mb-0" style="white-space: pre-wrap">@(tender.TermsAndConditions ?? "No additional terms provided.")</p>
+</div></div>
+<h2 class="h5">Requested items</h2>
+@if (tender.Items.Count == 0)
+{
+    <p class="text-muted">No items have been specified.</p>
+}
+else
+{
+    <div class="table-responsive mb-4"><table class="table table-bordered">
+        <thead><tr><th scope="col">Item</th><th scope="col">Specifications</th><th scope="col">Quantity</th><th scope="col">Unit</th></tr></thead>
+        <tbody>
+        @foreach (var item in tender.Items.OrderBy(x => x.Id))
+        {
+            <tr><td>@item.ItemName</td><td class="text-break">@item.Specifications</td><td>@item.Quantity.ToString("0.###")</td><td>@item.Unit</td></tr>
+        }
+        </tbody>
+    </table></div>
+}
+<h2 class="h5">Offer document requirements</h2>
+@if (tender.DocumentRequirements.Count == 0)
+{
+    <p class="text-muted">No document requirements have been specified.</p>
+}
+else
+{
+    <ul class="list-group mb-4">
+    @foreach (var requirement in tender.DocumentRequirements.OrderBy(x => x.Id))
+    {
+        <li class="list-group-item"><strong>@requirement.DocumentType</strong>
+            <span class="badge @(requirement.IsMandatory ? "bg-danger" : "bg-secondary")">@(requirement.IsMandatory ? "Required" : "Optional")</span>
+            @if (!string.IsNullOrWhiteSpace(requirement.Description)) { <p class="mb-0 mt-1">@requirement.Description</p> }
+        </li>
+    }
+    </ul>
+}
+@if (open && Model.Status == InvitationStatus.Invited)
+{
+    <div class="card mb-4"><div class="card-body">
+        <h2 class="h5">Participation decision</h2>
+        <p>Accepting confirms your intention to participate. Your price offer is submitted separately. Your decision cannot be changed on this page.</p>
+        <form asp-action="Respond" method="post" class="d-inline">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" name="accept" value="true" class="btn btn-success">Accept participation</button>
+        </form>
+        <form asp-action="Respond" method="post" class="d-inline">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" name="accept" value="false" class="btn btn-outline-danger">Decline participation</button>
+        </form>
+    </div></div>
+}
+else if (open && Model.Status == InvitationStatus.Accepted)
+{
+    <div class="alert alert-success">You have accepted this invitation. You can now prepare your offer.</div>
+    <a asp-action="Offer" asp-route-id="@Model.Id" class="btn btn-primary mb-4">Prepare offer</a>
+}
+else if (Model.Status == InvitationStatus.Declined)
+{
+    <div class="alert alert-secondary">You declined participation in this tender.</div>
+}
+else
+{
+    <div class="alert alert-warning">This invitation is not available for a participation response. The tender may be closed, not yet open, or the invitation may have expired.</div>
+}

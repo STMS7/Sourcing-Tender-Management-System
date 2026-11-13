@@ -1,0 +1,35 @@
+@model Bid
+@{
+    ViewData["Title"] = "Offer Details";
+    var canWithdraw = Model.Status == BidStatus.Submitted && Model.Tender.Status == TenderStatus.Published
+        && Model.Tender.SubmissionDeadline > DateTime.UtcNow && (Model.Tender.PublishedAt is null || Model.Tender.PublishedAt <= DateTime.UtcNow);
+}
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Offer Details</h1><a asp-action="Offers" class="btn btn-outline-secondary align-self-start">Back to my offers</a></div>
+<partial name="_OfferSummary" model="Model" />
+<h2 class="h5">Offer documents</h2>
+@if (Model.Documents.Count == 0) { <p class="text-muted">No documents attached.</p> }
+else
+{
+    <ul class="list-group mb-4">
+    @foreach (var doc in Model.Documents.OrderBy(x => x.Id))
+    {
+        <li class="list-group-item d-flex flex-wrap justify-content-between gap-2"><span class="text-break">@doc.DocumentType — @doc.FileName</span><a asp-action="Download" asp-route-id="@doc.Id">Download PDF</a></li>
+    }
+    </ul>
+}
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a asp-action="Report" asp-route-id="@Model.Id" class="btn btn-outline-primary">View report / print</a>
+    <a asp-action="Export" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Download summary (CSV)</a>
+</div>
+@if (canWithdraw)
+{
+    <div class="card border-warning mb-4"><div class="card-body">
+        <h2 class="h5">Withdraw offer</h2>
+        <p>Withdrawal is available before the tender deadline. This portal does not currently allow resubmitting a withdrawn offer.</p>
+        <form asp-action="Withdraw" method="post">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <div class="form-check mb-3"><input type="checkbox" name="confirmed" value="true" class="form-check-input" id="confirm-withdraw" required /><label for="confirm-withdraw" class="form-check-label">I confirm that I want to withdraw this offer.</label></div>
+            <button type="submit" class="btn btn-outline-danger">Withdraw offer</button>
+        </form>
+    </div></div>
+}
