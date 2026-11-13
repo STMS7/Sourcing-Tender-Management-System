@@ -1,0 +1,48 @@
+@model Sourcing_Tender_Management_System.Models.ProcurementRequest
+@using Sourcing_Tender_Management_System.Models
+@{ var rows = Model.Items.ToList(); }
+<div asp-validation-summary="All" class="text-danger"></div>
+<input type="hidden" asp-for="Id" />
+<div class="mb-2"><label>Title</label><input asp-for="Title" class="form-control" maxlength="200" required /></div>
+<div class="mb-2"><label>Description / reason</label><textarea asp-for="Description" class="form-control" maxlength="2000" required></textarea></div>
+<div class="mb-2"><label>Priority</label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<RequestPriority>()"></select></div>
+<div class="mb-2"><label>Required by</label><input asp-for="RequiredByDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" required /></div>
+<h4>Items (at least one)</h4>
+<table class="table table-bordered" id="itemsTable">
+<thead><tr><th>Item name</th><th>Specifications</th><th>Quantity</th><th>Unit</th><th>Estimated unit price</th></tr></thead>
+<tbody>
+@for (int i = 0; i < Model.Items.Count; i++)
+{
+    <tr>
+        <td><input type="hidden" name="Items[@i].CategoryId" value="@rows[i].CategoryId" /><input name="Items[@i].ItemName" value="@rows[i].ItemName" class="form-control" maxlength="250" /></td>
+        <td><input name="Items[@i].Specifications" value="@rows[i].Specifications" class="form-control" maxlength="2000" /></td>
+        <td><input name="Items[@i].Quantity" value="@rows[i].Quantity" type="number" step="0.001" min="0" class="form-control" /></td>
+        <td><input name="Items[@i].Unit" value="@rows[i].Unit" class="form-control" maxlength="30" /></td>
+        <td><input name="Items[@i].EstimatedUnitPrice" value="@rows[i].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" /></td>
+    </tr>
+}
+</tbody>
+</table>
+<button type="button" id="addItem" class="btn btn-secondary">Add another item</button>
+<button type="submit" class="btn btn-primary">Save Draft</button>
+<template id="itemTemplate">
+<tr>
+<td><input name="Items[__INDEX__].ItemName" class="form-control" maxlength="250" /></td>
+<td><input name="Items[__INDEX__].Specifications" class="form-control" maxlength="2000" /></td>
+<td><input name="Items[__INDEX__].Quantity" type="number" step="0.001" min="0" class="form-control" value="0" /></td>
+<td><input name="Items[__INDEX__].Unit" class="form-control" maxlength="30" /></td>
+<td><input name="Items[__INDEX__].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" value="0" /></td>
+</tr>
+</template>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const add = document.getElementById('addItem');
+    if (!add) return;
+    add.addEventListener('click', function () {
+        const body = document.querySelector('#itemsTable tbody');
+        const count = body.querySelectorAll('tr').length;
+        if (count >= 30) return;
+        body.insertAdjacentHTML('beforeend', document.getElementById('itemTemplate').innerHTML.replaceAll('__INDEX__', count));
+    });
+});
+</script>

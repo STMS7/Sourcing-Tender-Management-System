@@ -1,0 +1,8 @@
+@model Sourcing_Tender_Management_System.Models.ProcurementRequest
+@{ ViewData["Title"] = "Edit Purchase Request"; }
+<h2>Edit Purchase Request</h2>
+<p>Only Draft or Returned requests can be edited.</p>
+<form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+    <partial name="_RequestForm" model="Model" />
+</form>
+<p><a asp-action="Details" asp-route-id="@Model.Id">Back to details</a></p>
