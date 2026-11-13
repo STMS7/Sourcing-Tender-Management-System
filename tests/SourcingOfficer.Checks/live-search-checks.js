@@ -15,10 +15,10 @@ async page => {
         };
     });
     await page.goto(base + '/SourcingOfficer');
-    if (page.url().includes('/Identity/Account/Login')) {
+    if (/\/(?:Identity\/Account|Auth)\/Login/.test(page.url())) {
         await page.getByRole('textbox', { name: 'Email', exact: true }).fill('officer@example.test');
         await page.getByRole('textbox', { name: 'Password', exact: true }).fill('Preview-Only!4729');
-        await page.getByRole('button', { name: 'Log in', exact: true }).click();
+        await page.getByRole('button', { name: /^(Log in|Login)$/ }).click();
         await page.waitForURL(base + '/SourcingOfficer');
     }
     await page.goto(base + '/SourcingOfficer/Tenders?search=sugar');

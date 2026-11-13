@@ -86,3 +86,11 @@ public class SourcingRecipientMessagesViewModel
     public Clarification? Selected { get; set; }
     public bool CanReply { get; set; }
 }
+
+public class SourcingEvaluationReadiness
+{
+    public List<string> Issues { get; set; } = [];
+    public int SubmittedOffers { get; set; }
+    public int CompliantOffers { get; set; }
+    public bool Ready => Issues.Count == 0;
+}

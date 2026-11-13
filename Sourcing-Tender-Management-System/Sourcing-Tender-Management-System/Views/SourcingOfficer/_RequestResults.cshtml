@@ -4,7 +4,7 @@
 else {
 <div class="table-responsive"><table class="table"><caption class="visually-hidden">Approved purchase requests</caption><thead><tr><th scope="col">Request</th><th scope="col">Department</th><th scope="col">Priority</th><th scope="col">Required by</th><th scope="col">Action</th></tr></thead><tbody>
 @foreach (var request in Model) {
-<tr><td><strong>@request.Title</strong><br /><small>@request.RequestNumber</small></td><td>@request.Department.Name</td><td>@request.Priority</td><td>@(request.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</td><td><a asp-action="RequestDetails" asp-route-id="@request.Id">Review <span class="visually-hidden">@request.Title</span></a></td></tr>
+<tr><td><strong>@request.Title</strong><br /><small>@request.RequestNumber</small></td><td>@request.Department.Name</td><td>@request.Priority</td><td>@(request.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</td><td><a asp-action="RequestDetails" asp-route-id="@request.Id">Review <span class="visually-hidden">@request.Title</span></a><br /><a class="small" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{request.Id}")">Department chat <span class="visually-hidden">@request.Title</span></a></td></tr>
 }
 </tbody></table></div>
 }

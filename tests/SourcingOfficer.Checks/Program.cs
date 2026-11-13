@@ -56,6 +56,18 @@ async Task<TResult> RecipientAct<TResult>(Func<MessagesController, Task<TResult>
     };
     return await action(controller);
 }
+async Task<IActionResult> EvaluatorAct(string userId, Func<EvaluationCommitteeController, Task<IActionResult>> action)
+{
+    await using var db = new ApplicationDbContext(options);
+    var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+        new[] { new Claim(ClaimTypes.NameIdentifier, userId) }, "checks")) };
+    var controller = new EvaluationCommitteeController(db)
+    {
+        ControllerContext = new ControllerContext { HttpContext = http },
+        TempData = new TempDataDictionary(http, new MemoryTempData())
+    };
+    return await action(controller);
+}
 int requestId, categoryId, supplierId, tenderId, bidId;
 try
 {
@@ -91,6 +103,14 @@ try
         requestId = request.Id;
     }
     Check(await Act(c => c.Requests(null)) is ViewResult { Model: List<ProcurementRequest> r } && r.Count == 1, "Approved request queue loads from SQL");
+    Check(await Act(c => c.Messages("RequestingDepartment", "request:" + requestId, null, true))
+        is ViewResult { Model: SourcingMessagesViewModel revisionComposer } &&
+        revisionComposer.Form.Subject == "Changes requested for PR-CHECKS" &&
+        revisionComposer.Form.RecipientUserId == "requester",
+        "Request revision chat opens with the exact request and its owner preselected");
+    await using (var db = new ApplicationDbContext(options))
+        Check((await db.ProcurementRequests.FindAsync(requestId))!.Status == ProcurementRequestStatus.Approved,
+            "Opening revision chat does not change the department's request approval");
     Check(await Act(c => c.RequestDetails(requestId + 1000)) is NotFoundResult, "Unknown requests are inaccessible");
     await using (var db = new ApplicationDbContext(options))
     {
@@ -115,11 +135,20 @@ try
         Check(await db.AuditLogs.AnyAsync() && await db.WorkflowTransitions.AnyAsync(), "Audit and workflow events are saved");
     }
     Check(await Act(c => c.Create(form)) is NotFoundResult, "Duplicate conversion is prevented");
+    Check(await Act(c => c.RequestDetails(requestId)) is ViewResult convertedRequest &&
+        convertedRequest.Model is ProcurementRequest { Status: ProcurementRequestStatus.ConvertedToTender } &&
+        convertedRequest.ViewData["CanCreateTender"] is false,
+        "Source request and department chat stay accessible after conversion without offering duplicate creation");
+    Check(await Act(c => c.RequestDetails(requestId), "other") is NotFoundResult,
+        "Another officer cannot read the converted source request");
     Check(await Act(c => c.Details(tenderId), "other") is NotFoundResult, "Another officer cannot read an unassigned tender");
     Check(await Act(c => c.Edit(new SourcingTenderForm { Id = tenderId }), "other") is NotFoundResult, "Forged tender edits are rejected");
     await Act(c => c.Publish(tenderId));
     await using (var db = new ApplicationDbContext(options))
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft, "Incomplete tender cannot publish");
+    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical, Weight = 100 }));
+    await using (var db = new ApplicationDbContext(options))
+        Check(!await db.EvaluationCriteria.AnyAsync(), "Officer criteria cannot impersonate internal committee weight proposals");
     await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical, Weight = 100 }));
     await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Cost", Type = CriterionType.Financial, Weight = 100 }));
     await Act(c => c.AddRequirement(new SourcingRequirementForm { TenderId = tenderId, DocumentType = "Food quality certificate", IsMandatory = true }));
@@ -228,12 +257,37 @@ try
         (await db.Suppliers.FindAsync(supplierId))!.IsActive = true;
         await db.SaveChangesAsync();
     }
+    await using (var db = new ApplicationDbContext(options))
+    {
+        db.UserRoles.Remove(await db.UserRoles.SingleAsync(a => a.UserId == "technical"));
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.ForwardToEvaluation(tenderId));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Closed,
+            "Handoff requires evaluator account roles that can open the committee page");
+        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "technical", RoleId = roleIds["TechnicalRepresentative"] });
+        await db.SaveChangesAsync();
+    }
     await Act(c => c.ForwardToEvaluation(tenderId));
     await using (var db = new ApplicationDbContext(options))
     {
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.UnderEvaluation, "Reviewed offers move to evaluation");
         Check(await db.UserTasks.CountAsync() == 4, "Committee members receive evaluation tasks");
+        Check(await db.Notifications.AnyAsync(n => n.UserId == "technical" && n.Link == "/EvaluationCommittee/Evaluate/" + tenderId) &&
+            await db.Notifications.AnyAsync(n => n.UserId == "financial" && n.Link == "/EvaluationCommittee/Evaluate/" + tenderId),
+            "Technical and financial members receive direct links to their actual evaluation page");
+        Check(await db.UserTasks.CountAsync(t => t.Link == "/EvaluationCommittee/Evaluate/" + tenderId) == 2,
+            "Evaluation tasks carry committee-page links for the two evaluators");
     }
+    Check(await EvaluatorAct("technical", c => c.Evaluate(tenderId))
+        is ViewResult { Model: EvaluationCommitteeViewModel receivedTechnical } &&
+        receivedTechnical.Tender.Status == TenderStatus.UnderEvaluation && receivedTechnical.Bids.Count == 1,
+        "The technical committee's real controller receives the sent tender and its compliant bid");
+    Check(await EvaluatorAct("financial", c => c.Evaluate(tenderId))
+        is ViewResult { Model: EvaluationCommitteeViewModel receivedFinancial } && receivedFinancial.Bids.Count == 1,
+        "The financial committee's real controller receives the same eligible tender");
     Check(await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.NonCompliant, Reason = "Late change" })) is ConflictObjectResult, "Compliance cannot change after handoff");
     Check(await Act(c => c.ForwardToEvaluation(tenderId)) is ConflictObjectResult, "Duplicate evaluation handoff is rejected");
     Check(await Act(c => c.Index()) is ViewResult, "Dashboard queries execute successfully");
@@ -391,6 +445,31 @@ try
         db.ProcurementRequests.Add(new ProcurementRequest { RequestNumber = "PR-PREVIEW", Title = "Food packaging materials",
             DepartmentId = (await db.Departments.FirstAsync()).Id, RequestedByUserId = "requester", Status = ProcurementRequestStatus.Approved,
             Items = [new ProcurementRequestItem { ItemName = "Food-safe bags", Quantity = 10000, Unit = "pcs", CategoryId = categoryId }] });
+        if (args.Contains("--handoff-preview"))
+        {
+            var source = new ProcurementRequest { RequestNumber = "PR-HANDOFF-PREVIEW", Title = "Packaging supply",
+                DepartmentId = (await db.Departments.FirstAsync()).Id, RequestedByUserId = "requester",
+                Status = ProcurementRequestStatus.ConvertedToTender,
+                Items = [new ProcurementRequestItem { ItemName = "Food-safe bags", Quantity = 1000, Unit = "pcs", CategoryId = categoryId }] };
+            var item = new TenderItem { ItemName = "Food-safe bags", Quantity = 1000, Unit = "pcs" };
+            var ready = new Tender { TenderNumber = "TND-HANDOFF-PREVIEW", Title = "Packaging tender ready for evaluation",
+                CategoryId = categoryId, CreatedByUserId = "officer", ProcurementRequest = source,
+                Status = TenderStatus.Closed, PublishedAt = DateTime.UtcNow.AddDays(-3),
+                SubmissionDeadline = DateTime.UtcNow.AddDays(-1), EvaluationCriteriaLockedAt = DateTime.UtcNow.AddDays(-3),
+                TermsAndConditions = "Food-safe packaging and agreed delivery.", Items = [item],
+                EvaluationCriteria = [
+                    new EvaluationCriterion { Name = "Quality", Type = CriterionType.Technical, Weight = 100, MaximumScore = 100 },
+                    new EvaluationCriterion { Name = "Price", Type = CriterionType.Financial, Weight = 100, MaximumScore = 100 }],
+                Invitations = [new TenderInvitation { SupplierId = supplierId, InvitedByUserId = "officer", Status = InvitationStatus.Accepted }] };
+            foreach (var (user, role) in new[] { ("manager", CommitteeMemberRole.SourcingManager),
+                ("department", CommitteeMemberRole.DepartmentRepresentative), ("financial", CommitteeMemberRole.FinancialRepresentative),
+                ("technical", CommitteeMemberRole.TechnicalRepresentative) })
+                ready.CommitteeMembers.Add(new TenderCommitteeMember { UserId = user, Role = role.ToString(), RoleType = role });
+            ready.Bids.Add(new Bid { BidNumber = "BID-HANDOFF-PREVIEW", SupplierId = supplierId, Status = BidStatus.Submitted,
+                ComplianceStatus = ComplianceDecision.Compliant, TotalAmount = 100,
+                Items = [new BidItem { TenderItem = item, UnitPrice = .10m, TotalPrice = 100, TechnicalResponse = "Food-safe packaging." }] });
+            db.Tenders.Add(ready);
+        }
         await db.SaveChangesAsync();
         Console.WriteLine("PREVIEW_DATABASE=" + databaseName);
     }

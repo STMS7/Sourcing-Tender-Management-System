@@ -65,7 +65,7 @@ async page => {
     const anonymous = await page.context().browser().newContext();
     const anonymousPage = await anonymous.newPage();
     await anonymousPage.goto(base + '/SourcingOfficer');
-    check(anonymousPage.url().includes('/Identity/Account/Login'), 'Anonymous access redirects to login');
+    check(/\/(?:Identity\/Account|Auth)\/Login/.test(anonymousPage.url()), 'Anonymous access redirects to login');
     await anonymous.close();
     return { results, screenshotDirectory: output };
 }

@@ -136,6 +136,43 @@ when the team finalizes the integration.
 - Explicit versus scheduled tender closure and the interpretation of OpeningDate.
 - Supplier-side invitation links and private file storage.
 
+## Officer cycle and department revision chat
+
+The confirmed cycle sends the tender to the evaluation committee **after**
+receiving supplier offers and finishing compliance, not immediately after draft
+creation. The details page shows a readiness checklist and an explicit
+Send tender and compliant offers to evaluation committee action.
+
+Readiness and the POST action share the same checks. In addition to the existing
+bid and committee-position checks, each assigned member must have the account
+role needed for that position. Technical and financial members receive task and
+notification links to /EvaluationCommittee/Evaluate/{id}. A successful handoff
+records the sent timestamp and makes the tender available to the actual
+EvaluationCommitteeController. The send action is unavailable before closure or
+after the handoff.
+
+RequestDetails includes Chat with requesting department and Request changes in
+chat. The revision shortcut preselects the request owner and supplies a subject
+containing the source request number. Sending creates a normal clarification
+thread; it does not return or reject the request or modify its approval status.
+The department edits request data through its own workflow. The officer can read
+the latest conversation statuses from the source request and reopen the thread.
+Converted source requests remain readable to their sourcing officer while the
+communication stage is active; Create tender is hidden after conversion.
+
+CommitteeWeighting reserves the __weight: criterion-name prefix. Officer-created
+criteria cannot use it or impersonate evaluator proposals. The existing
+committee module's weight-proposal process is otherwise unchanged by this work.
+
+The new sourcing-cycle-browser-checks.js uses the current /Auth/Login route and
+an isolated --preview --handoff-preview fixture. That fixture adds one closed,
+compliant tender ready for the UI handoff. The script checks department messages,
+replies and request history, sends the ready tender, then signs in separately as
+the technical and financial evaluators to verify receipt.
+
+Verified in this update: 70 sourcing SQL checks, 28 existing evaluation committee
+checks, and 19 browser assertions. No shared model or migration change is needed.
+
 ## Verification
 
 Build:
