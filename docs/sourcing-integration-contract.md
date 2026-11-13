@@ -190,16 +190,25 @@ fields directly. A manager's subsequent decisions belong to the manager module.
 
 ## Pre-publication approval contract
 
-1. Populate items, terms, future dates, technical and financial criteria totalling
-   100% within each group, document requirements and the four committee members.
+1. Populate items, terms, future dates, at least one technical and one financial
+   criterion, document requirements and the four committee members. The officer
+   defines criterion names/types/maximum scores, but cannot assign any weights.
+   New criterion weights are zero pending committee input; forged Weight fields
+   are ignored by the officer endpoint.
 2. POST /SourcingOfficer/RequestWeightApproval locks the Draft using
    EvaluationCriteriaLockedAt and notifies the technical/financial members.
    Tender.Status stays Draft. This is preparation approval, not bid handoff.
 3. /EvaluationCommittee/Evaluate/{id} shows locked preparation to its assigned
    active technical/financial user, with no supplier offers. Each submits
-   POST /EvaluationCommittee/SubmitWeights with tenderId, technicalWeight and
-   financialWeight. Each pair must total 100%; the existing averaging convention
-   is preserved. Submitting also approves the displayed locked criteria.
+   POST /EvaluationCommittee/SubmitWeights with tenderId, technicalWeight,
+   financialWeight and criterionWeights[index].CriterionId/Weight. The technical
+   member submits every real technical criterion; the financial member submits
+   every real financial criterion. IDs must belong exclusively to the caller's
+   assigned group, without omissions or duplicates. Each criterion weight is
+   0–100 with at most two decimal places; each group must total 100%.
+   Each overall pair must also total 100%; the existing averaging convention
+   is preserved. Submitting also approves the displayed locked criteria. Missing
+   criterion payloads from older clients are rejected without partial writes.
 4. The existing __weight: EvaluationCriterion rows hold proposals. Workflow
    records bind each approval to the current member and preparation lock time.
    A combined approval event is recorded when both have submitted. No migration
@@ -209,7 +218,9 @@ fields directly. A manager's subsequent decisions belong to the manager module.
    members have approval evidence since the lock and before publication, all
    four members retain their roles, and selected suppliers match the category.
 6. ReopenPreparation works only on unpublished drafts without bids. It removes
-   proposals, clears the lock and notifies members. Old history remains for audit
+   proposals, resets real criterion weights to zero, clears the lock and notifies
+   members. RequestWeightApproval also resets weights before a new approval round.
+   Old history remains for audit
    but cannot approve the newer preparation. Committee assignment, criteria,
    terms and dates must remain unchanged during approval; reopen first to edit.
 7. SubmitWeights refuses published tenders and any tender already containing
@@ -275,7 +286,8 @@ Before final team acceptance, run the real pages through:
 department request → officer review/return and resubmission → acceptance/tender → supplier acceptance
 and bid → compliance → committee report → manager review.
 
-Department pages are integrated and tested. Supplier workflow pages must still
-be integrated against these contracts, and the team must agree on the policy
-items listed in sourcing-officer.md. Current test coverage is not proof that
-unimplemented pages are conflict-free.
+Department pages are integrated and tested. Supplier workflow pages now exist
+in the repository; this preparation journey seeds supplier input and does not
+establish full supplier-portal coverage. Run those pages against these contracts,
+and agree on the policy items listed in sourcing-officer.md. Current contract
+coverage is not proof of complete end-to-end coverage across every module.

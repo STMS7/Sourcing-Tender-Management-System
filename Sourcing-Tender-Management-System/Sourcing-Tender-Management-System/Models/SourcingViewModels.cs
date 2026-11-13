@@ -48,7 +48,6 @@ public class SourcingCriterionForm
     [Required, StringLength(200)] public string Name { get; set; } = "";
     [StringLength(1000)] public string? Description { get; set; }
     [EnumDataType(typeof(CriterionType))] public CriterionType Type { get; set; }
-    [Range(typeof(decimal), "0.01", "100")] public decimal Weight { get; set; }
     [Range(typeof(decimal), "0.01", "999.99")] public decimal MaximumScore { get; set; } = 100;
 }
 

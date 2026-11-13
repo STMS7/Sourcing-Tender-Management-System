@@ -322,11 +322,9 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             ModelState.AddModelError("", "This criterion name is reserved for the evaluation committee's internal weight proposals.");
         if (tender.EvaluationCriteria.Any(c => c.Name.Equals(criterionName, StringComparison.OrdinalIgnoreCase)))
             ModelState.AddModelError("", "A criterion with this name already exists.");
-        if (tender.EvaluationCriteria.Where(c => c.Type == model.Type).Sum(c => c.Weight) + model.Weight > 100)
-            ModelState.AddModelError("", "Weights within each criterion type must not exceed 100%.");
         if (!ModelState.IsValid) return FormError(model.TenderId);
         tender.EvaluationCriteria.Add(new EvaluationCriterion
-        { Name = criterionName, Description = model.Description, Type = model.Type, Weight = model.Weight, MaximumScore = model.MaximumScore });
+        { Name = criterionName, Description = model.Description, Type = model.Type, Weight = 0, MaximumScore = model.MaximumScore });
         Log(tender, "AddCriterion", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();

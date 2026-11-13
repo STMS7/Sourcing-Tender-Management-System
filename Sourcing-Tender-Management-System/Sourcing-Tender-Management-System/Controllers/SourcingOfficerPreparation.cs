@@ -68,11 +68,13 @@ public partial class SourcingOfficerController
             tender.SubmissionDeadline <= DateTime.UtcNow || tender.OpeningDate < tender.SubmissionDeadline)
             ModelState.AddModelError("", "Complete the items, terms and future dates before requesting approval.");
         foreach (var type in Enum.GetValues<CriterionType>())
-            if (tender.EvaluationCriteria.Where(c => c.Type == type && !CommitteeWeighting.IsWeightProposal(c)).Sum(c => c.Weight) != 100)
-                ModelState.AddModelError("", $"{type} criteria must total 100% within their group.");
+            if (!tender.EvaluationCriteria.Any(c => c.Type == type && !CommitteeWeighting.IsWeightProposal(c)))
+                ModelState.AddModelError("", $"Add at least one {type} criterion. The committee will assign its weight.");
         if (!ModelState.IsValid) return FormError(id);
         // Remove any legacy proposals; both current members approve this locked preparation.
         db.EvaluationCriteria.RemoveRange(tender.EvaluationCriteria.Where(CommitteeWeighting.IsWeightProposal));
+        foreach (var criterion in tender.EvaluationCriteria.Where(c => !CommitteeWeighting.IsWeightProposal(c)))
+            criterion.Weight = 0;
         tender.EvaluationCriteriaLockedAt = DateTime.UtcNow;
         foreach (var member in tender.CommitteeMembers.Where(m => CommitteeWeighting.IsEvaluator(m.RoleType)))
             db.Notifications.Add(new Notification { UserId = member.UserId, Title = "Pre-publication criteria and weight approval",
@@ -94,6 +96,8 @@ public partial class SourcingOfficerController
         if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt == null ||
             await db.Bids.AnyAsync(b => b.TenderId == id)) return Conflict("Only an unpublished draft can be reopened.");
         db.EvaluationCriteria.RemoveRange(tender.EvaluationCriteria.Where(CommitteeWeighting.IsWeightProposal));
+        foreach (var criterion in tender.EvaluationCriteria.Where(c => !CommitteeWeighting.IsWeightProposal(c)))
+            criterion.Weight = 0;
         tender.EvaluationCriteriaLockedAt = null;
         foreach (var member in tender.CommitteeMembers.Where(m => CommitteeWeighting.IsEvaluator(m.RoleType)))
             db.Notifications.Add(new Notification { UserId = member.UserId, Title = "Preparation approval reset",

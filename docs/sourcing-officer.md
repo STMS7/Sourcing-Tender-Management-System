@@ -65,11 +65,12 @@ including mobile overflow and the revised item snapshot. Screenshots go into
    the request assignment and marks ConvertedToTender in one transaction.
    Opening/cancelling the form or submitting invalid data leaves it pending.
    The legacy Create route still supports previously Approved requests.
-3. The draft contains category, terms and UTC dates. Overall technical/financial
-   weights belong to the evaluation committee, not the officer form.
+3. The draft contains category, terms and UTC dates. All criterion weights and
+   overall technical/financial weights belong exclusively to the committee.
    The officer configures criteria/documents, assigns the four committee members,
    and requests pre-publication approval. Preparation locks; both technical and
-   financial members submit their proposed split against the locked criteria.
+   financial members assign weights to their own criterion groups (100% each)
+   and submit their proposed overall split against the locked criteria.
    The averaged split becomes approved before publication. Suppliers must be
    approved, active and registered in the tender category.
 4. Publication checks the future deadline, opening date, items, terms, criterion weights
@@ -202,7 +203,18 @@ approvals, publication, server rejection of late weight changes and receipt of
 compliant offers by both evaluator accounts. Older cycle/message callbacks use
 port 5187 and should be run on their own fresh fixture.
 
-## Overall evaluation weights
+## Committee-only evaluation weights
+
+SourcingCriterionForm has no Weight property. AddCriterion always saves weight
+zero, ignoring fabricated Weight fields. The officer still defines the name,
+type, description and maximum score; maximum score is a scoring scale, not a
+weight. Requesting approval requires both criterion types, not preassigned
+weights. Technical members assign technical criterion weights and financial
+members assign financial criterion weights. Their endpoint requires every own
+group ID exactly once, weights of 0–100 with at most two decimals and a group
+total of 100%. Other-group IDs and missing payloads are rejected without writes.
+Officer details show Pending committee until the relevant member submits, then
+show the assigned values read-only. Publication requires both valid groups.
 
 TechnicalWeight and FinancialWeight are no longer officer-editable or included
 in SourcingTenderForm. Create and Edit do not bind or assign them, so fabricated
@@ -215,16 +227,19 @@ pre-publication workflow evidence exist for the currently assigned evaluators.
 Existing numeric defaults or legacy post-bid proposals do not count as approval.
 
 Criteria and document requirements lock when approval is requested. Before
-publication, ReopenPreparation can remove the proposals and unlock the draft;
+publication, ReopenPreparation removes proposals, resets criterion weights to
+zero and unlocks the draft;
 all changes then require both members to approve again. Published tenders cannot
 be reopened through this action. No automatic legacy-data backfill is performed.
 Legacy published tenders without prior approval are flagged and blocked at
 handoff; resolve those through the team's documented procedure, without
 retroactively inventing approval evidence.
 
-Verified: 107 sourcing SQL checks, 34 committee SQL checks and 38 department SQL
-checks. The preparation browser journey passed 26 checks on its rerun, including
-one synthetic-draft rerun guard (25 checks on a fresh fixture). Existing
+Verified: 109 sourcing SQL checks, 44 committee SQL checks and 38 department SQL
+checks (191 total). The preparation browser journey passed 39 checks on its rerun,
+including one synthetic-draft rerun guard (38 checks on a fresh fixture). It
+exercises committee-only inputs, forged officer/cross-group/late submissions,
+both approvals, actual publication and compliant-offer handoff. Existing
 request/return/resubmission/acceptance browser checks remain separate.
 No shared schema or migration is changed.
 

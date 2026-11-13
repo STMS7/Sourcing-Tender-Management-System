@@ -1,4 +1,5 @@
 @model Tender
+@using Sourcing_Tender_Management_System.Services
 @{
     ViewData["Title"] = Model.Title;
     var draft = Model.Status == TenderStatus.Draft;
@@ -12,6 +13,7 @@
     var criteria = Model.EvaluationCriteria.Where(c => !Sourcing_Tender_Management_System.Services.CommitteeWeighting.IsWeightProposal(c)).ToList();
     var agreedWeights = Sourcing_Tender_Management_System.Services.CommitteeWeighting.Agree(
         Sourcing_Tender_Management_System.Services.CommitteeWeighting.ReadProposals(Model.EvaluationCriteria));
+    var weightedGroups = CommitteeWeighting.ReadProposals(Model.EvaluationCriteria).Select(p => p.Role).ToHashSet();
 }
 <div id="tender-details-search-results">
 <a asp-action="Tenders">Back to my tenders</a>
@@ -64,12 +66,13 @@
 @foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3") @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
 </tbody></table></div>
 <h2>Evaluation criteria @(Model.EvaluationCriteriaLockedAt != null ? "— locked" : "")</h2>
-<p class="small text-secondary">Criterion weights within each group must total 100%. The evaluation committee determines the overall technical / financial split.</p>
+<p class="small text-secondary">Define the criteria and maximum scores. Only the committee assigns criterion weights and the overall technical / financial split. Weights are read-only here.</p>
 @if (criteria.Count == 0) { <p>No evaluation criteria added.</p> }
 else {
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Criterion</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Maximum score</th>@if (preparing) { <th scope="col">Action</th> }</tr></thead><tbody>
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Criterion</th><th scope="col">Type</th><th scope="col">Committee weight</th><th scope="col">Maximum score</th>@if (preparing) { <th scope="col">Action</th> }</tr></thead><tbody>
 @foreach (var criterion in criteria.OrderBy(c => c.Type).ThenBy(c => c.Name)) {
-<tr data-search-item><td>@criterion.Name<br /><small>@criterion.Description</small></td><td>@criterion.Type</td><td>@criterion.Weight%</td><td>@criterion.MaximumScore</td>
+    var owner = criterion.Type == CriterionType.Technical ? CommitteeMemberRole.TechnicalRepresentative : CommitteeMemberRole.FinancialRepresentative;
+<tr data-search-item><td>@criterion.Name<br /><small>@criterion.Description</small></td><td>@criterion.Type</td><td>@(!draft || weightedGroups.Contains(owner) ? criterion.Weight.ToString("0.##") + "%" : "Pending committee")</td><td>@criterion.MaximumScore</td>
 @if (preparing) { <td><form asp-action="RemoveCriterion" method="post"><input type="hidden" name="id" value="@criterion.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@criterion.Name</span></button></form></td> }</tr>
 }
 </tbody></table></div>
@@ -81,7 +84,6 @@ else {
 <div class="row g-3">
 <div class="col-md-8"><label for="criterion-name" class="form-label">Name</label><input id="criterion-name" name="Name" class="form-control" maxlength="200" required /></div>
 <div class="col-md-4"><label for="criterion-type" class="form-label">Type</label><select id="criterion-type" name="Type" asp-items="Html.GetEnumSelectList<CriterionType>()" class="form-select"></select></div>
-<div class="col-md-6"><label for="criterion-weight" class="form-label">Weight within group (%)</label><input id="criterion-weight" name="Weight" type="number" min=".01" max="100" step=".01" required class="form-control" /></div>
 <div class="col-md-6"><label for="criterion-score" class="form-label">Maximum score</label><input id="criterion-score" name="MaximumScore" type="number" min=".01" max="999.99" step=".01" value="100" required class="form-control" /></div>
 <div class="col-12"><label for="criterion-description" class="form-label">Description</label><textarea id="criterion-description" name="Description" maxlength="1000" class="form-control"></textarea></div>
 <div class="col-12"><button type="submit" class="btn btn-outline-primary">Add criterion</button></div>

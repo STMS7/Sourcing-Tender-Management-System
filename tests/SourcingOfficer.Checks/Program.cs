@@ -84,6 +84,14 @@ IActionResult CycleAct(string userId, Func<CycleChatController, IActionResult> a
     controller.TempData = new TempDataDictionary(http, new MemoryTempData());
     return action(controller);
 }
+async Task<IActionResult> SubmitCommitteeWeights(string user, int id, decimal technical, decimal financial)
+{
+    await using var db = new ApplicationDbContext(options);
+    var type = user == "technical" ? CriterionType.Technical : CriterionType.Financial;
+    var rows = await db.EvaluationCriteria.Where(c => c.TenderId == id && c.Type == type && !c.Name.StartsWith("__weight:"))
+        .Select(c => new CommitteeCriterionWeightInput { CriterionId = c.Id, Weight = 100 }).ToListAsync();
+    return await EvaluatorAct(user, c => c.SubmitWeights(id, technical, financial, rows));
+}
 int requestId, categoryId, supplierId, tenderId, bidId, wrongSupplierId, unmappedSupplierId;
 try
 {
@@ -185,11 +193,16 @@ try
     await Act(c => c.Publish(tenderId));
     await using (var db = new ApplicationDbContext(options))
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft, "Incomplete tender cannot publish");
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical, Weight = 100 }));
+    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical }));
     await using (var db = new ApplicationDbContext(options))
         Check(!await db.EvaluationCriteria.AnyAsync(), "Officer criteria cannot impersonate internal committee weight proposals");
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical, Weight = 100 }));
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Cost", Type = CriterionType.Financial, Weight = 100 }));
+    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical }));
+    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Cost", Type = CriterionType.Financial }));
+    Check(typeof(SourcingCriterionForm).GetProperty("Weight") == null,
+        "Officer criterion input exposes no weight field for model binding");
+    await using (var db = new ApplicationDbContext(options))
+        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId).AllAsync(c => c.Weight == 0),
+            "Officer-created criteria store only pending weights");
     await Act(c => c.AddRequirement(new SourcingRequirementForm { TenderId = tenderId, DocumentType = "Food quality certificate", IsMandatory = true }));
     await Act(async c => {
         var details = (ViewResult)await c.Details(tenderId);
@@ -219,8 +232,8 @@ try
     Check(await EvaluatorAct("technical", c => c.Evaluate(tenderId)) is ViewResult {
         Model: EvaluationCommitteeViewModel prep } && prep.Bids.Count == 0,
         "Committee receives draft preparation without supplier offers");
-    await EvaluatorAct("technical", c => c.SubmitWeights(tenderId, 80, 20));
-    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Changed after review", Weight = 1 }))
+    await SubmitCommitteeWeights("technical", tenderId, 80, 20);
+    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Changed after review" }))
         is ConflictObjectResult, "Preparation approval freezes criteria before publication");
     Check(await Act(c => c.Edit(tenderId)) is ConflictObjectResult,
         "Direct edit links reject locked preparation instead of displaying an unusable form");
@@ -238,15 +251,15 @@ try
         Check(!await db.EvaluationCriteria.AnyAsync(c => c.TenderId == tenderId && c.Name.StartsWith("__weight:")) &&
             (await db.Tenders.FindAsync(tenderId))!.EvaluationCriteriaLockedAt == null,
             "Reopening draft invalidates all previous approvals");
-    Check(await EvaluatorAct("technical", c => c.SubmitWeights(tenderId, 80, 20)) is ConflictObjectResult,
+    Check(await SubmitCommitteeWeights("technical", tenderId, 80, 20) is ConflictObjectResult,
         "Committee cannot approve before officer relocks preparation");
     await Act(c => c.RequestWeightApproval(tenderId));
-    await EvaluatorAct("technical", c => c.SubmitWeights(tenderId, 80, 20));
+    await SubmitCommitteeWeights("technical", tenderId, 80, 20);
     await Act(c => c.Publish(tenderId));
     await using (var db = new ApplicationDbContext(options))
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft,
             "One committee proposal cannot authorize publication");
-    await EvaluatorAct("financial", c => c.SubmitWeights(tenderId, 60, 40));
+    await SubmitCommitteeWeights("financial", tenderId, 60, 40);
     await using (var db = new ApplicationDbContext(options)) {
         db.SupplierCategories.Remove(await db.SupplierCategories.SingleAsync(c => c.SupplierId == supplierId));
         await db.SaveChangesAsync();
@@ -265,7 +278,7 @@ try
         Check(tender!.Status == TenderStatus.Published && tender.EvaluationCriteriaLockedAt != null, "Publish locks evaluation criteria");
         Check(await db.Notifications.AnyAsync(n => n.UserId == "supplier-user"), "Publishing notifies supplier accounts");
     }
-    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Late change", Weight = 1 })) is ConflictObjectResult, "Criteria cannot change after publication");
+    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Late change" })) is ConflictObjectResult, "Criteria cannot change after publication");
     Check(await Act(c => c.ReopenPreparation(tenderId)) is ConflictObjectResult,
         "Published preparation cannot be reopened or approvals reset");
     Check(await Act(c => c.Close(tenderId)) is ConflictObjectResult, "Early closure is rejected");
@@ -397,7 +410,7 @@ try
     Check(await EvaluatorAct("financial", c => c.Evaluate(tenderId))
         is ViewResult { Model: EvaluationCommitteeViewModel receivedFinancial } && receivedFinancial.Bids.Count == 1,
         "The financial committee's real controller receives the same eligible tender");
-    Check(await EvaluatorAct("technical", c => c.SubmitWeights(tenderId, 99, 1)) is ConflictObjectResult,
+    Check(await SubmitCommitteeWeights("technical", tenderId, 99, 1) is ConflictObjectResult,
         "Weights cannot be changed after bidding and handoff");
     await using (var db = new ApplicationDbContext(options))
     {
