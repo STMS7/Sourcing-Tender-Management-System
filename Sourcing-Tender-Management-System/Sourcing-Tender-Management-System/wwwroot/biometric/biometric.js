@@ -166,6 +166,9 @@
         }
         video.srcObject = stream;
         await video.play();
+
+        // Wait until the camera is really delivering frames (some cameras need a moment after play()).
+        for (var i = 0; i < 50 && (!video.videoWidth || video.readyState < 2); i++) { await sleep(60); }
         return stream;
     }
 
@@ -228,10 +231,28 @@
         turnHead: 'Turn your head to one side, then look back at the camera'
     };
 
+    // Faces are hard to find in dim, grainy or back-lit camera pictures, so the detector adapts:
+    // it starts fast and strict, and if no face is found for a few seconds it switches to a more
+    // sensitive setting and then to a more accurate (slower) detector. The detector only decides
+    // where the face is; the face descriptor itself always comes from the same recognition network.
+    var DETECTORS = [
+        function (f) { return new f.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }); },
+        function (f) { return new f.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.3 }); },
+        function (f) { return new f.SsdMobilenetv1Options({ minConfidence: 0.4 }); }
+    ];
+
+    async function ensureSsdModel() {
+        var nets = window.faceapi.nets;
+        if (!nets.ssdMobilenetv1.isLoaded) { await nets.ssdMobilenetv1.loadFromUri(FACE_CDN + '/model'); }
+    }
+
     async function capture(challenge, video, setHint) {
         var faceapi = window.faceapi;
         var thresholds = challenge.thresholds;
-        var detector = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        var detectorLevel = 0;
+        var detector = DETECTORS[0](faceapi);
+        var missingSince = null;
+        try { console.info('Face detection backend:', faceapi.tf && faceapi.tf.getBackend ? faceapi.tf.getBackend() : 'unknown'); } catch (e) { /* diagnostics only */ }
         var frames = [];
         var descriptors = [];
         var step = 0;
@@ -246,10 +267,33 @@
             var now = performance.now() - started;
             var detection = await faceapi.detectSingleFace(video, detector).withFaceLandmarks();
             if (!detection) {
-                setHint('No face found. Look straight at the camera.');
+                if (missingSince === null) { missingSince = now; }
+                var missing = now - missingSince;
+
+                if (detectorLevel === 0 && missing > 3000) {
+                    detectorLevel = 1;
+                    detector = DETECTORS[1](faceapi);
+                    console.info('No face found for 3 s: using a more sensitive face detector.');
+                } else if (detectorLevel === 1 && missing > 6000) {
+                    try {
+                        setHint('Still looking for your face...');
+                        await ensureSsdModel();
+                        detectorLevel = 2;
+                        detector = DETECTORS[2](faceapi);
+                        console.info('No face found for 6 s: using the more accurate SSD face detector.');
+                    } catch (e) {
+                        console.error('Could not load the SSD face detector:', e);
+                        detectorLevel = 3; // stay on the sensitive tiny detector
+                    }
+                }
+
+                setHint(missing > 6000
+                    ? 'No face found. Face a light (not a window behind you), move a little back, and look straight at the camera.'
+                    : 'No face found. Look straight at the camera.');
                 await sleep(60);
                 continue;
             }
+            missingSince = null;
 
             var m = measure(detection.landmarks);
             var frame = { t: Math.round(now), ear: round3(m.ear), yaw: round3(m.yaw), mar: round3(m.mar) };
