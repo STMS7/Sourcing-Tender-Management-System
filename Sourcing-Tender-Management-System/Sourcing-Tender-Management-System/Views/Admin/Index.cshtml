@@ -5,6 +5,14 @@
 <div class="py-4">
     <h1>Admin Dashboard</h1>
     <p>Welcome, @User.Identity?.Name. Your Admin role is active.</p>
+    @if (TempData["Message"] is string message)
+    {
+        <div class="alert alert-success" role="status">@message</div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
     <div class="row g-3 mb-4">
         <div class="col-md-4"><div class="card card-body">Users: @ViewBag.UserCount (@ViewBag.ActiveUserCount active)</div></div>
         <div class="col-md-4"><div class="card card-body">Departments: @ViewBag.DepartmentCount</div></div>
@@ -20,4 +28,16 @@
         <a class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Roles">Roles</a>
         <a class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="AuditLogs">Audit log</a>
     </div>
+    @if (ViewBag.IsDevelopment == true)
+    {
+        <section class="card border-info mt-4">
+            <div class="card-body">
+                <h2 class="h5">Sourcing Manager demo data</h2>
+                <p class="text-secondary">Create four sample evaluation reports for direct approval, Top Committee forwarding, return, and rejection. This is available only in Development and does not delete existing data.</p>
+                <form asp-action="CreateSourcingManagerDemoData" method="post">
+                    <button class="btn btn-outline-info" type="submit">Create demo reports</button>
+                </form>
+            </div>
+        </section>
+    }
 </div>
