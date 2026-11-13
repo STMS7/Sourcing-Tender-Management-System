@@ -32,6 +32,12 @@
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Admin</a>
                             </li>
                         }
+                        @if (User.IsInRole("SourcingManager"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="SourcingManager" asp-action="Index">Manager Review</a>
+                            </li>
+                        }
                         @if (User.IsInRole("ProcurementOfficer") || User.IsInRole("SourcingOfficer"))
                         {
                             <li class="nav-item">
