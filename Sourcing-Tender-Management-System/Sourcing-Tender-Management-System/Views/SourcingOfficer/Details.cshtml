@@ -1,0 +1,113 @@
+@model Tender
+@{
+    ViewData["Title"] = Model.Title;
+    var draft = Model.Status == TenderStatus.Draft;
+    var suppliers = (List<Supplier>)ViewBag.Suppliers;
+    var history = (List<WorkflowTransition>)ViewBag.History;
+}
+<a asp-action="Tenders">Back to my tenders</a>
+<h1 class="mt-3">@Model.Title</h1>
+<p>@Model.TenderNumber · <span class="status">@Model.Status</span></p>
+<div class="actions mb-4">
+@if (draft) {
+    <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit draft</a>
+    <form asp-action="Publish" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Publish and send invitations</button></form>
+}
+@if (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow) {
+    <form asp-action="Close" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Close bidding</button></form>
+}
+@if ((bool)ViewBag.CanReadOffers) {
+    <a class="btn btn-primary" asp-action="Offers" asp-route-id="@Model.Id">Compare offers and review compliance</a>
+}
+@if (Model.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation) {
+    <a class="btn btn-outline-primary" asp-action="Clarifications" asp-route-tenderId="@Model.Id">Clarify with evaluation committee</a>
+}
+</div>
+@if (draft) { <p class="text-secondary">Before publishing, check the terms, dates, criteria and selected suppliers. Publishing locks the tender configuration.</p> }
+@if (Model.Status == TenderStatus.Published) { <p class="text-secondary">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
+<dl class="row">
+<dt class="col-sm-3">Source request</dt><dd class="col-sm-9">@(Model.ProcurementRequest?.RequestNumber ?? "Not linked")</dd>
+<dt class="col-sm-3">Category</dt><dd class="col-sm-9">@Model.Category.Name</dd>
+<dt class="col-sm-3">Submission deadline</dt><dd class="col-sm-9">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</dd>
+<dt class="col-sm-3">Bid opening</dt><dd class="col-sm-9">@(Model.OpeningDate?.ToString("dd MMM yyyy HH:mm") ?? "After deadline and closure") @(Model.OpeningDate != null ? "UTC" : "")</dd>
+<dt class="col-sm-3">Estimated value</dt><dd class="col-sm-9">@Model.EstimatedValue.ToString("N2")</dd>
+<dt class="col-sm-3">Evaluation split</dt><dd class="col-sm-9">Technical @Model.TechnicalWeight% / Financial @Model.FinancialWeight%</dd>
+</dl>
+<h2>Description and terms</h2><p class="preserve-lines">@Model.Description</p><p class="preserve-lines">@Model.TermsAndConditions</p>
+<h2>Tender items</h2>
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity / unit</th><th scope="col">Specifications</th></tr></thead><tbody>
+@foreach (var item in Model.Items) { <tr><td>@item.ItemName</td><td>@item.Quantity.ToString("N3") @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
+</tbody></table></div>
+<h2>Evaluation criteria @(Model.EvaluationCriteriaLockedAt != null ? "— locked" : "")</h2>
+<p class="small text-secondary">Weights within each group must total 100%. Group scores use the technical / financial split above.</p>
+@if (Model.EvaluationCriteria.Count == 0) { <p>No evaluation criteria added.</p> }
+else {
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Criterion</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Maximum score</th>@if (draft) { <th scope="col">Action</th> }</tr></thead><tbody>
+@foreach (var criterion in Model.EvaluationCriteria.OrderBy(c => c.Type).ThenBy(c => c.Name)) {
+<tr><td>@criterion.Name<br /><small>@criterion.Description</small></td><td>@criterion.Type</td><td>@criterion.Weight%</td><td>@criterion.MaximumScore</td>
+@if (draft) { <td><form asp-action="RemoveCriterion" method="post"><input type="hidden" name="id" value="@criterion.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@criterion.Name</span></button></form></td> }</tr>
+}
+</tbody></table></div>
+}
+@if (draft) {
+<details class="mb-4"><summary>Add evaluation criterion</summary>
+<form asp-action="AddCriterion" method="post" class="form-panel mt-3">
+<input type="hidden" name="TenderId" value="@Model.Id" />
+<div class="row g-3">
+<div class="col-md-8"><label for="criterion-name" class="form-label">Name</label><input id="criterion-name" name="Name" class="form-control" maxlength="200" required /></div>
+<div class="col-md-4"><label for="criterion-type" class="form-label">Type</label><select id="criterion-type" name="Type" asp-items="Html.GetEnumSelectList<CriterionType>()" class="form-select"></select></div>
+<div class="col-md-6"><label for="criterion-weight" class="form-label">Weight within group (%)</label><input id="criterion-weight" name="Weight" type="number" min=".01" max="100" step=".01" required class="form-control" /></div>
+<div class="col-md-6"><label for="criterion-score" class="form-label">Maximum score</label><input id="criterion-score" name="MaximumScore" type="number" min=".01" max="999.99" step=".01" value="100" required class="form-control" /></div>
+<div class="col-12"><label for="criterion-description" class="form-label">Description</label><textarea id="criterion-description" name="Description" maxlength="1000" class="form-control"></textarea></div>
+<div class="col-12"><button type="submit" class="btn btn-outline-primary">Add criterion</button></div>
+</div></form></details>
+}
+<h2>Required documents</h2>
+@if (Model.DocumentRequirements.Count == 0) { <p>No document requirements configured. Review whether your tender needs quality certificates or other mandatory documents.</p> }
+else {
+<ul class="list-group list-group-flush">
+@foreach (var requirement in Model.DocumentRequirements) {
+<li class="list-group-item px-0"><strong>@requirement.DocumentType</strong> · @(requirement.IsMandatory ? "Mandatory" : "Optional")<p class="mb-1">@requirement.Description</p>
+@if (draft) { <form asp-action="RemoveRequirement" method="post"><input type="hidden" name="id" value="@requirement.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@requirement.DocumentType</span></button></form> }
+</li>
+}
+</ul>
+}
+@if (draft) {
+<details class="my-3"><summary>Add document requirement</summary><form asp-action="AddRequirement" method="post" class="form-panel mt-3">
+<input type="hidden" name="TenderId" value="@Model.Id" />
+<div class="mb-3"><label for="document-type" class="form-label">Document type</label><input id="document-type" name="DocumentType" maxlength="100" required class="form-control" /></div>
+<div class="mb-3"><label for="document-description" class="form-label">Description</label><textarea id="document-description" name="Description" maxlength="500" class="form-control"></textarea></div>
+<div class="form-check mb-3"><input id="mandatory-document" type="checkbox" name="IsMandatory" value="true" checked class="form-check-input" /><input type="hidden" name="IsMandatory" value="false" /><label for="mandatory-document" class="form-check-label">Mandatory</label></div>
+<button type="submit" class="btn btn-outline-primary">Add requirement</button></form></details>
+}
+<h2>Supplier invitations</h2>
+@if (Model.Invitations.Count == 0) { <p>No suppliers selected yet.</p> }
+else {
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Supplier</th><th scope="col">Invitation</th><th scope="col">Response</th>@if (draft) { <th scope="col">Action</th> }</tr></thead><tbody>
+@foreach (var invitation in Model.Invitations) {
+<tr><td>@invitation.Supplier.CompanyName @if (!invitation.Supplier.IsActive || invitation.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved) { <span class="text-danger">No longer eligible</span> }</td><td>@(draft ? "Prepared — not sent" : invitation.Status.ToString())</td><td>@invitation.ResponseReason</td>@if (draft) { <td><form asp-action="RemoveInvitation" method="post"><input type="hidden" name="id" value="@invitation.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@invitation.Supplier.CompanyName</span></button></form></td> }</tr>
+}
+</tbody></table></div>
+}
+@if (draft && suppliers.Count > 0) {
+<form asp-action="Invite" method="post" class="form-panel"><input type="hidden" name="tenderId" value="@Model.Id" /><fieldset><legend class="fs-6">Select approved suppliers</legend>
+@foreach (var supplier in suppliers) { <div class="form-check mb-2"><input class="form-check-input" id="supplier-@supplier.Id" type="checkbox" name="supplierIds" value="@supplier.Id" /><label class="form-check-label" for="supplier-@supplier.Id">@supplier.CompanyName</label></div> }
+</fieldset><button type="submit" class="btn btn-outline-primary mt-2">Add selected suppliers</button></form>
+}
+else if (draft && suppliers.Count == 0) { <p class="text-secondary">No additional approved, active suppliers are available.</p> }
+<h2>Evaluation tracking</h2>
+<p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; the sourcing manager reviews it.</p>
+@if (Model.CommitteeMembers.Any(m => m.CommitteeType == CommitteeType.Evaluation)) {
+<ul>@foreach (var member in Model.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation)) { <li>@member.User.FullName — @member.Role</li> }</ul>
+}
+else { <p class="text-secondary">No evaluation committee has been assigned through the shared team workflow.</p> }
+@foreach (var report in Model.EvaluationReports.OrderByDescending(r => r.Round)) {
+<p>Report round @report.Round: <span class="status">@report.Status</span> · @(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? "Not submitted")</p>
+}
+@if (Model.Status == TenderStatus.Closed) {
+<form asp-action="ForwardToEvaluation" method="post"><input type="hidden" name="id" value="@Model.Id" /><button type="submit" class="btn btn-primary">Forward compliant offers to evaluation</button></form>
+}
+<h2>Workflow history</h2>
+@if (history.Count == 0) { <p>No workflow events recorded.</p> }
+else { <ol>@foreach (var entry in history) { <li class="mb-2"><strong>@entry.FromStage → @entry.ToStage</strong> · @entry.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC<br />@entry.Reason</li> }</ol> }

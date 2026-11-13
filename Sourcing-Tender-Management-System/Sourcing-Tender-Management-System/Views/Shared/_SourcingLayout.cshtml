@@ -1,0 +1,25 @@
+@{
+    Layout = "_Layout";
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+}
+<link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
+<div class="sourcing-workspace py-4">
+    <nav class="sourcing-nav mb-4" aria-label="Sourcing officer">
+        <a class="@(action == "Index" ? "active" : "")" asp-controller="SourcingOfficer" asp-action="Index">Overview</a>
+        <a class="@(action is "Requests" or "RequestDetails" ? "active" : "")" asp-controller="SourcingOfficer" asp-action="Requests">Approved requests</a>
+        <a class="@(action is "Tenders" or "Details" or "Create" or "Edit" or "Offers" ? "active" : "")" asp-controller="SourcingOfficer" asp-action="Tenders">My tenders</a>
+        <a class="@(action is "Messages" or "Clarifications" or "AskClarification" ? "active" : "")" aria-current="@(action is "Messages" or "Clarifications" or "AskClarification" ? "page" : null)" asp-controller="SourcingOfficer" asp-action="Messages">Messages</a>
+    </nav>
+    @if (TempData["Success"] is string success)
+    {
+        <div class="alert alert-success" role="status">@success</div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
+    @RenderBody()
+</div>
+@section Scripts {
+    @await RenderSectionAsync("Scripts", required: false)
+}
