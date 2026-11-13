@@ -1,3 +1,5 @@
+> Current delivery: see [Sourcing Officer delivery and team dependencies](sourcing-team-delivery.md). Preparation approval/reopening are no longer public officer HTTP actions; historical verification sections below describe earlier stages.
+
 # Sourcing integration contract
 
 This document describes the existing integration points that teammates' pages
@@ -11,8 +13,8 @@ This checkout integrates Raghad's DepartmentController and CycleChatController
 with the officer module. Department submission, sourcing review, formal return,
 chat reply, department edit/resubmission and acceptance into a tender are tested
 through the real controllers and authenticated browser pages. Existing evaluation
-handoff tests remain applicable. This does not establish compatibility with
-supplier pages that are absent from this checkout.
+handoff tests remain applicable. Supplier pages are present in this checkout,
+but their complete end-to-end workflow is not covered by this verification.
 
 ## Shared names and routes
 
@@ -153,8 +155,17 @@ The officer download handler enforces transaction access independently.
 
 ## Evaluation and manager handoff
 
-POST AssignEvaluationCommittee can select existing users on an unlocked draft.
-The team may also populate the same memberships through its shared module.
+Committee assignment is Admin-only, per the team's confirmed ownership.
+GET /AdminCommittee lists tenders; GET /AdminCommittee/Details/{id} shows the
+assignment form. POST /AdminCommittee/Assign accepts TenderId, ManagerUserId,
+DepartmentUserId, TechnicalUserId and FinancialUserId. It requires antiforgery,
+an active Admin database role and an unlocked, unpublished Draft without bids.
+The former /SourcingOfficer/AssignEvaluationCommittee route always denies access.
+The officer views assignments and requests approval; it cannot choose members.
+Admin changes are transactional and record an audit entry, workflow event and
+notification linked to the officer's tender. Invalid member selections preserve
+existing assignments. Locked preparation must be reopened by the officer before
+Admin can reassign; published committees cannot change through this endpoint.
 Committee assignment must create four active, distinct TenderCommitteeMembers
 with CommitteeType.Evaluation and the following RoleType values:
 
@@ -190,26 +201,40 @@ fields directly. A manager's subsequent decisions belong to the manager module.
 
 ## Pre-publication approval contract
 
-1. Populate items, terms, future dates, technical and financial criteria totalling
-   100% within each group, document requirements and the four committee members.
+1. Populate items, terms, future dates, at least one technical and one financial
+   criterion and document requirements. The committee owns all criterion
+   names/types/maximum scores and weights; the officer only prepares tender
+   specifications and document requirements. Admin assigns the four committee
+   members through /AdminCommittee. Both officer criterion endpoints always
+   deny access. The committee's criterion-authoring producer remains a teammate
+   integration dependency: its current weight page consumes existing rows.
+   No other role's production files were changed by this officer-only correction.
 2. POST /SourcingOfficer/RequestWeightApproval locks the Draft using
    EvaluationCriteriaLockedAt and notifies the technical/financial members.
    Tender.Status stays Draft. This is preparation approval, not bid handoff.
 3. /EvaluationCommittee/Evaluate/{id} shows locked preparation to its assigned
    active technical/financial user, with no supplier offers. Each submits
-   POST /EvaluationCommittee/SubmitWeights with tenderId, technicalWeight and
-   financialWeight. Each pair must total 100%; the existing averaging convention
-   is preserved. Submitting also approves the displayed locked criteria.
+   POST /EvaluationCommittee/SubmitWeights with tenderId, technicalWeight,
+   financialWeight and criterionWeights[index].CriterionId/Weight. The technical
+   member submits every real technical criterion; the financial member submits
+   every real financial criterion. IDs must belong exclusively to the caller's
+   assigned group, without omissions or duplicates. Each criterion weight is
+   0–100 with at most two decimal places; each group must total 100%.
+   Each overall pair must also total 100%; the existing averaging convention
+   is preserved. Submitting also approves the displayed locked criteria. Missing
+   criterion payloads from older clients are rejected without partial writes.
 4. The existing __weight: EvaluationCriterion rows hold proposals. Workflow
    records bind each approval to the current member and preparation lock time.
    A combined approval event is recorded when both have submitted. No migration
    or new persisted field is required. These rows are excluded from criterion
-   totals and cannot be created/deleted through the officer's criterion forms.
+   totals. Neither proposals nor scoring criteria can be created/deleted by officers.
 5. Publish verifies the agreed pair matches stored tender weights, both current
    members have approval evidence since the lock and before publication, all
    four members retain their roles, and selected suppliers match the category.
 6. ReopenPreparation works only on unpublished drafts without bids. It removes
-   proposals, clears the lock and notifies members. Old history remains for audit
+   proposals, resets real criterion weights to zero, clears the lock and notifies
+   members. RequestWeightApproval also resets weights before a new approval round.
+   Old history remains for audit
    but cannot approve the newer preparation. Committee assignment, criteria,
    terms and dates must remain unchanged during approval; reopen first to edit.
 7. SubmitWeights refuses published tenders and any tender already containing
@@ -275,7 +300,8 @@ Before final team acceptance, run the real pages through:
 department request → officer review/return and resubmission → acceptance/tender → supplier acceptance
 and bid → compliance → committee report → manager review.
 
-Department pages are integrated and tested. Supplier workflow pages must still
-be integrated against these contracts, and the team must agree on the policy
-items listed in sourcing-officer.md. Current test coverage is not proof that
-unimplemented pages are conflict-free.
+Department pages are integrated and tested. Supplier workflow pages now exist
+in the repository; this preparation journey seeds supplier input and does not
+establish full supplier-portal coverage. Run those pages against these contracts,
+and agree on the policy items listed in sourcing-officer.md. Current contract
+coverage is not proof of complete end-to-end coverage across every module.

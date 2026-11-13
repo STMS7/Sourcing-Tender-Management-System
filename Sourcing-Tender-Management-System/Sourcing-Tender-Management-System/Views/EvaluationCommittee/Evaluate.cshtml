@@ -13,6 +13,8 @@
         _ => "Pending"
     };
     var criteria = tender.EvaluationCriteria.Where(c => !CommitteeWeighting.IsWeightProposal(c)).OrderBy(c => c.Type).ThenBy(c => c.Name).ToList();
+    var myType = Model.MyRole == CommitteeMemberRole.TechnicalRepresentative ? CriterionType.Technical : CriterionType.Financial;
+    var myCriteria = criteria.Where(c => c.Type == myType).ToList();
     var myReview = Model.Reviews.GetValueOrDefault(Model.MyRole);
     ViewData["Title"] = "Evaluate " + tender.TenderNumber;
 }
@@ -37,7 +39,7 @@
 <section class="mb-5">
 <h2>@(preparing ? "Pre-publication approval (technical and financial members)" : "Approved evaluation weights")</h2>
 <p class="text-secondary">Each member proposes a technical and a financial weight (total 100%). The agreed weight of each type is the average of both members' proposals.</p>
-@if (preparing) { <p class="alert alert-info">Review the locked criteria, terms and specifications below before approving. This tender is not published and no supplier offers are shown. Both members must submit before publication.</p> }
+@if (preparing) { <p class="alert alert-info">Assign the weights for your @myType.ToString().ToLowerInvariant() criteria, then propose the overall split. The other member assigns their own group. Each criterion group must total 100%. No supplier offers are shown before evaluation.</p> }
 @if (Model.AgreedWeights is { } agreed) {
 <div class="table-responsive"><table class="table"><caption>Agreed weights are final.</caption><thead><tr><th scope="col">Member</th><th scope="col">Technical</th><th scope="col">Financial</th></tr></thead><tbody>
 @foreach (var p in Model.Proposals) { <tr><td>@CommitteeWeighting.RoleLabel(p.Role)</td><td>@p.Technical%</td><td>@p.Financial%</td></tr> }
@@ -51,11 +53,25 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 @if (preparing) {
 <form asp-action="SubmitWeights" method="post" class="form-panel">
 <input type="hidden" name="tenderId" value="@tender.Id" />
+<fieldset class="mb-4">
+<legend class="fs-5">@myType criterion weights</legend>
+<p class="text-secondary">Set every weight in your group. These weights must total 100% and cannot be assigned by the sourcing officer.</p>
+@for (var i = 0; i < myCriteria.Count; i++) {
+    var criterion = myCriteria[i];
+    <div class="mb-3">
+        <input name="criterionWeights[@i].CriterionId" value="@criterion.Id" type="hidden" />
+        <label for="criterion-weight-@criterion.Id" class="form-label">@criterion.Name — weight within group (%)</label>
+        <input id="criterion-weight-@criterion.Id" name="criterionWeights[@i].Weight" type="number" min="0" max="100" step="0.01" value="@criterion.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control" required data-criterion-weight />
+        <p class="small text-secondary">@criterion.Description</p>
+    </div>
+}
+</fieldset>
+<h3 class="h5">Overall evaluation split</h3>
 <div class="row g-3">
 <div class="col-md-4"><label for="technicalWeight" class="form-label">Technical weight (%)</label><input id="technicalWeight" name="technicalWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Technical" /></div>
 <div class="col-md-4"><label for="financialWeight" class="form-label">Financial weight (%)</label><input id="financialWeight" name="financialWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Financial" /></div>
 </div>
-<p class="small mt-3">Submitting confirms your approval of the displayed criteria and your proposed weight split.</p>
+<p class="small mt-3">Submitting saves your own criterion weights and confirms your proposed overall weight split. Both members must submit before publication.</p>
 <div class="actions mt-3"><button type="submit" class="btn btn-primary">@(Model.MyProposal == null ? "Approve criteria and submit weights" : "Update preparation approval")</button></div>
 </form>
 }
@@ -146,7 +162,10 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 @if (criteria.Count > 0) {
 <section class="mb-5">
 <h2>Tender evaluation criteria</h2>
-<ul>@foreach (var c in criteria) { <li data-search-item><strong>@c.Name</strong> (@c.Type, @c.Weight%, maximum score @c.MaximumScore)<p class="preserve-lines">@c.Description</p></li> }</ul>
+<ul>@foreach (var c in criteria) {
+    var assigned = !preparing || (c.Type == myType ? Model.MyProposal != null : Model.OtherProposalSubmitted);
+    <li data-search-item><strong>@c.Name</strong> (@c.Type, @(assigned ? c.Weight.ToString("0.##") + "%" : "pending committee"), maximum score @c.MaximumScore)<p class="preserve-lines">@c.Description</p></li>
+}</ul>
 </section>
 }
 </div>

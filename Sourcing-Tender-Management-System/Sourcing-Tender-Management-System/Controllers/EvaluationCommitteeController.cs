@@ -147,7 +147,8 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> SubmitWeights(int tenderId, decimal technicalWeight, decimal financialWeight)
+    public async Task<IActionResult> SubmitWeights(int tenderId, decimal technicalWeight, decimal financialWeight,
+        List<CommitteeCriterionWeightInput>? criterionWeights = null)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var member = await MyMemberships().FirstOrDefaultAsync(m => m.TenderId == tenderId);
@@ -163,12 +164,24 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             return Conflict("The sourcing officer must request preparation approval first.");
         if (Agree(ReadProposals(tender.EvaluationCriteria)) != null)
             return Conflict("Both members already submitted weights; the agreed weights are final.");
-        if (!ModelState.IsValid || Validate(technicalWeight, financialWeight) is string)
+        var myType = member.RoleType == CommitteeMemberRole.TechnicalRepresentative ? CriterionType.Technical : CriterionType.Financial;
+        var myCriteria = tender.EvaluationCriteria.Where(c => c.Type == myType && !CommitteeWeighting.IsWeightProposal(c)).ToList();
+        if (criterionWeights == null || myCriteria.Count == 0 ||
+            criterionWeights.Count != myCriteria.Count ||
+            criterionWeights.Select(c => c.CriterionId).Distinct().Count() != myCriteria.Count ||
+            criterionWeights.Any(c => myCriteria.All(expected => expected.Id != c.CriterionId)) ||
+            criterionWeights.Any(c => c.Weight < 0 || c.Weight > 100 || decimal.Round(c.Weight, 2) != c.Weight) ||
+            criterionWeights.Sum(c => c.Weight) != 100)
+            ModelState.AddModelError("", $"Provide all {myType} criterion weights, totalling 100%, using only your assigned group.");
+        if (!ModelState.IsValid || CommitteeWeighting.Validate(technicalWeight, financialWeight) is string)
         {
-            TempData["Error"] = Validate(technicalWeight, financialWeight) ?? "Enter valid weight percentages.";
+            TempData["Error"] = CommitteeWeighting.Validate(technicalWeight, financialWeight) ??
+                string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
             return RedirectToAction(nameof(Evaluate), new { id = tenderId });
         }
         var role = member.RoleType!.Value;
+        foreach (var value in criterionWeights!)
+            myCriteria.Single(c => c.Id == value.CriterionId).Weight = value.Weight;
         Upsert(tender, role, CriterionType.Technical, technicalWeight);
         Upsert(tender, role, CriterionType.Financial, financialWeight);
         db.WorkflowTransitions.Add(new WorkflowTransition { TenderId = tender.Id,
@@ -180,6 +193,11 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         var agreed = Agree(ReadProposals(tender.EvaluationCriteria));
         if (agreed != null)
         {
+            if (!EvaluationPreparation.CriterionWeightsReady(tender.EvaluationCriteria))
+            {
+                TempData["Error"] = "Both members must assign valid criterion weights in their own groups before approval.";
+                return RedirectToAction(nameof(Evaluate), new { id = tenderId });
+            }
             tender.TechnicalWeight = agreed.Technical;
             tender.FinancialWeight = agreed.Financial;
             Log(tender, "WeightsAgreed", $"Agreed weights: technical {agreed.Technical}%, financial {agreed.Financial}%");

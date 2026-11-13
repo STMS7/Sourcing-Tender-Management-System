@@ -1,0 +1,17 @@
+@model IReadOnlyList<Tender>
+@{ ViewData["Title"] = "Evaluation committees"; }
+<a asp-controller="Admin" asp-action="Index">Back to administration</a>
+<h1 class="mt-3">Evaluation committees</h1>
+<p>Assign the four evaluation members for each tender before the officer requests preparation approval.</p>
+<div id="committee-assignment-results">
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "committee-assignment-search", ResultsId = "committee-assignment-results", Label = "Search tenders and committee assignments" })" />
+@if (Model.Count == 0) { <p>No tenders available.</p> }
+else {
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Tender</th><th scope="col">Status</th><th scope="col">Assignment</th></tr></thead><tbody>
+@foreach (var tender in Model) {
+    var count = tender.CommitteeMembers.Count(m => m.CommitteeType == CommitteeType.Evaluation);
+    <tr data-search-item><td>@tender.TenderNumber<br />@tender.Title<br /><a asp-action="Details" asp-route-id="@tender.Id" aria-label="Manage committee for @tender.TenderNumber">Manage committee</a></td><td>@tender.Status</td><td>@count of 4 members</td></tr>
+}
+</tbody></table></div>
+}
+</div>

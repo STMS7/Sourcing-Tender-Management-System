@@ -1,15 +1,13 @@
 @model Tender
+@using Sourcing_Tender_Management_System.Services
 @{
     ViewData["Title"] = Model.Title;
     var draft = Model.Status == TenderStatus.Draft;
     var preparing = draft && Model.EvaluationCriteriaLockedAt == null;
     var preApproved = ViewBag.PrePublicationApproved is true;
-    var candidates = (Dictionary<CommitteeMemberRole, List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>>)ViewBag.CommitteeCandidates;
     var suppliers = (List<Supplier>)ViewBag.Suppliers;
     var history = (List<WorkflowTransition>)ViewBag.History;
     var handoff = (SourcingEvaluationReadiness)ViewBag.Handoff;
-    // Committee weight proposals are stored as hidden criteria; they are not scoring criteria.
-    var criteria = Model.EvaluationCriteria.Where(c => !Sourcing_Tender_Management_System.Services.CommitteeWeighting.IsWeightProposal(c)).ToList();
     var agreedWeights = Sourcing_Tender_Management_System.Services.CommitteeWeighting.Agree(
         Sourcing_Tender_Management_System.Services.CommitteeWeighting.ReadProposals(Model.EvaluationCriteria));
 }
@@ -38,7 +36,7 @@
 @if (Model.ProcurementRequestId != null && Model.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation) {
     <p><a asp-action="RequestDetails" asp-route-id="@Model.ProcurementRequestId">Open source request and department chat</a></p>
 }
-@if (draft) { <p class="text-secondary">Prepare the terms, dates, criteria and documents, assign the committee, then request pre-publication approval. Both technical and financial members must approve before publishing.</p> }
+@if (draft) { <p class="text-secondary">Prepare the terms, dates and required documents, then select suppliers in the tender category.</p> }
 @if (Model.Status == TenderStatus.Published) { <p class="text-secondary">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
 @if (!draft && !preApproved) {
     <p class="alert alert-warning">This historical tender has no verified approval recorded before publication. Do not change weights after receiving offers. Resolve it through the team's documented procedure before evaluation.</p>
@@ -63,30 +61,6 @@
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity / unit</th><th scope="col">Specifications</th></tr></thead><tbody>
 @foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3") @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
 </tbody></table></div>
-<h2>Evaluation criteria @(Model.EvaluationCriteriaLockedAt != null ? "— locked" : "")</h2>
-<p class="small text-secondary">Criterion weights within each group must total 100%. The evaluation committee determines the overall technical / financial split.</p>
-@if (criteria.Count == 0) { <p>No evaluation criteria added.</p> }
-else {
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Criterion</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Maximum score</th>@if (preparing) { <th scope="col">Action</th> }</tr></thead><tbody>
-@foreach (var criterion in criteria.OrderBy(c => c.Type).ThenBy(c => c.Name)) {
-<tr data-search-item><td>@criterion.Name<br /><small>@criterion.Description</small></td><td>@criterion.Type</td><td>@criterion.Weight%</td><td>@criterion.MaximumScore</td>
-@if (preparing) { <td><form asp-action="RemoveCriterion" method="post"><input type="hidden" name="id" value="@criterion.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@criterion.Name</span></button></form></td> }</tr>
-}
-</tbody></table></div>
-}
-@if (preparing) {
-<details class="mb-4"><summary>Add evaluation criterion</summary>
-<form asp-action="AddCriterion" method="post" class="form-panel mt-3">
-<input type="hidden" name="TenderId" value="@Model.Id" />
-<div class="row g-3">
-<div class="col-md-8"><label for="criterion-name" class="form-label">Name</label><input id="criterion-name" name="Name" class="form-control" maxlength="200" required /></div>
-<div class="col-md-4"><label for="criterion-type" class="form-label">Type</label><select id="criterion-type" name="Type" asp-items="Html.GetEnumSelectList<CriterionType>()" class="form-select"></select></div>
-<div class="col-md-6"><label for="criterion-weight" class="form-label">Weight within group (%)</label><input id="criterion-weight" name="Weight" type="number" min=".01" max="100" step=".01" required class="form-control" /></div>
-<div class="col-md-6"><label for="criterion-score" class="form-label">Maximum score</label><input id="criterion-score" name="MaximumScore" type="number" min=".01" max="999.99" step=".01" value="100" required class="form-control" /></div>
-<div class="col-12"><label for="criterion-description" class="form-label">Description</label><textarea id="criterion-description" name="Description" maxlength="1000" class="form-control"></textarea></div>
-<div class="col-12"><button type="submit" class="btn btn-outline-primary">Add criterion</button></div>
-</div></form></details>
-}
 <h2>Required documents</h2>
 @if (Model.DocumentRequirements.Count == 0) { <p>No document requirements configured. Review whether your tender needs quality certificates or other mandatory documents.</p> }
 else {
@@ -105,29 +79,6 @@ else {
 <div class="mb-3"><label for="document-description" class="form-label">Description</label><textarea id="document-description" name="Description" maxlength="500" class="form-control"></textarea></div>
 <div class="form-check mb-3"><input id="mandatory-document" type="checkbox" name="IsMandatory" value="true" checked class="form-check-input" /><input type="hidden" name="IsMandatory" value="false" /><label for="mandatory-document" class="form-check-label">Mandatory</label></div>
 <button type="submit" class="btn btn-outline-primary">Add requirement</button></form></details>
-}
-<h2>Committee and pre-publication approval</h2>
-@if (preparing) {
-    <p>Select four distinct users with the appropriate account roles. This assigns existing employees; it does not change their roles.</p>
-    <form asp-action="AssignEvaluationCommittee" method="post" class="form-panel">
-        <input name="TenderId" value="@Model.Id" type="hidden" />
-        @foreach (var position in candidates.Keys) {
-            var field = position switch { CommitteeMemberRole.SourcingManager => "ManagerUserId", CommitteeMemberRole.DepartmentRepresentative => "DepartmentUserId", CommitteeMemberRole.TechnicalRepresentative => "TechnicalUserId", _ => "FinancialUserId" };
-            var current = Model.CommitteeMembers.FirstOrDefault(m => m.CommitteeType == CommitteeType.Evaluation && m.RoleType == position)?.UserId;
-            <div class="mb-3"><label for="@field" class="form-label">@position</label><select id="@field" name="@field" class="form-select" required>
-                <option value="">Choose a member</option>
-                @foreach (var candidate in candidates[position]) { <option value="@candidate.Value" selected="@(candidate.Value == current)">@candidate.Text</option> }
-            </select></div>
-        }
-        <button class="btn btn-outline-primary" type="submit">Save evaluation committee</button>
-    </form>
-    <form asp-action="RequestWeightApproval" method="post" class="my-3"><input name="id" value="@Model.Id" type="hidden" /><button class="btn btn-primary" type="submit">Lock preparation and request weight approval</button></form>
-} else if (draft) {
-    <p class="alert @(preApproved ? "alert-success" : "alert-info")">@(preApproved ? "Criteria and weights approved before publication. Complete supplier selection, then publish." : "Preparation locked. Waiting for the assigned technical and financial members to approve the criteria and weights.")</p>
-    <p><a asp-action="Messages" asp-route-group="EvaluationCommittee" asp-route-context="@($"tender:{Model.Id}")">Clarify preparation with the committee</a></p>
-    <details class="mb-4"><summary>Reopen draft and reset approval</summary><p>Use this before publication if dates, terms or criteria need changes. All weight proposals are removed and both members must approve again.</p>
-        <form asp-action="ReopenPreparation" method="post"><input name="id" value="@Model.Id" type="hidden" /><button class="btn btn-outline-danger" type="submit">Reopen preparation and reset approvals</button></form>
-    </details>
 }
 <h2>Supplier invitations</h2>
 <p class="text-secondary">Only approved, active suppliers registered in this tender's category can be invited.</p>
@@ -165,10 +116,6 @@ else if (draft && suppliers.Count == 0) { <p class="text-secondary">No additiona
     <p role="status">Sent to the evaluation committee on <strong>@sentAt.ToString("dd MMM yyyy HH:mm") UTC</strong>. Assigned technical and financial members receive a link to their evaluation page.</p>
 }
 <p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; the sourcing manager reviews it.</p>
-@if (Model.CommitteeMembers.Any(m => m.CommitteeType == CommitteeType.Evaluation)) {
-<ul>@foreach (var member in Model.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation)) { <li data-search-item>@member.User.FullName — @(member.RoleType?.ToString() ?? member.Role)</li> }</ul>
-}
-else { <p class="text-secondary">No evaluation committee has been assigned through the shared team workflow.</p> }
 @foreach (var report in Model.EvaluationReports.OrderByDescending(r => r.Round)) {
 <p>Report round @report.Round: <span class="status">@report.Status</span> · @(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? "Not submitted")</p>
 @if (report.RecommendedBid is { } chosenBid) {

@@ -13,10 +13,18 @@ public static class EvaluationPreparation
         [CommitteeMemberRole.SourcingManager, CommitteeMemberRole.DepartmentRepresentative,
          CommitteeMemberRole.TechnicalRepresentative, CommitteeMemberRole.FinancialRepresentative];
 
+    public static bool CriterionWeightsReady(IEnumerable<EvaluationCriterion> criteria)
+    {
+        var scoring = criteria.Where(c => !CommitteeWeighting.IsWeightProposal(c)).ToList();
+        return Enum.GetValues<CriterionType>().All(type =>
+            scoring.Any(c => c.Type == type) && scoring.Where(c => c.Type == type).Sum(c => c.Weight) == 100) &&
+            scoring.All(c => c.Weight >= 0 && c.Weight <= 100 && decimal.Round(c.Weight, 2) == c.Weight);
+    }
+
     public static async Task<bool> Approved(ApplicationDbContext db, Tender tender)
     {
         var weights = CommitteeWeighting.Agree(CommitteeWeighting.ReadProposals(tender.EvaluationCriteria));
-        if (!(tender.EvaluationCriteriaLockedAt != null && weights != null &&
+        if (!(tender.EvaluationCriteriaLockedAt != null && weights != null && CriterionWeightsReady(tender.EvaluationCriteria) &&
             CommitteeWeighting.Validate(weights.Technical, weights.Financial) == null &&
             tender.TechnicalWeight == weights.Technical && tender.FinancialWeight == weights.Financial &&
             await db.WorkflowTransitions.AnyAsync(w => w.TenderId == tender.Id &&

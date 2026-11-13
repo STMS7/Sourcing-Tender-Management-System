@@ -1,3 +1,5 @@
+> Current delivery: see [Sourcing Officer delivery and team dependencies](sourcing-team-delivery.md). Preparation approval/reopening are no longer public officer HTTP actions; historical verification sections below describe earlier stages.
+
 # Sourcing officer implementation
 
 For the complete delivery walkthrough, see [the handoff guide](sourcing-officer-handoff.md).
@@ -25,15 +27,17 @@ before merging.
 | Create draft | /SourcingOfficer/Create?requestId={id} | Copy approved request items into a tender |
 | My tenders | /SourcingOfficer/Tenders | Search and filter by current status |
 | Edit draft | /SourcingOfficer/Edit/{id} | Change draft configuration only |
-| Tender details | /SourcingOfficer/Details/{id} | Items, criteria, document requirements, invitations, committee/report tracking and history |
+| Tender details | /SourcingOfficer/Details/{id} | Items, document requirements, invitations, committee/report tracking and history |
 | Offer comparison | /SourcingOfficer/Offers/{id} | Prices, currencies, delivery, technical responses, document records and compliance history |
 | Messages | /SourcingOfficer/Messages | Three contact categories, transaction selection, participant-only threads and responses |
 | Recipient inbox | /Messages | Shared inbox and response forms for department, supplier and committee accounts |
 
 State-changing actions are POST requests protected by antiforgery validation:
-StartReview, ReturnRequest, RejectRequest, AcceptRequest, Create, Edit, AddCriterion, RemoveCriterion, AddRequirement, RemoveRequirement,
+StartReview, ReturnRequest, RejectRequest, AcceptRequest, Create, Edit, AddRequirement, RemoveRequirement,
 Invite, RemoveInvitation, Publish, Close, Compliance, ForwardToEvaluation,
-AskClarification, Reply, Resolve, AssignEvaluationCommittee, RequestWeightApproval and ReopenPreparation.
+AskClarification, Reply, Resolve, RequestWeightApproval and ReopenPreparation.
+The legacy AddCriterion, RemoveCriterion and AssignEvaluationCommittee actions always deny access. Assignment
+is performed exclusively through Admin's /AdminCommittee module.
 
 ## Workflow implemented
 
@@ -65,11 +69,13 @@ including mobile overflow and the revised item snapshot. Screenshots go into
    the request assignment and marks ConvertedToTender in one transaction.
    Opening/cancelling the form or submitting invalid data leaves it pending.
    The legacy Create route still supports previously Approved requests.
-3. The draft contains category, terms and UTC dates. Overall technical/financial
-   weights belong to the evaluation committee, not the officer form.
-   The officer configures criteria/documents, assigns the four committee members,
-   and requests pre-publication approval. Preparation locks; both technical and
-   financial members submit their proposed split against the locked criteria.
+3. The draft contains category, terms and UTC dates. All criterion weights and
+   overall technical/financial weights belong exclusively to the committee.
+   The officer configures tender documents, waits for the committee to prepare
+   evaluation criteria and for Admin to assign the four
+   committee members, and requests pre-publication approval. Preparation locks; both technical and
+   financial members assign weights to their own criterion groups (100% each)
+   and submit their proposed overall split against the locked criteria.
    The averaged split becomes approved before publication. Suppliers must be
    approved, active and registered in the tender category.
 4. Publication checks the future deadline, opening date, items, terms, criterion weights
@@ -102,9 +108,14 @@ document downloads and foreign record IDs supplied by forms.
 
 Evaluation committee members must have CommitteeType.Evaluation and RoleType:
 SourcingManager, DepartmentRepresentative, FinancialRepresentative and
-TechnicalRepresentative. The draft committee form selects existing active users
+TechnicalRepresentative. The Admin committee form selects existing active users
 with the matching account roles; it never creates or changes their roles.
 Committee assignments become locked when preparation approval is requested.
+Admin assigns members from Administration → Evaluation committees. The officer
+has no assignment controls and its legacy assignment endpoint returns Forbid.
+Admin's endpoint rechecks the active database role, validates four distinct
+eligible employees and notifies the officer after saving. Reassignment requires
+an unlocked, unpublished draft without bids; reopen preparation first if needed.
 
 Clarification recipients are derived on the server:
 
@@ -159,7 +170,7 @@ when the team finalizes the integration.
 
 - Whether the team needs manager-controlled assignment instead of the current
   shared unassigned-request queue.
-- The officer prepares criteria; both technical and financial members approve
+- The committee prepares criteria; both technical and financial members approve
   the locked criteria and weights before publication, with workflow evidence.
   Confirm only whether the team requires additional managerial approval beyond
   this implemented preparation approval.
@@ -190,8 +201,8 @@ scope. The officer reads review reasons and the latest conversation statuses.
 Converted source requests remain readable to their sourcing officer while the
 communication stage is active; Create tender is hidden after conversion.
 
-CommitteeWeighting reserves the __weight: criterion-name prefix. Officer-created
-criteria cannot use it or impersonate evaluator proposals. The existing
+CommitteeWeighting reserves the __weight: criterion-name prefix. Officers
+cannot create any criteria or impersonate evaluator proposals. The existing
 committee module now receives preparation drafts separately from compliant offers.
 Weight submission is blocked after publication or when any bid already exists.
 
@@ -202,7 +213,27 @@ approvals, publication, server rejection of late weight changes and receipt of
 compliant offers by both evaluator accounts. Older cycle/message callbacks use
 port 5187 and should be run on their own fresh fixture.
 
-## Overall evaluation weights
+## Committee-only evaluation weights
+
+The officer cannot create or delete evaluation criteria, edit their maximum
+scores, or assign weights. The criterion section and authoring controls are removed
+from officer details. Legacy AddCriterion and RemoveCriterion always return Forbid
+without database writes. Existing committee-owned criteria remain unchanged.
+Requesting approval requires both criterion types, not preassigned
+weights. Technical members assign technical criterion weights and financial
+members assign financial criterion weights. Their endpoint requires every own
+group ID exactly once, weights of 0–100 with at most two decimals and a group
+total of 100%. Other-group IDs and missing payloads are rejected without writes.
+Officer details retain the read-only overall approval status. Publication requires
+both valid groups.
+
+Integration dependency: the committee teammate must supply authorized criterion
+authoring for the tender before preparation is locked. The current committee
+weight form consumes existing criteria; it does not create names/types/maximum
+scores. This officer-only correction does not implement that producer UI or edit
+another role's cycle. Missing criteria block approval with a committee-directed
+message. Browser fixtures seed external criteria explicitly; passing the handoff
+test does not establish that the committee's authoring UI exists.
 
 TechnicalWeight and FinancialWeight are no longer officer-editable or included
 in SourcingTenderForm. Create and Edit do not bind or assign them, so fabricated
@@ -215,16 +246,20 @@ pre-publication workflow evidence exist for the currently assigned evaluators.
 Existing numeric defaults or legacy post-bid proposals do not count as approval.
 
 Criteria and document requirements lock when approval is requested. Before
-publication, ReopenPreparation can remove the proposals and unlock the draft;
+publication, ReopenPreparation removes proposals, resets criterion weights to
+zero and unlocks the draft;
 all changes then require both members to approve again. Published tenders cannot
 be reopened through this action. No automatic legacy-data backfill is performed.
 Legacy published tenders without prior approval are flagged and blocked at
 handoff; resolve those through the team's documented procedure, without
 retroactively inventing approval evidence.
 
-Verified: 107 sourcing SQL checks, 34 committee SQL checks and 38 department SQL
-checks. The preparation browser journey passed 26 checks on its rerun, including
-one synthetic-draft rerun guard (25 checks on a fresh fixture). Existing
+Current officer-only correction: 114 sourcing SQL checks and 46 preparation browser
+checks passed with explicitly seeded external criteria (including the fixture guard).
+The previous committee and department suite results remain 44 and 38; those suites
+were not rerun for this correction. The browser journey
+exercises committee-only inputs, forged officer/cross-group/late submissions,
+both approvals, actual publication and compliant-offer handoff. Existing
 request/return/resubmission/acceptance browser checks remain separate.
 No shared schema or migration is changed.
 

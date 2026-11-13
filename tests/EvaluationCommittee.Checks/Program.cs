@@ -124,7 +124,8 @@ try
                 new TenderCommitteeMember { UserId = "manager", Role = "Manager", RoleType = CommitteeMemberRole.SourcingManager },
                 new TenderCommitteeMember { UserId = "department", Role = "Department", RoleType = CommitteeMemberRole.DepartmentRepresentative }
             ],
-            EvaluationCriteria = [new EvaluationCriterion { Name = "Performance", Type = CriterionType.Technical, Weight = 100 },
+            EvaluationCriteria = [new EvaluationCriterion { Name = "Performance", Type = CriterionType.Technical, Weight = 0 },
+                new EvaluationCriterion { Name = "Security", Type = CriterionType.Technical, Weight = 0 },
                 new EvaluationCriterion { Name = "Total cost", Type = CriterionType.Financial, Weight = 100 }]
         };
         db.Tenders.Add(tender);
@@ -150,6 +151,15 @@ try
 
     Check(await Officer(c => c.RequestWeightApproval(tenderId)) is RedirectToActionResult, "Officer requests locked preparation approval");
 
+    List<CommitteeCriterionWeightInput> technicalCriteria, financialCriteria;
+    await using (var db = new ApplicationDbContext(options)) {
+        var ids = await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Technical).OrderBy(c => c.Id).Select(c => c.Id).ToListAsync();
+        technicalCriteria = [new() { CriterionId = ids[0], Weight = 60 }, new() { CriterionId = ids[1], Weight = 40 }];
+        financialCriteria = await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Financial)
+            .Select(c => new CommitteeCriterionWeightInput { CriterionId = c.Id, Weight = 100 }).ToListAsync();
+        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId).SumAsync(c => c.Weight) == 0,
+            "Preparation can start with all criterion weights pending committee assignment");
+    }
     // Access
     Check(await Act("outsider", c => c.Evaluate(tenderId)) is NotFoundResult, "Non-members cannot open the tender");
     Check(await Act("manager", c => c.Evaluate(tenderId)) is ViewResult, "Sourcing manager (committee member) can open the tender");
@@ -158,18 +168,47 @@ try
     Check(await Act("manager", c => c.Review(tenderId, "accept", null)) is ConflictObjectResult, "Manager cannot accept before technical/financial agree");
     var page = await Page("technical", tenderId);
     Check(page.Bids.Count == 0 && page.Tender.Status == TenderStatus.Draft, "Preparation reveals no supplier offers");
-    Check(await Act("outsider", c => c.SubmitWeights(tenderId, 70, 30)) is NotFoundResult, "Non-members cannot submit weights");
+    Check(await Act("outsider", c => c.SubmitWeights(tenderId, 70, 30, technicalCriteria)) is NotFoundResult, "Non-members cannot submit weights");
+
+    // Assignment boundaries apply to criterion weights as well as the overall split.
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20));
+    Check((await Page("technical", tenderId)).MyProposal == null, "Missing criterion weight payload cannot approve preparation");
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, financialCriteria));
+    Check((await Page("technical", tenderId)).MyProposal == null, "Technical member cannot assign the financial group's weights");
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [
+        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 50 },
+        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 50 }]));
+    Check((await Page("technical", tenderId)).MyProposal == null, "Duplicate criterion IDs cannot replace a complete group");
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [technicalCriteria[0]]));
+    Check((await Page("technical", tenderId)).MyProposal == null, "Omitted criteria cannot approve a group");
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [
+        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 60.001m },
+        new() { CriterionId = technicalCriteria[1].CriterionId, Weight = 39.999m }]));
+    Check((await Page("technical", tenderId)).MyProposal == null, "Criterion percentages reject excess decimal precision");
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [
+        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 60 },
+        new() { CriterionId = technicalCriteria[1].CriterionId, Weight = 50 }]));
+    Check((await Page("technical", tenderId)).MyProposal == null, "Criterion group totals must equal 100 percent");
+    await using (var db = new ApplicationDbContext(options))
+        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId).SumAsync(c => c.Weight) == 0,
+            "Invalid group submissions do not partially persist criterion weights");
 
     // Weights
-    await Act("technical", c => c.SubmitWeights(tenderId, 70, 20));
+    await Act("technical", c => c.SubmitWeights(tenderId, 70, 20, technicalCriteria));
     Check((await Page("technical", tenderId)).MyProposal == null, "Invalid total is not saved");
     Check(await Act("technical", c => c.ChooseBid(tenderId, bidA)) is ConflictObjectResult, "Bid choice blocked before weights agree");
-    await Act("technical", c => c.SubmitWeights(tenderId, 90, 10));
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20));
+    await Act("technical", c => c.SubmitWeights(tenderId, 90, 10, technicalCriteria));
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, technicalCriteria));
+    await using (var db = new ApplicationDbContext(options)) {
+        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Technical && !c.Name.StartsWith("__weight:")).SumAsync(c => c.Weight) == 100,
+            "Technical member persists only the complete technical criterion group");
+        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Financial && !c.Name.StartsWith("__weight:")).SumAsync(c => c.Weight) == 0,
+            "Technical submission leaves financial criteria pending");
+    }
     var finView = await Page("financial", tenderId);
     Check(finView.OtherProposalSubmitted && finView.Proposals.Count == 0 && finView.AgreedWeights == null,
         "Financial member sees that technical submitted, but not the numbers");
-    await Act("financial", c => c.SubmitWeights(tenderId, 60, 40));
+    await Act("financial", c => c.SubmitWeights(tenderId, 60, 40, financialCriteria));
     await using (var db = new ApplicationDbContext(options))
     {
         var t = await db.Tenders.Include(x => x.EvaluationCriteria).SingleAsync(x => x.Id == tenderId);
@@ -178,11 +217,11 @@ try
         Check(t.EvaluationCriteria.Single(c => c.Name == CommitteeWeighting.ProposalName(tech, CriterionType.Technical)).Weight == 80,
             "Technical member's updated proposal replaced the earlier one");
     }
-    Check(await Act("technical", c => c.SubmitWeights(tenderId, 50, 50)) is ConflictObjectResult, "Agreed weights are final");
+    Check(await Act("technical", c => c.SubmitWeights(tenderId, 50, 50, technicalCriteria)) is ConflictObjectResult, "Agreed weights are final");
 
     Check(await Officer(c => c.Publish(tenderId)) is RedirectToActionResult, "Approved weights allow publication through the actual officer action");
     Check((await Page("technical", tenderId)).Bids.Count == 0, "Published tender keeps bids sealed from committee");
-    Check(await Act("technical", c => c.SubmitWeights(tenderId, 95, 5)) is ConflictObjectResult,
+    Check(await Act("technical", c => c.SubmitWeights(tenderId, 95, 5, technicalCriteria)) is ConflictObjectResult,
         "Publication blocks late weight changes");
     await using (var db = new ApplicationDbContext(options)) {
         db.Bids.AddRange(pendingBids);
