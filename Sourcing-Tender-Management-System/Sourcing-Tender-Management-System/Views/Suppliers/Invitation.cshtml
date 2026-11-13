@@ -5,6 +5,7 @@
     var open = tender.Status == TenderStatus.Published && tender.SubmissionDeadline > DateTime.UtcNow
         && (tender.PublishedAt is null || tender.PublishedAt <= DateTime.UtcNow);
 }
+<div id="invitation-details-search-results">
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h2 mb-0">Invitation Details</h1>
     <a asp-action="Invitations" class="btn btn-outline-secondary">Back to invitations</a>
@@ -30,6 +31,7 @@
     <h3 class="h6">Terms and conditions</h3>
     <p class="text-break mb-0" style="white-space: pre-wrap">@(tender.TermsAndConditions ?? "No additional terms provided.")</p>
 </div></div>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "invitation-details-search", ResultsId = "invitation-details-search-results", Label = "Search requested items and document requirements" })" />
 <h2 class="h5">Requested items</h2>
 @if (tender.Items.Count == 0)
 {
@@ -42,7 +44,7 @@ else
         <tbody>
         @foreach (var item in tender.Items.OrderBy(x => x.Id))
         {
-            <tr><td>@item.ItemName</td><td class="text-break">@item.Specifications</td><td>@item.Quantity.ToString("0.###")</td><td>@item.Unit</td></tr>
+            <tr data-search-item><td>@item.ItemName</td><td class="text-break">@item.Specifications</td><td>@item.Quantity.ToString("0.###")</td><td>@item.Unit</td></tr>
         }
         </tbody>
     </table></div>
@@ -57,7 +59,7 @@ else
     <ul class="list-group mb-4">
     @foreach (var requirement in tender.DocumentRequirements.OrderBy(x => x.Id))
     {
-        <li class="list-group-item"><strong>@requirement.DocumentType</strong>
+        <li data-search-item class="list-group-item"><strong>@requirement.DocumentType</strong>
             <span class="badge @(requirement.IsMandatory ? "bg-danger" : "bg-secondary")">@(requirement.IsMandatory ? "Required" : "Optional")</span>
             @if (!string.IsNullOrWhiteSpace(requirement.Description)) { <p class="mb-0 mt-1">@requirement.Description</p> }
         </li>
@@ -92,3 +94,5 @@ else
 {
     <div class="alert alert-warning">This invitation is not available for a participation response. The tender may be closed, not yet open, or the invitation may have expired.</div>
 }
+
+</div>

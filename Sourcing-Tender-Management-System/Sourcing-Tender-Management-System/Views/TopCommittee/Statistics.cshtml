@@ -3,6 +3,7 @@
     ViewData["Title"] = "Statistics";
 }
 
+<div id="statistics-search-results">
 <h1 class="h3 mb-3">Top Committee</h1>
 <partial name="_Nav" model="@("Statistics")" />
 
@@ -11,6 +12,7 @@
     <a class="btn btn-success" asp-action="DownloadStatistics">Download as CSV (Excel)</a>
 </div>
 
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "statistics-search", ResultsId = "statistics-search-results", Label = "Search statistics and supplier dealings" })" />
 <div class="row g-3 mb-4">
     @foreach (var (label, value) in new (string, string)[]
     {
@@ -24,7 +26,7 @@
         ("Contracts value", Model.Totals.ContractsValue.ToString("N2"))
     })
     {
-        <div class="col-6 col-md-3">
+        <div data-search-item class="col-6 col-md-3">
             <div class="card text-center h-100"><div class="card-body">
                 <div class="h3 mb-0">@value</div>
                 <div class="text-muted">@label</div>
@@ -37,10 +39,10 @@
     <div class="col-md-6">
         <h2 class="h5">Top Committee decisions</h2>
         <table class="table table-sm">
-            <tr><td>Awaiting decision</td><td class="text-end">@Model.Decisions.AwaitingDecision</td></tr>
-            <tr><td>Approved</td><td class="text-end">@Model.Decisions.Approved</td></tr>
-            <tr><td>Rejected</td><td class="text-end">@Model.Decisions.Rejected</td></tr>
-            <tr><td>Returned for details</td><td class="text-end">@Model.Decisions.ReturnedForDetails</td></tr>
+            <tr data-search-item><td>Awaiting decision</td><td class="text-end">@Model.Decisions.AwaitingDecision</td></tr>
+            <tr data-search-item><td>Approved</td><td class="text-end">@Model.Decisions.Approved</td></tr>
+            <tr data-search-item><td>Rejected</td><td class="text-end">@Model.Decisions.Rejected</td></tr>
+            <tr data-search-item><td>Returned for details</td><td class="text-end">@Model.Decisions.ReturnedForDetails</td></tr>
         </table>
     </div>
     <div class="col-md-6">
@@ -48,7 +50,7 @@
         <table class="table table-sm">
             @foreach (var s in Model.TenderStatuses)
             {
-                <tr><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
+                <tr data-search-item><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
             }
         </table>
     </div>
@@ -57,7 +59,7 @@
         <table class="table table-sm">
             @foreach (var s in Model.SupplierStatuses)
             {
-                <tr><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
+                <tr data-search-item><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
             }
         </table>
     </div>
@@ -66,7 +68,7 @@
         <table class="table table-sm">
             @foreach (var s in Model.RequestStatuses)
             {
-                <tr><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
+                <tr data-search-item><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
             }
         </table>
     </div>
@@ -91,7 +93,7 @@
         <tbody>
         @foreach (var s in Model.Suppliers)
         {
-            <tr>
+            <tr data-search-item>
                 <td class="fw-semibold">@s.CompanyName</td>
                 <td><partial name="_Badge" model="@s.RegistrationStatus.ToString()" /></td>
                 <td class="text-center">@s.Invitations</td>
@@ -105,4 +107,6 @@
         }
         </tbody>
     </table>
+</div>
+
 </div>

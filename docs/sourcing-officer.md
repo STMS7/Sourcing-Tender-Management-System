@@ -272,6 +272,10 @@ These accounts are generated only in an isolated --preview fixture.
 
 ## Live and voice search
 
+Search is now shared across all role cycles. See
+[Arabic and English workspace search](workspace-voice-search.md) for coverage,
+runtime support, integration attributes and current browser verification.
+
 Requests and Tenders use a shared sourcing-search.js component. Typing waits
 250 ms before fetching a server-rendered result fragment. Status filters apply
 immediately. Requests use the same authorized controller actions as ordinary

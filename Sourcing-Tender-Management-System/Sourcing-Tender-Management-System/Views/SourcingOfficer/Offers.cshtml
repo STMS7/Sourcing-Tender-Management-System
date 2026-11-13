@@ -4,10 +4,12 @@
     var reviews = (List<BidComplianceReview>)ViewBag.Reviews;
     ViewData["Title"] = "Offer comparison";
 }
+<div id="offer-comparison-search-results">
 <a asp-action="Details" asp-route-id="@tender.Id">Back to tender</a>
 <h1 class="mt-3">Compare offers</h1>
 <p>@tender.Title · @tender.TenderNumber</p>
 <p class="text-secondary">Review submitted offers and record compliance before handing them to the evaluation committee. Compare currencies separately; no exchange-rate conversion is applied.</p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "offer-comparison-search", ResultsId = "offer-comparison-search-results", Label = "Search offer details by supplier and specifications" })" />
 @if (Model.Count == 0) { <p class="empty-state">No submitted offers are available. Draft and withdrawn offers are excluded.</p> }
 else {
 <div class="table-responsive"><table class="table"><caption>Supplier comparison. Amounts are shown as recorded by suppliers; the total is not recalculated.</caption><thead><tr><th scope="col">Supplier</th><th scope="col">Offer total</th><th scope="col">Delivery</th><th scope="col">Payment terms</th><th scope="col">Compliance</th></tr></thead><tbody>
@@ -16,7 +18,7 @@ else {
 }
 </tbody></table></div>
 @foreach (var bid in Model) {
-<section id="bid-@bid.Id" class="mb-5">
+<section data-search-item id="bid-@bid.Id" class="mb-5">
 <h2>@bid.Supplier.CompanyName — @bid.BidNumber</h2>
 <p class="preserve-lines">@bid.TechnicalSummary</p>
 <p>Valid until: @(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified"). Current bid status: @bid.Status.</p>
@@ -52,3 +54,5 @@ else {
 </section>
 }
 }
+
+</div>

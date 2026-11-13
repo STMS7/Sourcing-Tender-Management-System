@@ -13,6 +13,7 @@
     var agreedWeights = Sourcing_Tender_Management_System.Services.CommitteeWeighting.Agree(
         Sourcing_Tender_Management_System.Services.CommitteeWeighting.ReadProposals(Model.EvaluationCriteria));
 }
+<div id="tender-details-search-results">
 <a asp-action="Tenders">Back to my tenders</a>
 <h1 class="mt-3">@Model.Title</h1>
 <p>@Model.TenderNumber · <span class="status">@Model.Status</span></p>
@@ -57,9 +58,10 @@
 </dd>
 </dl>
 <h2>Description and terms</h2><p class="preserve-lines">@Model.Description</p><p class="preserve-lines">@Model.TermsAndConditions</p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "tender-details-search", ResultsId = "tender-details-search-results", Label = "Search items, suppliers, documents and history" })" />
 <h2>Tender items</h2>
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity / unit</th><th scope="col">Specifications</th></tr></thead><tbody>
-@foreach (var item in Model.Items) { <tr><td>@item.ItemName</td><td>@item.Quantity.ToString("N3") @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
+@foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3") @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
 </tbody></table></div>
 <h2>Evaluation criteria @(Model.EvaluationCriteriaLockedAt != null ? "— locked" : "")</h2>
 <p class="small text-secondary">Criterion weights within each group must total 100%. The evaluation committee determines the overall technical / financial split.</p>
@@ -67,7 +69,7 @@
 else {
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Criterion</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Maximum score</th>@if (preparing) { <th scope="col">Action</th> }</tr></thead><tbody>
 @foreach (var criterion in criteria.OrderBy(c => c.Type).ThenBy(c => c.Name)) {
-<tr><td>@criterion.Name<br /><small>@criterion.Description</small></td><td>@criterion.Type</td><td>@criterion.Weight%</td><td>@criterion.MaximumScore</td>
+<tr data-search-item><td>@criterion.Name<br /><small>@criterion.Description</small></td><td>@criterion.Type</td><td>@criterion.Weight%</td><td>@criterion.MaximumScore</td>
 @if (preparing) { <td><form asp-action="RemoveCriterion" method="post"><input type="hidden" name="id" value="@criterion.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@criterion.Name</span></button></form></td> }</tr>
 }
 </tbody></table></div>
@@ -90,7 +92,7 @@ else {
 else {
 <ul class="list-group list-group-flush">
 @foreach (var requirement in Model.DocumentRequirements) {
-<li class="list-group-item px-0"><strong>@requirement.DocumentType</strong> · @(requirement.IsMandatory ? "Mandatory" : "Optional")<p class="mb-1">@requirement.Description</p>
+<li data-search-item class="list-group-item px-0"><strong>@requirement.DocumentType</strong> · @(requirement.IsMandatory ? "Mandatory" : "Optional")<p class="mb-1">@requirement.Description</p>
 @if (preparing) { <form asp-action="RemoveRequirement" method="post"><input type="hidden" name="id" value="@requirement.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@requirement.DocumentType</span></button></form> }
 </li>
 }
@@ -133,13 +135,13 @@ else {
 else {
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Supplier</th><th scope="col">Invitation</th><th scope="col">Response</th>@if (draft) { <th scope="col">Action</th> }</tr></thead><tbody>
 @foreach (var invitation in Model.Invitations) {
-<tr><td>@invitation.Supplier.CompanyName @if (!invitation.Supplier.IsActive || invitation.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved) { <span class="text-danger">No longer eligible</span> }</td><td>@(draft ? "Prepared — not sent" : invitation.Status.ToString())</td><td>@invitation.ResponseReason</td>@if (draft) { <td><form asp-action="RemoveInvitation" method="post"><input type="hidden" name="id" value="@invitation.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@invitation.Supplier.CompanyName</span></button></form></td> }</tr>
+<tr data-search-item><td>@invitation.Supplier.CompanyName @if (!invitation.Supplier.IsActive || invitation.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved) { <span class="text-danger">No longer eligible</span> }</td><td>@(draft ? "Prepared — not sent" : invitation.Status.ToString())</td><td>@invitation.ResponseReason</td>@if (draft) { <td><form asp-action="RemoveInvitation" method="post"><input type="hidden" name="id" value="@invitation.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@invitation.Supplier.CompanyName</span></button></form></td> }</tr>
 }
 </tbody></table></div>
 }
 @if (draft && suppliers.Count > 0) {
 <form asp-action="Invite" method="post" class="form-panel"><input type="hidden" name="tenderId" value="@Model.Id" /><fieldset><legend class="fs-6">Select approved suppliers</legend>
-@foreach (var supplier in suppliers) { <div class="form-check mb-2"><input class="form-check-input" id="supplier-@supplier.Id" type="checkbox" name="supplierIds" value="@supplier.Id" /><label class="form-check-label" for="supplier-@supplier.Id">@supplier.CompanyName</label></div> }
+@foreach (var supplier in suppliers) { <div data-search-item class="form-check mb-2"><input class="form-check-input" id="supplier-@supplier.Id" type="checkbox" name="supplierIds" value="@supplier.Id" /><label class="form-check-label" for="supplier-@supplier.Id">@supplier.CompanyName</label></div> }
 </fieldset><button type="submit" class="btn btn-outline-primary mt-2">Add selected suppliers</button></form>
 }
 else if (draft && suppliers.Count == 0) { <p class="text-secondary">No additional approved, active suppliers match this category. Ask the supplier-registration owner to verify category assignments.</p> }
@@ -164,7 +166,7 @@ else if (draft && suppliers.Count == 0) { <p class="text-secondary">No additiona
 }
 <p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; the sourcing manager reviews it.</p>
 @if (Model.CommitteeMembers.Any(m => m.CommitteeType == CommitteeType.Evaluation)) {
-<ul>@foreach (var member in Model.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation)) { <li>@member.User.FullName — @(member.RoleType?.ToString() ?? member.Role)</li> }</ul>
+<ul>@foreach (var member in Model.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation)) { <li data-search-item>@member.User.FullName — @(member.RoleType?.ToString() ?? member.Role)</li> }</ul>
 }
 else { <p class="text-secondary">No evaluation committee has been assigned through the shared team workflow.</p> }
 @foreach (var report in Model.EvaluationReports.OrderByDescending(r => r.Round)) {
@@ -172,4 +174,6 @@ else { <p class="text-secondary">No evaluation committee has been assigned throu
 }
 <h2>Workflow history</h2>
 @if (history.Count == 0) { <p>No workflow events recorded.</p> }
-else { <ol>@foreach (var entry in history) { <li class="mb-2"><strong>@entry.FromStage → @entry.ToStage</strong> · @entry.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC<br />@entry.Reason</li> }</ol> }
+else { <ol>@foreach (var entry in history) { <li data-search-item class="mb-2"><strong>@entry.FromStage → @entry.ToStage</strong> · @entry.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC<br />@entry.Reason</li> }</ol> }
+
+</div>

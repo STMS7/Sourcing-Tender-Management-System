@@ -1,18 +1,20 @@
 @model SourcingRecipientMessagesViewModel
 @using System.Security.Claims
 @{ ViewData["Title"] = "Messages"; var userId = User.FindFirstValue(ClaimTypes.NameIdentifier); }
+<div id="recipient-message-search-results">
 <link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
 <div class="sourcing-workspace py-4">
 <h1>Messages</h1>
 <p class="text-secondary">Read and respond to sourcing clarification requests addressed to your account.</p>
 @if (TempData["Error"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "recipient-message-search", ResultsId = "recipient-message-search-results", Label = "Search conversation subjects and participants" })" />
 <div class="row g-4 mt-2">
 <aside class="col-lg-4"><h2 class="mt-0">Conversations</h2>
 @if (Model.Conversations.Count == 0) { <p class="empty-state">No messages are addressed to you yet.</p> }
 else {
 <ul class="list-group message-list">
 @foreach (var conversation in Model.Conversations) {
-<li class="list-group-item p-0"><a asp-action="Index" asp-route-conversationId="@conversation.Id" class="message-link @(conversation.Id == Model.Selected?.Id ? "selected" : "")">
+<li data-search-item class="list-group-item p-0"><a asp-action="Index" asp-route-conversationId="@conversation.Id" class="message-link @(conversation.Id == Model.Selected?.Id ? "selected" : "")">
 <strong>@conversation.Subject</strong><span>@(conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName)</span><span class="small">@conversation.Status · @conversation.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</span>
 </a></li>
 }
@@ -39,5 +41,7 @@ else { <p class="alert alert-info">This conversation is resolved or its particip
 }
 </section>
 </div>
+</div>
+
 </div>
 @section Scripts { <script src="~/js/sourcing-messages.js" asp-append-version="true"></script> }

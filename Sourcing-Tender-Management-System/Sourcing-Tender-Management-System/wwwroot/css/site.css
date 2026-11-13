@@ -21,6 +21,14 @@ body {
   margin-bottom: 60px;
 }
 
+/* Keep search filtering effective on Bootstrap flex/grid rows. */
+[data-live-search][hidden],
+[data-search-item][hidden],
+[data-task][hidden],
+[data-search-empty][hidden] {
+  display: none !important;
+}
+
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
   color: var(--bs-secondary-color);
   text-align: end;
