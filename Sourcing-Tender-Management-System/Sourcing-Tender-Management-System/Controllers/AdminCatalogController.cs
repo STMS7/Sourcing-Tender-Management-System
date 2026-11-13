@@ -8,10 +8,13 @@ using Sourcing_Tender_Management_System.Models;
 namespace Sourcing_Tender_Management_System.Controllers;
 
 [Authorize(Roles = "Admin")]
-public class AdminCatalogController(ApplicationDbContext db, RoleManager<IdentityRole> roleManager) : Controller
+public class AdminCatalogController(ApplicationDbContext db, RoleManager<IdentityRole> roleManager,
+    UserManager<ApplicationUser> userManager, IWebHostEnvironment environment) : Controller
 {
     private static readonly HashSet<string> CoreRoles = new(StringComparer.OrdinalIgnoreCase)
-    { "Admin", "ProcurementOfficer", "EvaluationCommittee", "TopCommittee", "Supplier" };
+    { "Admin", "ProcurementOfficer", "EvaluationCommittee", "TopCommittee", "Supplier",
+      "SourcingOfficer", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative",
+      "DepartmentRepresentative", "DepartmentRequester" };
 
     public async Task<IActionResult> Departments() => View(await db.Departments.OrderBy(x => x.Name).ToListAsync());
 
@@ -75,21 +78,24 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
     {
         ViewBag.Categories = await db.Categories.OrderBy(x => x.Name).ToListAsync();
         ViewBag.SupplierCategories = await db.SupplierCategories.AsNoTracking().ToListAsync();
+        ViewBag.SupplierDocuments = await db.SupplierDocuments.AsNoTracking().OrderByDescending(x => x.UploadedAt).ToListAsync();
         return View(await db.Suppliers.OrderBy(x => x.CompanyName).ToListAsync());
     }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveSupplier(int id, string companyName, string registrationNumber,
-        string email, string? taxNumber, string? phoneNumber, string? address,
+        string email, string? taxNumber, string? licenseNumber, DateTime? licenseExpiresAt,
+        DocumentVerificationStatus legalVerificationStatus, string? phoneNumber, string? address,
         SupplierRegistrationStatus registrationStatus, string? reviewReason, bool isActive)
     {
+        if (id <= 0) return BadRequest("Suppliers must register their own accounts.");
         companyName = companyName?.Trim() ?? string.Empty;
         registrationNumber = registrationNumber?.Trim() ?? string.Empty;
         email = email?.Trim() ?? string.Empty;
         if (companyName.Length is < 1 or > 200 || registrationNumber.Length is < 1 or > 100 ||
             !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email) || email.Length > 256 ||
-            taxNumber?.Length > 100 || phoneNumber?.Length > 30 || address?.Length > 500 || reviewReason?.Length > 2000 ||
-            !Enum.IsDefined(registrationStatus) ||
+            taxNumber?.Length > 100 || licenseNumber?.Length > 100 || phoneNumber?.Length > 30 || address?.Length > 500 || reviewReason?.Length > 2000 ||
+            !Enum.IsDefined(registrationStatus) || !Enum.IsDefined(legalVerificationStatus) ||
             (registrationStatus is SupplierRegistrationStatus.Rejected or SupplierRegistrationStatus.Suspended) && string.IsNullOrWhiteSpace(reviewReason) ||
             await db.Suppliers.AnyAsync(x => x.Id != id && (x.RegistrationNumber == registrationNumber || x.Email == email)))
         {
@@ -97,15 +103,34 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
             return RedirectToAction(nameof(Suppliers));
         }
 
-        var item = id == 0 ? new Supplier() : await db.Suppliers.FindAsync(id);
+        var item = await db.Suppliers.FindAsync(id);
         if (item is null) return NotFound();
+        if (registrationStatus == SupplierRegistrationStatus.Approved &&
+            (legalVerificationStatus != DocumentVerificationStatus.Verified ||
+            await db.SupplierDocuments.AnyAsync(x => x.SupplierId == id && x.DocumentType == "BusinessLicense" &&
+                x.VerificationStatus != DocumentVerificationStatus.Verified)))
+        {
+            TempData["Error"] = "Verify the business license before approving this supplier.";
+            return RedirectToAction(nameof(Suppliers));
+        }
+        if (!string.Equals(item.Email, email, StringComparison.OrdinalIgnoreCase) &&
+            await db.Users.AnyAsync(x => x.SupplierId == id))
+        {
+            TempData["Error"] = "Change the linked supplier login email through account management first.";
+            return RedirectToAction(nameof(Suppliers));
+        }
+        await using var transaction = await db.Database.BeginTransactionAsync();
         item.CompanyName = companyName;
         item.RegistrationNumber = registrationNumber;
         item.Email = email;
         item.TaxNumber = taxNumber?.Trim();
+        item.LicenseNumber = licenseNumber?.Trim();
+        item.LicenseExpiresAt = licenseExpiresAt;
+        item.LegalVerificationStatus = legalVerificationStatus;
         item.PhoneNumber = phoneNumber?.Trim();
         item.Address = address?.Trim();
-        var statusChanged = id == 0 || item.RegistrationStatus != registrationStatus;
+        var statusChanged = item.RegistrationStatus != registrationStatus;
+        var activationChanged = item.IsActive != (registrationStatus == SupplierRegistrationStatus.Approved && isActive);
         item.RegistrationStatus = registrationStatus;
         item.ReviewReason = reviewReason?.Trim();
         if (statusChanged)
@@ -113,8 +138,7 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
             item.ReviewedAt = DateTime.UtcNow;
             item.ReviewedByUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         }
-        item.IsActive = isActive;
-        if (id == 0) db.Suppliers.Add(item);
+        item.IsActive = registrationStatus == SupplierRegistrationStatus.Approved && isActive;
         await db.SaveChangesAsync();
         if (statusChanged && registrationStatus != SupplierRegistrationStatus.Pending)
         {
@@ -127,8 +151,73 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
             });
             await db.SaveChangesAsync();
         }
-        await LogAsync(id == 0 ? "Create" : "Update", "Supplier", item.Id);
+        var accounts = statusChanged || activationChanged
+            ? await db.Users.Where(x => x.SupplierId == id).ToListAsync()
+            : new List<ApplicationUser>();
+        foreach (var account in accounts)
+        {
+            var shouldBeActive = item.IsActive;
+            var wasActive = account.IsActive;
+            account.IsActive = shouldBeActive;
+            account.EmailConfirmed = registrationStatus == SupplierRegistrationStatus.Approved;
+            var updated = await userManager.UpdateAsync(account);
+            if (!updated.Succeeded)
+            {
+                TempData["Error"] = string.Join("; ", updated.Errors.Select(x => x.Description));
+                return RedirectToAction(nameof(Suppliers));
+            }
+            if (wasActive && !shouldBeActive)
+            {
+                var stamped = await userManager.UpdateSecurityStampAsync(account);
+                if (!stamped.Succeeded)
+                {
+                    TempData["Error"] = string.Join("; ", stamped.Errors.Select(x => x.Description));
+                    return RedirectToAction(nameof(Suppliers));
+                }
+            }
+        }
+        await LogAsync("Update", "Supplier", item.Id);
+        await transaction.CommitAsync();
         TempData["Message"] = "Supplier saved.";
+        return RedirectToAction(nameof(Suppliers));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DownloadSupplierDocument(int id)
+    {
+        var document = await db.SupplierDocuments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (document is null) return NotFound();
+        var root = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "PrivateUploads", "Suppliers")) + Path.DirectorySeparatorChar;
+        var path = Path.GetFullPath(Path.Combine(environment.ContentRootPath, document.FilePath));
+        if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(path)) return NotFound();
+        return PhysicalFile(path, document.ContentType ?? "application/octet-stream", document.FileName);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReviewSupplierDocument(int id, DocumentVerificationStatus status, string? notes)
+    {
+        var document = await db.SupplierDocuments.FindAsync(id);
+        if (document is null) return NotFound();
+        if (status is not (DocumentVerificationStatus.Verified or DocumentVerificationStatus.Rejected) || notes?.Length > 1000)
+            return BadRequest();
+        if (status == DocumentVerificationStatus.Rejected && document.DocumentType == "BusinessLicense" &&
+            await db.Suppliers.AnyAsync(x => x.Id == document.SupplierId && x.RegistrationStatus == SupplierRegistrationStatus.Approved))
+        {
+            TempData["Error"] = "Suspend the approved supplier before rejecting its business license.";
+            return RedirectToAction(nameof(Suppliers));
+        }
+        document.VerificationStatus = status;
+        document.VerificationNotes = notes?.Trim();
+        document.VerifiedByUserId = userManager.GetUserId(User);
+        document.VerifiedAt = DateTime.UtcNow;
+        if (document.DocumentType == "BusinessLicense")
+        {
+            var supplier = await db.Suppliers.FindAsync(document.SupplierId);
+            if (supplier is not null) supplier.LegalVerificationStatus = status;
+        }
+        await db.SaveChangesAsync();
+        await LogAsync(status == DocumentVerificationStatus.Verified ? "Verify" : "Reject", "SupplierDocument", id);
+        TempData["Message"] = "Supplier document reviewed.";
         return RedirectToAction(nameof(Suppliers));
     }
 
@@ -169,12 +258,14 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
             TempData["Error"] = "Use a unique role name with letters, numbers or underscores.";
             return RedirectToAction(nameof(Roles));
         }
-        var result = await roleManager.CreateAsync(new IdentityRole(name));
+        var role = new IdentityRole(name);
+        var result = await roleManager.CreateAsync(role);
         if (!result.Succeeded)
         {
             TempData["Error"] = string.Join("; ", result.Errors.Select(x => x.Description));
             return RedirectToAction(nameof(Roles));
         }
+        await LogAsync("Create", "IdentityRole", role.Id);
         TempData["Message"] = "Role created.";
         return RedirectToAction(nameof(Roles));
     }
@@ -190,6 +281,7 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
             return RedirectToAction(nameof(Roles));
         }
         var result = await roleManager.DeleteAsync(role);
+        if (result.Succeeded) await LogAsync("Delete", "IdentityRole", role.Id);
         TempData[result.Succeeded ? "Message" : "Error"] = result.Succeeded
             ? "Role deleted." : string.Join("; ", result.Errors.Select(x => x.Description));
         return RedirectToAction(nameof(Roles));
@@ -210,14 +302,16 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
         return false;
     }
 
-    private async Task LogAsync(string action, string entity, int id)
+    private Task LogAsync(string action, string entity, int id) => LogAsync(action, entity, id.ToString());
+
+    private async Task LogAsync(string action, string entity, string id)
     {
         db.AuditLogs.Add(new AuditLog
         {
             UserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
             Action = action,
             EntityName = entity,
-            EntityId = id.ToString(),
+            EntityId = id,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
         });
         await db.SaveChangesAsync();

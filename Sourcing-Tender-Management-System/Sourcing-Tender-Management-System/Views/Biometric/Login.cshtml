@@ -1,0 +1,56 @@
+@{
+    ViewData["Title"] = "Sign in with biometrics";
+}
+
+<div id="bio-root" data-return-url="@ViewBag.ReturnUrl">
+    @Html.AntiForgeryToken()
+
+    <h1 class="h3 mb-3">Sign in with biometrics</h1>
+    <div id="bio-status" class="alert alert-info">Choose a method. You need to have registered it before, from the "My biometrics" page after a normal sign-in.</div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h2 class="h5">Fingerprint</h2>
+                    <p class="text-muted">
+                        Uses the fingerprint, face unlock or PIN of this device (Windows Hello, Touch ID, phone).
+                        Your fingerprint never leaves the device.
+                    </p>
+                    <button id="btnPasskeyLogin" type="button" class="btn btn-primary">Sign in with fingerprint</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h2 class="h5">Face recognition</h2>
+                    <p class="text-muted">
+                        The camera checks that a real person is in front of it: you will be asked to blink,
+                        open your mouth or turn your head. Photos are not accepted.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label" for="faceEmail">Email</label>
+                        <input id="faceEmail" type="email" class="form-control" autocomplete="username" placeholder="name@example.com" />
+                    </div>
+                    <button id="btnFaceLogin" type="button" class="btn btn-primary">Sign in with face</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="facePanel" class="d-none text-center mt-4">
+        <video id="faceVideo" playsinline muted autoplay
+               style="width:100%;max-width:360px;border-radius:.5rem;transform:scaleX(-1);background:#000"></video>
+        <div id="faceHint" class="fw-semibold mt-2"></div>
+    </div>
+
+    <p class="mt-4">
+        <a asp-area="" asp-controller="Auth" asp-action="Login">Use my password instead</a>
+    </p>
+</div>
+
+@section Scripts {
+    <script src="~/biometric/biometric.js" asp-append-version="true"></script>
+}

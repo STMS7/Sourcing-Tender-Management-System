@@ -3,6 +3,10 @@ bin/
 obj/
 *.user
 *.suo
+<<<<<<< HEAD
 
 # Local supplier uploads
 **/App_Data/SupplierFiles/
+=======
+PrivateUploads/
+>>>>>>> origin/main

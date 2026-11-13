@@ -1,0 +1,54 @@
+@model List<Bid>
+@{
+    var tender = (Tender)ViewBag.Tender;
+    var reviews = (List<BidComplianceReview>)ViewBag.Reviews;
+    ViewData["Title"] = "Offer comparison";
+}
+<a asp-action="Details" asp-route-id="@tender.Id">Back to tender</a>
+<h1 class="mt-3">Compare offers</h1>
+<p>@tender.Title · @tender.TenderNumber</p>
+<p class="text-secondary">Review submitted offers and record compliance before handing them to the evaluation committee. Compare currencies separately; no exchange-rate conversion is applied.</p>
+@if (Model.Count == 0) { <p class="empty-state">No submitted offers are available. Draft and withdrawn offers are excluded.</p> }
+else {
+<div class="table-responsive"><table class="table"><caption>Supplier comparison. Amounts are shown as recorded by suppliers; the total is not recalculated.</caption><thead><tr><th scope="col">Supplier</th><th scope="col">Offer total</th><th scope="col">Delivery</th><th scope="col">Payment terms</th><th scope="col">Compliance</th></tr></thead><tbody>
+@foreach (var bid in Model) {
+<tr><td><a href="#bid-@bid.Id">@bid.Supplier.CompanyName</a><br /><small>@bid.BidNumber</small></td><td>@bid.TotalAmount.ToString("N2") @bid.Currency</td><td>@bid.DeliveryDays days</td><td>@bid.PaymentTerms</td><td><span class="status">@bid.ComplianceStatus</span></td></tr>
+}
+</tbody></table></div>
+@foreach (var bid in Model) {
+<section id="bid-@bid.Id" class="mb-5">
+<h2>@bid.Supplier.CompanyName — @bid.BidNumber</h2>
+<p class="preserve-lines">@bid.TechnicalSummary</p>
+<p>Valid until: @(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified"). Current bid status: @bid.Status.</p>
+<div class="table-responsive"><table class="table"><caption>Cost components as recorded, in @bid.Currency. Confirm their inclusion in the offered total during financial review.</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Requested item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
+@foreach (var item in tender.Items) {
+    var offered = bid.Items.FirstOrDefault(i => i.TenderItemId == item.Id);
+    <tr><td>@item.ItemName<br /><small>@item.Specifications</small></td><td>@item.Quantity @item.Unit</td><td>@(offered?.UnitPrice.ToString("N2") ?? "Not quoted")</td><td>@(offered?.TotalPrice.ToString("N2") ?? "Not quoted")</td><td class="preserve-lines">@offered?.TechnicalResponse @offered?.BrandOrModel</td></tr>
+}
+</tbody></table></div>
+<h3>Required documents</h3>
+@if (tender.DocumentRequirements.Count == 0) { <p>No tender document requirements configured.</p> }
+<ul>@foreach (var requirement in tender.DocumentRequirements) {
+    var document = bid.Documents.FirstOrDefault(d => d.TenderDocumentRequirementId == requirement.Id);
+    <li>@requirement.DocumentType (@(requirement.IsMandatory ? "mandatory" : "optional")): @(document == null ? "Missing" : document.FileName + (document.IsVerified ? " — verified" : " — not verified"))</li>
+}</ul>
+@if (bid.Documents.Count > 0) {
+<details><summary>Submitted documents (@bid.Documents.Count)</summary><ul>@foreach (var document in bid.Documents) { <li><a asp-action="DownloadBidDocument" asp-route-id="@document.Id">@document.FileName</a> · @document.DocumentType · @document.FileSize bytes</li> }</ul></details>
+}
+@if (tender.Status == TenderStatus.Closed) {
+<form asp-action="Compliance" method="post" class="form-panel mt-3">
+<input type="hidden" name="BidId" value="@bid.Id" />
+<div class="mb-3"><label for="decision-@bid.Id" class="form-label">Compliance decision</label><select id="decision-@bid.Id" name="Decision" required class="form-select"><option value="">Choose an outcome</option>
+@foreach (var decision in new[] { ComplianceDecision.Compliant, ComplianceDecision.NonCompliant, ComplianceDecision.PendingClarification }) { <option value="@decision" selected="@(bid.ComplianceStatus == decision)">@decision</option> }
+</select></div>
+<div class="mb-3"><label for="reason-@bid.Id" class="form-label">Reason and observations</label><textarea id="reason-@bid.Id" name="Reason" maxlength="2000" required class="form-control" rows="3"></textarea></div>
+<div class="actions"><button type="submit" class="btn btn-primary">Record compliance review</button><a class="btn btn-outline-primary" asp-action="Clarifications" asp-route-tenderId="@tender.Id" asp-route-bidId="@bid.Id">Request supplier clarification</a></div>
+</form>
+}
+@if (reviews.Any(r => r.BidId == bid.Id)) {
+<details class="mt-3"><summary>Compliance review history</summary><ol>@foreach (var review in reviews.Where(r => r.BidId == bid.Id)) { <li class="mb-2">@review.Decision · @review.ReviewedAt.ToString("dd MMM yyyy HH:mm") UTC<p class="preserve-lines">@review.Reason</p></li> }</ol></details>
+}
+</section>
+}
+}

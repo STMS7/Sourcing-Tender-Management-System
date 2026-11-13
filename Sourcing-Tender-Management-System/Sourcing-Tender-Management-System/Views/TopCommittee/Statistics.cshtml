@@ -1,0 +1,108 @@
+@model TopCommitteeStatisticsViewModel
+@{
+    ViewData["Title"] = "Statistics";
+}
+
+<h1 class="h3 mb-3">Top Committee</h1>
+<partial name="_Nav" model="@("Statistics")" />
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="text-muted">Generated @Model.GeneratedAt.ToString("yyyy-MM-dd HH:mm") UTC</div>
+    <a class="btn btn-success" asp-action="DownloadStatistics">Download as CSV (Excel)</a>
+</div>
+
+<div class="row g-3 mb-4">
+    @foreach (var (label, value) in new (string, string)[]
+    {
+        ("Suppliers", Model.Totals.Suppliers.ToString()),
+        ("Approved suppliers", Model.Totals.ApprovedSuppliers.ToString()),
+        ("Departments", Model.Totals.Departments.ToString()),
+        ("Purchase requests", Model.Totals.ProcurementRequests.ToString()),
+        ("Tenders", Model.Totals.Tenders.ToString()),
+        ("Submitted bids", Model.Totals.Bids.ToString()),
+        ("Contracts", Model.Totals.Contracts.ToString()),
+        ("Contracts value", Model.Totals.ContractsValue.ToString("N2"))
+    })
+    {
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100"><div class="card-body">
+                <div class="h3 mb-0">@value</div>
+                <div class="text-muted">@label</div>
+            </div></div>
+        </div>
+    }
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <h2 class="h5">Top Committee decisions</h2>
+        <table class="table table-sm">
+            <tr><td>Awaiting decision</td><td class="text-end">@Model.Decisions.AwaitingDecision</td></tr>
+            <tr><td>Approved</td><td class="text-end">@Model.Decisions.Approved</td></tr>
+            <tr><td>Rejected</td><td class="text-end">@Model.Decisions.Rejected</td></tr>
+            <tr><td>Returned for details</td><td class="text-end">@Model.Decisions.ReturnedForDetails</td></tr>
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h2 class="h5">Tenders by status</h2>
+        <table class="table table-sm">
+            @foreach (var s in Model.TenderStatuses)
+            {
+                <tr><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
+            }
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h2 class="h5">Suppliers by status</h2>
+        <table class="table table-sm">
+            @foreach (var s in Model.SupplierStatuses)
+            {
+                <tr><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
+            }
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h2 class="h5">Purchase requests by status</h2>
+        <table class="table table-sm">
+            @foreach (var s in Model.RequestStatuses)
+            {
+                <tr><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
+            }
+        </table>
+    </div>
+</div>
+
+<h2 class="h5">Dealings with each supplier</h2>
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Supplier</th>
+                <th>Status</th>
+                <th class="text-center">Invitations</th>
+                <th class="text-center">Bids submitted</th>
+                <th class="text-center">Tenders awarded</th>
+                <th class="text-end">Awarded amount</th>
+                <th class="text-center">Contracts</th>
+                <th class="text-end">Contracts value</th>
+                <th class="text-center">Purchase orders</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var s in Model.Suppliers)
+        {
+            <tr>
+                <td class="fw-semibold">@s.CompanyName</td>
+                <td><partial name="_Badge" model="@s.RegistrationStatus.ToString()" /></td>
+                <td class="text-center">@s.Invitations</td>
+                <td class="text-center">@s.BidsSubmitted</td>
+                <td class="text-center">@s.TendersAwarded</td>
+                <td class="text-end">@s.AwardedAmount.ToString("N2")</td>
+                <td class="text-center">@s.Contracts</td>
+                <td class="text-end">@s.ContractsValue.ToString("N2")</td>
+                <td class="text-center">@s.PurchaseOrders</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

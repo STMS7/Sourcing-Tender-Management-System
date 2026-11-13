@@ -1,0 +1,15 @@
+@model List<Tender>
+@{ ViewData["Title"] = "My tenders"; }
+<h1>My tenders</h1>
+<p class="text-secondary">Tenders you created or have been assigned to manage.</p>
+<form asp-action="Tenders" method="get" class="row g-3 align-items-end mb-3" role="search" data-live-search data-results="tender-results" data-search-status="tender-search-status">
+    <div class="col-md-6"><label for="search" class="form-label">Title or tender number</label><input type="search" name="search" id="search" value="@ViewBag.Search" class="form-control" placeholder="Results update as you type" data-search-input /></div>
+    <div class="col-md-3"><label for="status" class="form-label">Status</label><select name="status" id="status" class="form-select"><option value="">All statuses</option>
+    @foreach (var status in Enum.GetValues<TenderStatus>()) { <option value="@status" selected="@(ViewBag.Status != null && (TenderStatus)ViewBag.Status == status)">@status</option> }
+    </select></div>
+    <div class="col-md-3"><partial name="_VoiceLanguage" /></div>
+    <div class="col-12 actions"><button class="btn btn-outline-primary" type="button" data-voice-search aria-pressed="false">Search by voice</button><button class="btn btn-primary" type="submit">Filter</button><a asp-action="Tenders" data-search-reset class="btn btn-link">Reset</a></div>
+</form>
+<p id="tender-search-status" role="status" class="small text-secondary">Results update as you type. Status changes apply immediately.</p>
+<div id="tender-results" aria-busy="false"><partial name="_TenderResults" model="Model" /></div>
+@section Scripts { <script src="~/js/sourcing-search.js" asp-append-version="true"></script> }

@@ -1,0 +1,40 @@
+@model SourcingRecipientMessagesViewModel
+@using System.Security.Claims
+@{ ViewData["Title"] = "Messages"; var userId = User.FindFirstValue(ClaimTypes.NameIdentifier); }
+<link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
+<div class="sourcing-workspace py-4">
+<h1>Messages</h1>
+<p class="text-secondary">Read and respond to sourcing clarification requests addressed to your account.</p>
+@if (TempData["Error"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
+<div class="row g-4 mt-2">
+<aside class="col-lg-4"><h2 class="mt-0">Conversations</h2>
+@if (Model.Conversations.Count == 0) { <p class="empty-state">No messages are addressed to you yet.</p> }
+else {
+<ul class="list-group message-list">
+@foreach (var conversation in Model.Conversations) {
+<li class="list-group-item p-0"><a asp-action="Index" asp-route-conversationId="@conversation.Id" class="message-link @(conversation.Id == Model.Selected?.Id ? "selected" : "")">
+<strong>@conversation.Subject</strong><span>@(conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName)</span><span class="small">@conversation.Status · @conversation.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</span>
+</a></li>
+}
+</ul>
+}
+</aside>
+<section class="col-lg-8" aria-label="Selected conversation">
+@if (Model.Selected is not { } selected) { <p class="empty-state">Choose a conversation to read and respond.</p> }
+else {
+<h2 class="mt-0">@selected.Subject</h2><p><span class="status">@selected.Status</span></p>
+<ol class="message-thread list-unstyled" data-message-thread tabindex="0" aria-label="Message history">
+<li class="message-entry @(selected.AskedByUserId == userId ? "outgoing" : "")"><strong>@(selected.AskedByUserId == userId ? "You" : selected.AskedByUser.FullName)</strong><time class="small">@selected.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time><p class="preserve-lines mb-0">@selected.Question</p></li>
+@foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt)) {
+<li class="message-entry @(response.RespondedByUserId == userId ? "outgoing" : "")"><strong>@(response.RespondedByUserId == userId ? "You" : response.RespondedByUser?.FullName ?? "Participant")</strong><time class="small">@response.RespondedAt.ToString("dd MMM yyyy HH:mm") UTC</time><p class="preserve-lines mb-0">@response.ResponseText</p></li>
+}
+</ol>
+@if (Model.CanReply) {
+<form asp-action="Reply" method="post"><input name="id" value="@selected.Id" type="hidden" /><label for="recipient-response" class="form-label">Your response</label><textarea id="recipient-response" name="response" required maxlength="3000" rows="4" class="form-control mb-3"></textarea><button type="submit" class="btn btn-primary">Send response</button></form>
+}
+else { <p class="alert alert-info">This conversation is resolved or its participants/stage no longer permit a response. You can still read its history.</p> }
+}
+</section>
+</div>
+</div>
+@section Scripts { <script src="~/js/sourcing-messages.js" asp-append-version="true"></script> }

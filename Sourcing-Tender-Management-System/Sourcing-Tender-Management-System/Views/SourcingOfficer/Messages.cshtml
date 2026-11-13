@@ -1,0 +1,143 @@
+@model SourcingMessagesViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Messages";
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    var groupLabel = Model.Group switch {
+        "Supplier" => "Supplier",
+        "EvaluationCommittee" => "Technical & financial evaluation committee",
+        _ => "Requesting department"
+    };
+    var selected = Model.Selected;
+    string DisplayStatus(Clarification c) => c.Status switch {
+        ClarificationStatus.Pending => c.RecipientUserId == userId ? "Awaiting your response" : "Awaiting response",
+        ClarificationStatus.Answered => "Answered",
+        _ => "Resolved"
+    };
+}
+<h1>Messages</h1>
+<p class="text-secondary">Ask questions, request missing information and keep responses with the relevant purchase request, bid or tender.</p>
+<nav class="sourcing-nav message-groups mt-4" aria-label="Message participants">
+    <a class="@(Model.Group == "RequestingDepartment" ? "active" : "")" aria-current="@(Model.Group == "RequestingDepartment" ? "page" : null)" asp-action="Messages" asp-route-group="RequestingDepartment">Requesting department</a>
+    <a class="@(Model.Group == "Supplier" ? "active" : "")" aria-current="@(Model.Group == "Supplier" ? "page" : null)" asp-action="Messages" asp-route-group="Supplier">Supplier</a>
+    <a class="@(Model.Group == "EvaluationCommittee" ? "active" : "")" aria-current="@(Model.Group == "EvaluationCommittee" ? "page" : null)" asp-action="Messages" asp-route-group="EvaluationCommittee">Evaluation committee</a>
+</nav>
+<div asp-validation-summary="All" class="text-danger mt-3" role="alert"></div>
+<details class="message-compose my-4" open="@(selected == null || Model.Context != null)">
+    <summary class="fs-5 fw-semibold">New message to @groupLabel</summary>
+    @if (Model.Group == "Supplier") {
+        <p class="small text-secondary mt-3">Choose a submitted offer after bidding closes. Only accounts belonging to that supplier are available.</p>
+    } else if (Model.Group == "EvaluationCommittee") {
+        <p class="small text-secondary mt-3">Choose a tender in compliance, evaluation or manager review, then choose an assigned committee member.</p>
+    } else {
+        <p class="small text-secondary mt-3">Choose an approved request or an active request linked to a tender you manage. The request owner is the recipient.</p>
+    }
+    @if (Model.Contexts.Count == 0) {
+        <p class="alert alert-info mt-3">No eligible transactions are available at this stage. You can still read existing conversations below.</p>
+    } else {
+        <form asp-action="Messages" method="get" class="form-panel mt-3" data-message-context>
+            <input type="hidden" name="group" value="@Model.Group" />
+            <label for="message-context" class="form-label">Related transaction</label>
+            <div class="d-flex gap-2">
+                <select id="message-context" name="context" class="form-select" required>
+                    <option value="">Choose a related transaction</option>
+                    @foreach (var context in Model.Contexts) {
+                        <option value="@context.Key" selected="@(context.Key == Model.Context)">@context.Label</option>
+                    }
+                </select>
+                <button class="btn btn-outline-primary" type="submit">Choose</button>
+            </div>
+        </form>
+    }
+    @if (Model.Context != null) {
+        @if (Model.Recipients.Count == 0) {
+            <p class="alert alert-info mt-3">No active recipients are assigned to this transaction. Ask the responsible team member to check the account or committee assignment.</p>
+        } else {
+            <form asp-action="AskClarification" method="post" class="form-panel mt-3">
+                <input name="ProcurementRequestId" value="@Model.Form.ProcurementRequestId" type="hidden" />
+                <input name="TenderId" value="@Model.Form.TenderId" type="hidden" />
+                <input name="BidId" value="@Model.Form.BidId" type="hidden" />
+                <div class="mb-3">
+                    <label for="message-recipient" class="form-label">Recipient</label>
+                    <select id="message-recipient" name="RecipientUserId" class="form-select" required>
+                        <option value="">Choose an authorized participant</option>
+                        @foreach (var recipient in Model.Recipients) {
+                            <option value="@recipient.Id" selected="@(recipient.Id == Model.Form.RecipientUserId)">@recipient.FullName</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3"><label for="message-subject" class="form-label">Subject</label><input id="message-subject" name="Subject" value="@Model.Form.Subject" class="form-control" required maxlength="200" /></div>
+                <div class="mb-3"><label for="message-question" class="form-label">Message</label><textarea id="message-question" name="Question" class="form-control" rows="4" required maxlength="2000">@Model.Form.Question</textarea></div>
+                <button type="submit" class="btn btn-primary">Send message</button>
+            </form>
+        }
+    }
+</details>
+<div class="row g-4">
+    <aside class="col-lg-4">
+        <h2 class="mt-0">Conversations</h2>
+        <p class="small text-secondary">Latest 100 conversations with @groupLabel.</p>
+        @if (Model.Conversations.Count == 0) {
+            <p class="empty-state">No conversations in this category yet. Choose a related transaction above to start one.</p>
+        } else {
+            <ul class="list-group message-list">
+                @foreach (var conversation in Model.Conversations) {
+                    var counterpart = conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName;
+                    <li class="list-group-item p-0">
+                        <a class="message-link @(conversation.Id == selected?.Id ? "selected" : "")" aria-current="@(conversation.Id == selected?.Id ? "page" : null)"
+                           asp-action="Messages" asp-route-group="@Model.Group" asp-route-conversationId="@conversation.Id">
+                            <strong>@conversation.Subject</strong>
+                            <span>@counterpart</span>
+                            <span class="small">@DisplayStatus(conversation)</span>
+                            <time class="small" datetime="@conversation.AskedAt.ToString("O")">@conversation.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+    </aside>
+    <section class="col-lg-8" aria-label="Selected conversation">
+        @if (selected == null) {
+            <div class="empty-state"><h2 class="mt-0">Select a conversation</h2><p class="mb-0">Read questions and responses, reply, or resolve a completed clarification.</p></div>
+        } else {
+            <h2 class="mt-0">@selected.Subject</h2>
+            <p><span class="status">@DisplayStatus(selected)</span></p>
+            <p class="small text-secondary">
+                @if (selected.Bid != null) { <span>Offer @selected.Bid.BidNumber · @selected.Bid.Supplier.CompanyName</span> }
+                else if (selected.ProcurementRequest != null) { <span>Request @selected.ProcurementRequest.RequestNumber · @selected.ProcurementRequest.Title</span> }
+                else if (selected.Tender != null) { <span>Tender @selected.Tender.TenderNumber · @selected.Tender.Title</span> }
+            </p>
+            <ol class="message-thread list-unstyled" data-message-thread tabindex="0" aria-label="Message history">
+                <li class="message-entry @(selected.AskedByUserId == userId ? "outgoing" : "")">
+                    <strong>@(selected.AskedByUserId == userId ? "You" : selected.AskedByUser.FullName)</strong>
+                    <time class="small" datetime="@selected.AskedAt.ToString("O")">@selected.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
+                    <p class="preserve-lines mb-0">@selected.Question</p>
+                </li>
+                @foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt)) {
+                    <li class="message-entry @(response.RespondedByUserId == userId ? "outgoing" : "")">
+                        <strong>@(response.RespondedByUserId == userId ? "You" : response.RespondedByUser?.FullName ?? "Participant")</strong>
+                        <time class="small" datetime="@response.RespondedAt.ToString("O")">@response.RespondedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
+                        <p class="preserve-lines mb-0">@response.ResponseText</p>
+                    </li>
+                }
+            </ol>
+            @if (Model.CanReply) {
+                <form asp-controller="Messages" asp-action="Reply" method="post">
+                    <input type="hidden" name="id" value="@selected.Id" />
+                    <label for="message-response" class="form-label">Your response</label>
+                    <textarea id="message-response" name="response" class="form-control mb-3" rows="3" required maxlength="3000"></textarea>
+                    <button type="submit" class="btn btn-primary">Send response</button>
+                </form>
+            } else {
+                <p class="alert alert-info">@(selected.Status == ClarificationStatus.Resolved ? "This conversation is resolved. Its history remains available." : "This transaction is no longer at a stage that permits a response, or the participant is no longer eligible. Its history remains available.")</p>
+            }
+            @if (selected.AskedByUserId == userId && selected.Status == ClarificationStatus.Answered) {
+                <form asp-action="Resolve" method="post" class="mt-3">
+                    <input type="hidden" name="id" value="@selected.Id" />
+                    <button type="submit" class="btn btn-outline-secondary">Mark resolved</button>
+                </form>
+            }
+        }
+    </section>
+</div>
+@section Scripts { <script src="~/js/sourcing-messages.js" asp-append-version="true"></script> }
