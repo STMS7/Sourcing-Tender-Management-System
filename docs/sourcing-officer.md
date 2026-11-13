@@ -1,5 +1,8 @@
 # Sourcing officer implementation
 
+For exact teammate-facing field names, state values, routes and attachment
+conventions, see [the integration contract](sourcing-integration-contract.md).
+
 This module extends the existing MVC and Bootstrap screens. Its display name is
 Sourcing Officer; both existing Identity roles `SourcingOfficer` and the legacy
 `ProcurementOfficer` are supported. No role rename, domain-model change, or migration is included.
@@ -46,8 +49,10 @@ AskClarification, Reply and Resolve.
 6. Offer contents stay sealed until closure and any opening date. Draft and
    withdrawn bids are excluded. Comparison does not rank across currencies or
    guess whether cost components are already included in TotalAmount.
-7. Compliance outcomes require a reason. A compliant outcome is blocked if
-   mandatory document requirement IDs are missing. Document presence is a guard;
+7. Compliance outcomes require a reason. A compliant outcome requires an accepted
+   invitation, an active approved supplier, valid quoted item links/nonnegative
+   amounts and all mandatory document requirement IDs. These checks run again at
+   evaluation handoff. Document presence is a guard;
    the officer still reviews authenticity and all substantive requirements.
 8. Evaluation handoff requires every submitted offer to have a resolved
    compliance outcome, at least one compliant offer, and four active, distinct
@@ -141,8 +146,9 @@ SQL workflow checks:
 
     dotnet run --project tests/SourcingOfficer.Checks
 
-The executable creates and deletes only a uniquely named
-STMS_SourcingChecks_* SQL LocalDB database. It checks ownership, assignments,
+The executable applies the actual team migrations and seeded roles in a uniquely
+named STMS_SourcingChecks_* SQL LocalDB database and deletes it after normal runs.
+It checks ownership, assignments,
 source-item snapshots, duplicate conversion, criteria locking, deadlines,
 mandatory documents, clarification recipients, committee handoff and audit data.
 It does not touch the configured application database.
@@ -162,7 +168,7 @@ Browser speech availability depends on the browser and microphone permission.
 The text-search fallback is always available; actual speech recognition requires
 a real microphone test.
 
-Messaging verification includes 49 SQL workflow/authorization checks in the
+Integration verification includes the SQL workflow/authorization checks in the
 combined executable and 26 browser assertions in messages-browser-checks.js.
 The browser flow signs in as the officer and actual separate synthetic
 department, supplier and committee accounts, sends questions, sends replies,
