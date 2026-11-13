@@ -1,0 +1,84 @@
+@model EvaluationCommitteeViewModel
+@using Sourcing_Tender_Management_System.Services
+@{
+    var tender = Model.Tender;
+    var open = tender.Status == TenderStatus.UnderEvaluation;
+    string RoleLabel(CommitteeMemberRole role) => role == CommitteeMemberRole.TechnicalRepresentative ? "Technical member" : "Financial member";
+    string BidLabel(int? id) => Model.Bids.FirstOrDefault(b => b.Id == id) is { } b ? $"{b.Supplier.CompanyName} ({b.BidNumber})" : "Not chosen";
+    var criteria = tender.EvaluationCriteria.Where(c => !CommitteeWeighting.IsWeightProposal(c)).OrderBy(c => c.Type).ThenBy(c => c.Name).ToList();
+    ViewData["Title"] = "Evaluate " + tender.TenderNumber;
+}
+<link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
+<div class="sourcing-workspace py-4">
+<a asp-action="Index">Back to my tenders</a>
+<h1 class="mt-3">@tender.Title</h1>
+<p>@tender.TenderNumber · You are the <strong>@RoleLabel(Model.MyRole)</strong> · Status: <span class="status">@tender.Status</span></p>
+@if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+@if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+<section class="mb-5">
+<h2>Step 1 — Weights</h2>
+<p class="text-secondary">Each member proposes a technical and a financial weight (total 100%). The agreed weight of each type is the average of both members' proposals.</p>
+@if (Model.AgreedWeights is { } agreed) {
+<div class="table-responsive"><table class="table"><caption>Agreed weights are final.</caption><thead><tr><th scope="col">Member</th><th scope="col">Technical</th><th scope="col">Financial</th></tr></thead><tbody>
+@foreach (var p in Model.Proposals) { <tr><td>@RoleLabel(p.Role)</td><td>@p.Technical%</td><td>@p.Financial%</td></tr> }
+<tr><th scope="row">Agreed (average)</th><th>@agreed.Technical%</th><th>@agreed.Financial%</th></tr>
+</tbody></table></div>
+} else {
+<p>Your proposal: @(Model.MyProposal is { } mine ? $"technical {mine.Technical}%, financial {mine.Financial}%" : "not submitted").
+Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both submit)" : "not submitted").</p>
+@if (open) {
+<form asp-action="SubmitWeights" method="post" class="form-panel">
+<input type="hidden" name="tenderId" value="@tender.Id" />
+<div class="row g-3">
+<div class="col-md-4"><label for="technicalWeight" class="form-label">Technical weight (%)</label><input id="technicalWeight" name="technicalWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Technical" /></div>
+<div class="col-md-4"><label for="financialWeight" class="form-label">Financial weight (%)</label><input id="financialWeight" name="financialWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Financial" /></div>
+</div>
+<div class="actions mt-3"><button type="submit" class="btn btn-primary">@(Model.MyProposal == null ? "Submit weights" : "Update weights")</button></div>
+</form>
+}
+}
+</section>
+
+<section class="mb-5">
+<h2>Step 2 — Choose one bid</h2>
+@if (Model.AgreedBidId is int agreedBid) {
+<div class="alert alert-success" role="status">Both members agreed on <strong>@BidLabel(agreedBid)</strong>.</div>
+} else {
+<p>Your choice: @BidLabel(Model.MyChoiceBidId). Other member: @(Model.OtherChoiceBidId == null ? "not chosen" : Model.BothChosen ? BidLabel(Model.OtherChoiceBidId) : "chosen").</p>
+@if (Model.BothChosen) { <div class="alert alert-warning" role="alert">The two members chose different bids. Discuss and change a choice until both match.</div> }
+@if (Model.AgreedWeights == null) { <p class="text-secondary">Bids can be chosen after both members submit weights.</p> }
+}
+</section>
+
+<section class="mb-5">
+<h2>Compliant bids</h2>
+@if (Model.Bids.Count == 0) { <p class="empty-state">No compliant bids were forwarded.</p> }
+@foreach (var bid in Model.Bids) {
+<article id="bid-@bid.Id" class="mb-4 form-panel">
+<h3>@bid.Supplier.CompanyName — @bid.BidNumber @(bid.Id == Model.AgreedBidId ? "(agreed)" : bid.Id == Model.MyChoiceBidId ? "(your choice)" : "")</h3>
+<p><strong>Total:</strong> @bid.TotalAmount.ToString("N2") @bid.Currency · <strong>Delivery:</strong> @bid.DeliveryDays days · <strong>Valid until:</strong> @(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</p>
+<p><strong>Payment terms:</strong> @bid.PaymentTerms</p>
+<p class="preserve-lines"><strong>Technical summary:</strong> @bid.TechnicalSummary</p>
+<div class="table-responsive"><table class="table"><caption>Cost components in @bid.Currency</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
+<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
+@foreach (var item in tender.Items) {
+    var offered = bid.Items.FirstOrDefault(i => i.TenderItemId == item.Id);
+    <tr><td>@item.ItemName<br /><small>@item.Specifications</small></td><td>@item.Quantity @item.Unit</td><td>@(offered?.UnitPrice.ToString("N2") ?? "Not quoted")</td><td>@(offered?.TotalPrice.ToString("N2") ?? "Not quoted")</td><td class="preserve-lines">@offered?.TechnicalResponse @offered?.BrandOrModel</td></tr>
+}
+</tbody></table></div>
+@if (bid.Documents.Count > 0) { <p><strong>Documents:</strong> @string.Join(", ", bid.Documents.Select(d => d.FileName))</p> }
+@if (open && Model.AgreedWeights != null && Model.AgreedBidId == null && bid.Id != Model.MyChoiceBidId) {
+<form asp-action="ChooseBid" method="post"><input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="bidId" value="@bid.Id" /><button type="submit" class="btn btn-primary">Choose this bid</button></form>
+}
+</article>
+}
+</section>
+
+@if (criteria.Count > 0) {
+<section class="mb-5">
+<h2>Tender evaluation criteria</h2>
+<ul>@foreach (var c in criteria) { <li>@c.Name (@c.Type, @c.Weight%)</li> }</ul>
+</section>
+}
+</div>
