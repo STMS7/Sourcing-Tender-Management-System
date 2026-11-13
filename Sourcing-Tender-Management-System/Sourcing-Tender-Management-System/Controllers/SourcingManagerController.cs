@@ -76,22 +76,26 @@ public class SourcingManagerController(ApplicationDbContext db) : Controller
         WorkflowStage destination;
         WorkflowAction action;
 
+        // An approved recommendation always goes to the Top Committee, which makes the final award decision.
+        // The Top Committee pages only see a report that carries one pending Top vote per active member.
+        var topMemberIds = decision == "approve" ? await ActiveTopCommitteeUserIds(now) : [];
+        if (decision == "approve" && topMemberIds.Count == 0)
+        {
+            await transaction.RollbackAsync();
+            TempData["Error"] = "No active Top Committee members are set up. Assign Top Committee positions before approving.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
         switch (decision)
         {
-            case "approve" when tender.RequiresTopCommittee:
+            case "approve":
                 report.Status = RecommendationStatus.PendingCommitteeDecision;
                 tender.Status = TenderStatus.AwaitingCommitteeDecision;
+                tender.RequiresTopCommittee = true;
+                foreach (var memberId in topMemberIds.Where(m => !report.Votes.Any(v => v.CommitteeType == CommitteeType.Top && v.MemberUserId == m)))
+                    report.Votes.Add(new CommitteeVote { CommitteeType = CommitteeType.Top, MemberUserId = memberId, Decision = CommitteeDecision.Pending });
                 destination = WorkflowStage.TopCommittee;
                 action = WorkflowAction.Forwarded;
-                break;
-            case "approve":
-                report.Status = RecommendationStatus.ManagerApproved;
-                tender.Status = TenderStatus.Awarded;
-                tender.AwardedBidId = report.RecommendedBidId;
-                foreach (var reportBid in report.Bids)
-                    reportBid.Bid.Status = reportBid.BidId == report.RecommendedBidId ? BidStatus.Accepted : BidStatus.Rejected;
-                destination = WorkflowStage.Awarded;
-                action = WorkflowAction.Approved;
                 break;
             case "reject":
                 report.Status = RecommendationStatus.ManagerRejected;
@@ -141,7 +145,7 @@ public class SourcingManagerController(ApplicationDbContext db) : Controller
         db.AuditLogs.Add(new AuditLog
         {
             UserId = userId,
-            Action = decision == "approve" && tender.RequiresTopCommittee ? "ForwardToTopCommittee" : $"Manager{char.ToUpperInvariant(decision[0])}{decision[1..]}",
+            Action = decision == "approve" ? "ForwardToTopCommittee" : $"Manager{char.ToUpperInvariant(decision[0])}{decision[1..]}",
             EntityName = nameof(EvaluationReport),
             EntityId = report.Id.ToString(),
             OldValues = JsonSerializer.Serialize(new { Status = oldStatus.ToString(), TenderStatus = TenderStatus.AwaitingManagerReview.ToString() }),
@@ -154,10 +158,9 @@ public class SourcingManagerController(ApplicationDbContext db) : Controller
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
 
-        TempData["Message"] = decision == "approve" && tender.RequiresTopCommittee
+        TempData["Message"] = decision == "approve"
             ? "Recommendation approved and forwarded to the Top Committee."
-            : decision == "approve" ? "Recommendation approved and tender awarded." :
-            decision == "reject" ? "Recommendation rejected and returned to evaluation." : "Report returned to the evaluation committee.";
+            : decision == "reject" ? "Recommendation rejected and returned to evaluation." : "Report returned to the evaluation committee.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -178,25 +181,17 @@ public class SourcingManagerController(ApplicationDbContext db) : Controller
     private async Task AddNotificationsAsync(EvaluationReport report, string decision, string? comments, string actorId)
     {
         var recipients = new HashSet<string>(StringComparer.Ordinal) { report.PreparedByUserId, report.Tender.CreatedByUserId };
-        var forwarded = decision == "approve" && report.Tender.RequiresTopCommittee;
-        var targetCommittee = forwarded ? CommitteeType.Top : CommitteeType.Evaluation;
-        foreach (var member in report.Tender.CommitteeMembers.Where(x => x.CommitteeType == targetCommittee))
+        var forwarded = decision == "approve";
+        // The evaluation committee hears every decision; the Top Committee also hears a forward.
+        foreach (var member in report.Tender.CommitteeMembers.Where(x => x.CommitteeType == CommitteeType.Evaluation ||
+                     (forwarded && x.CommitteeType == CommitteeType.Top)))
             recipients.Add(member.UserId);
         if (forwarded)
-        {
-            var now = DateTime.UtcNow;
-            var topCommitteeUserIds = await db.CommitteePositions
-                .Where(x => x.CommitteeType == CommitteeType.Top && x.IsActive &&
-                    x.EffectiveFrom <= now && (!x.EffectiveTo.HasValue || x.EffectiveTo >= now))
-                .Select(x => x.UserId)
-                .ToListAsync();
-            foreach (var committeeUserId in topCommitteeUserIds) recipients.Add(committeeUserId);
-        }
+            foreach (var committeeUserId in await ActiveTopCommitteeUserIds(DateTime.UtcNow)) recipients.Add(committeeUserId);
 
         var message = decision switch
         {
-            "approve" when forwarded => $"The manager approved the recommendation for {report.Tender.TenderNumber} and forwarded it to the Top Committee.",
-            "approve" => $"The manager approved the recommendation for {report.Tender.TenderNumber}; the tender has been awarded.",
+            "approve" => $"The manager approved the recommendation for {report.Tender.TenderNumber} and forwarded it to the Top Committee.",
             "reject" => $"The manager rejected the recommendation for {report.Tender.TenderNumber}. Reason: {comments}",
             _ => $"The manager returned the report for {report.Tender.TenderNumber}. Reason: {comments}"
         };
@@ -208,10 +203,13 @@ public class SourcingManagerController(ApplicationDbContext db) : Controller
                 UserId = recipientId,
                 Title = forwarded ? "Tender sent to Top Committee" : "Sourcing Manager decision",
                 Message = message,
-                Type = decision == "reject" ? NotificationType.Warning
-                    : decision == "approve" && !forwarded ? NotificationType.Success
-                    : NotificationType.ActionRequired
+                Type = decision == "reject" ? NotificationType.Warning : NotificationType.ActionRequired
             });
         }
     }
+
+    private Task<List<string>> ActiveTopCommitteeUserIds(DateTime now) => db.CommitteePositions
+        .Where(x => x.CommitteeType == CommitteeType.Top && x.IsActive && x.User.IsActive &&
+            x.EffectiveFrom <= now && (!x.EffectiveTo.HasValue || x.EffectiveTo >= now))
+        .Select(x => x.UserId).Distinct().ToListAsync();
 }
