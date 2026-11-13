@@ -1,0 +1,3 @@
+@model List<Tender>
+<p class="small text-secondary" data-result-count="@Model.Count">@Model.Count tender(s) found.</p>
+<partial name="_TenderTable" model="Model" />

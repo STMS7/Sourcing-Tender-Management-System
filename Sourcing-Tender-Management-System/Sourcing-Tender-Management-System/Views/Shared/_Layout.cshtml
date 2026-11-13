@@ -32,6 +32,16 @@
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Admin</a>
                             </li>
                         }
+                        @if (User.IsInRole("ProcurementOfficer") || User.IsInRole("SourcingOfficer"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="SourcingOfficer" asp-action="Index">Sourcing</a>
+                            </li>
+                        }
+                        @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("ProcurementOfficer") && !User.IsInRole("SourcingOfficer"))
+                        {
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Messages" asp-action="Index">Messages</a></li>
+                        }
                     </ul>
                     <partial name="_LoginPartial" />
                 </div>

@@ -1,0 +1,33 @@
+@model SourcingDashboardViewModel
+@{ ViewData["Title"] = "Sourcing officer"; }
+<h1>Sourcing officer dashboard</h1>
+<p class="text-secondary">Manage approved purchase requests, prepare tenders and move compliant offers to evaluation.</p>
+<div class="summary-strip">
+    <a asp-action="Requests">Approved requests: <strong>@Model.ApprovedRequests</strong></a>
+    <a asp-action="Tenders" asp-route-status="Draft">Draft tenders: <strong>@Model.DraftTenders</strong></a>
+    <a asp-action="Tenders" asp-route-status="Published">Published tenders: <strong>@Model.PublishedTenders</strong></a>
+    <span>Offers awaiting compliance: <strong>@Model.PendingCompliance</strong></span>
+</div>
+<h2>Recent tenders</h2>
+<partial name="_TenderTable" model="Model.RecentTenders" />
+<h2>My tasks</h2>
+<form class="row g-3 align-items-end mb-3" role="search" id="task-search-form" data-live-search data-local-search data-results="task-list" data-search-status="voice-status" data-empty-state="no-tasks">
+    <div class="col-md-6"><label for="task-search" class="form-label">Search tasks</label><input id="task-search" type="search" class="form-control" placeholder="Search your tasks" data-search-input /></div>
+    <div class="col-md-3"><partial name="_VoiceLanguage" /></div>
+    <div class="col-md-3"><button type="button" id="voice-search" class="btn btn-outline-primary" data-voice-search aria-pressed="false">Search by voice</button></div>
+</form>
+<p id="voice-status" role="status" class="small text-secondary"></p>
+<ul class="list-group list-group-flush" id="task-list">
+@foreach (var task in Model.Tasks)
+{
+    <li class="list-group-item px-0" data-task="@task.Title @task.Description">
+        <strong>@task.Title</strong> <span class="status">@task.Status</span>
+        <p class="mb-1">@task.Description</p>
+        @if (task.DueAt != null) { <small>Due @task.DueAt.Value.ToString("dd MMM yyyy HH:mm") UTC</small> }
+        @if (task.TenderId != null) { <a asp-action="Details" asp-route-id="@task.TenderId">Open tender</a> }
+        else if (task.ProcurementRequestId != null) { <a asp-action="RequestDetails" asp-route-id="@task.ProcurementRequestId">Open request</a> }
+    </li>
+}
+</ul>
+<p id="no-tasks" class="empty-state" hidden="@(Model.Tasks.Count > 0)">No matching tasks.</p>
+@section Scripts { <script src="~/js/sourcing-search.js" asp-append-version="true"></script> }
