@@ -160,6 +160,13 @@ else if (draft && suppliers.Count == 0) { <p class="text-secondary">No additiona
 else { <p class="text-secondary">No evaluation committee has been assigned through the shared team workflow.</p> }
 @foreach (var report in Model.EvaluationReports.OrderByDescending(r => r.Round)) {
 <p>Report round @report.Round: <span class="status">@report.Status</span> · @(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? "Not submitted")</p>
+@if (report.RecommendedBid is { } chosenBid) {
+<p>Chosen bid: <strong>@chosenBid.Supplier.CompanyName (@chosenBid.BidNumber)</strong> · @chosenBid.TotalAmount.ToString("N2") @chosenBid.Currency</p>
+}
+@if (!string.IsNullOrWhiteSpace(report.Summary)) {
+<details class="mb-3"><summary>Committee report round @report.Round</summary><pre class="preserve-lines">@report.Summary</pre>
+@if (!string.IsNullOrWhiteSpace(report.RecommendationReason)) { <p>@report.RecommendationReason</p> }</details>
+}
 }
 <h2>Workflow history</h2>
 @if (history.Count == 0) { <p>No workflow events recorded.</p> }
