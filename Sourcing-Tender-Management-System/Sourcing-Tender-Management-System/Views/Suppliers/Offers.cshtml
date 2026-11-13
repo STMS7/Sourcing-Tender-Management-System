@@ -1,0 +1,21 @@
+@model List<Bid>
+@{ ViewData["Title"] = "My Offers"; }
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">My Offers</h1><a asp-action="Index" class="btn btn-outline-secondary align-self-start">Back to dashboard</a></div>
+<p class="text-muted">Offers belonging to your company only. Dates are shown in UTC.</p>
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">You have not submitted any offers yet. Open an invitation, accept participation, then submit your offer.</div>
+    <a asp-action="Invitations" class="btn btn-primary">View invitations</a>
+}
+else
+{
+    <div class="table-responsive"><table class="table table-striped align-middle">
+        <thead><tr><th scope="col">Offer number</th><th scope="col">Tender</th><th scope="col">Total</th><th scope="col">Status</th><th scope="col">Submitted (UTC)</th><th scope="col">Action</th></tr></thead>
+        <tbody>
+        @foreach (var bid in Model)
+        {
+            <tr><td class="text-break">@bid.BidNumber</td><td>@bid.Tender.Title</td><td>@bid.TotalAmount.ToString("N2") @bid.Currency</td><td>@bid.Status</td><td>@bid.SubmittedAt.ToString("dd MMM yyyy HH:mm")</td><td><a asp-action="OfferDetails" asp-route-id="@bid.Id" class="btn btn-sm btn-outline-primary">Details</a></td></tr>
+        }
+        </tbody>
+    </table></div>
+}
