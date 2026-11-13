@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -12,7 +13,8 @@ namespace Sourcing_Tender_Management_System.Controllers;
 public class AdminController(
     UserManager<ApplicationUser> userManager,
     RoleManager<IdentityRole> roleManager,
-    ApplicationDbContext db) : Controller
+    ApplicationDbContext db,
+    IWebHostEnvironment environment) : Controller
 {
     public async Task<IActionResult> Index()
     {
@@ -24,7 +26,140 @@ public class AdminController(
         ViewBag.PendingSupplierCount = await db.Suppliers.CountAsync(x => x.RegistrationStatus == SupplierRegistrationStatus.Pending);
         ViewBag.ProcurementRequestCount = await db.ProcurementRequests.CountAsync();
         ViewBag.TenderCount = await db.Tenders.CountAsync();
+        ViewBag.IsDevelopment = environment.IsDevelopment();
         return View();
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateSourcingManagerDemoData()
+    {
+        if (!environment.IsDevelopment()) return NotFound();
+
+        const string tenderPrefix = "TEST-SM-";
+        if (await db.Tenders.AnyAsync(x => x.TenderNumber.StartsWith(tenderPrefix)))
+        {
+            TempData["Message"] = "Sourcing Manager demo reports already exist. Use the existing reports in Manager Review.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var adminUserId = userManager.GetUserId(User);
+        if (string.IsNullOrWhiteSpace(adminUserId)) return Forbid();
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        var category = new Category
+        {
+            Name = "Sourcing Manager Test Category",
+            Description = "Development-only sample data for testing the manager review workflow."
+        };
+        var supplierA = new Supplier
+        {
+            CompanyName = "Demo Supplier Alpha",
+            RegistrationNumber = "TEST-SM-SUP-A",
+            Email = "supplier.alpha@sourcing-demo.example.test",
+            RegistrationStatus = SupplierRegistrationStatus.Approved,
+            LegalVerificationStatus = DocumentVerificationStatus.Verified,
+            IsActive = true
+        };
+        var supplierB = new Supplier
+        {
+            CompanyName = "Demo Supplier Beta",
+            RegistrationNumber = "TEST-SM-SUP-B",
+            Email = "supplier.beta@sourcing-demo.example.test",
+            RegistrationStatus = SupplierRegistrationStatus.Approved,
+            LegalVerificationStatus = DocumentVerificationStatus.Verified,
+            IsActive = true
+        };
+
+        db.Categories.Add(category);
+        db.Suppliers.AddRange(supplierA, supplierB);
+        await db.SaveChangesAsync();
+
+        var now = DateTime.UtcNow;
+        var scenarios = new[]
+        {
+            new { Code = "APPROVE", Title = "Direct approval test", RequiresTopCommittee = false, EstimatedValue = 12500m },
+            new { Code = "TOP", Title = "Top Committee forwarding test", RequiresTopCommittee = true, EstimatedValue = 275000m },
+            new { Code = "RETURN", Title = "Return for revision test", RequiresTopCommittee = false, EstimatedValue = 18400m },
+            new { Code = "REJECT", Title = "Recommendation rejection test", RequiresTopCommittee = false, EstimatedValue = 22100m }
+        };
+
+        foreach (var scenario in scenarios)
+        {
+            var tender = new Tender
+            {
+                TenderNumber = $"{tenderPrefix}{scenario.Code}",
+                Title = $"{scenario.Title} — {scenario.Code}",
+                Description = "Sample tender generated locally for the Sourcing Manager demonstration.",
+                CategoryId = category.Id,
+                PublishedAt = now.AddDays(-14),
+                SubmissionDeadline = now.AddDays(-2),
+                OpeningDate = now.AddDays(-1),
+                EstimatedValue = scenario.EstimatedValue,
+                Status = TenderStatus.AwaitingManagerReview,
+                CreatedByUserId = adminUserId,
+                CreatedAt = now.AddDays(-14),
+                TechnicalWeight = 60,
+                FinancialWeight = 40,
+                EvaluationCriteriaLockedAt = now.AddDays(-14),
+                RequiresTopCommittee = scenario.RequiresTopCommittee
+            };
+            db.Tenders.Add(tender);
+            await db.SaveChangesAsync();
+
+            var bidA = new Bid
+            {
+                TenderId = tender.Id,
+                SupplierId = supplierA.Id,
+                BidNumber = $"{tenderPrefix}{scenario.Code}-A",
+                TotalAmount = scenario.EstimatedValue * 0.94m,
+                Currency = "JOD",
+                DeliveryDays = 18,
+                TechnicalSummary = "Meets the required technical specifications.",
+                Status = BidStatus.Compliant,
+                ComplianceStatus = ComplianceDecision.Compliant,
+                SubmittedAt = now.AddDays(-3),
+                ValidUntil = now.AddDays(30)
+            };
+            var bidB = new Bid
+            {
+                TenderId = tender.Id,
+                SupplierId = supplierB.Id,
+                BidNumber = $"{tenderPrefix}{scenario.Code}-B",
+                TotalAmount = scenario.EstimatedValue * 0.99m,
+                Currency = "JOD",
+                DeliveryDays = 24,
+                TechnicalSummary = "Meets the required technical specifications.",
+                Status = BidStatus.Compliant,
+                ComplianceStatus = ComplianceDecision.Compliant,
+                SubmittedAt = now.AddDays(-3),
+                ValidUntil = now.AddDays(30)
+            };
+            db.Bids.AddRange(bidA, bidB);
+            await db.SaveChangesAsync();
+
+            db.EvaluationReports.Add(new EvaluationReport
+            {
+                TenderId = tender.Id,
+                Round = 1,
+                PreparedByUserId = adminUserId,
+                Summary = "Demo committee summary: both offers meet the mandatory requirements. Supplier Alpha has the strongest overall weighted result and is recommended for this scenario.",
+                RecommendationReason = "Supplier Alpha offers the best combined technical and financial result for demonstration purposes.",
+                Status = RecommendationStatus.PendingManagerReview,
+                RecommendedBidId = bidA.Id,
+                CreatedAt = now.AddHours(-2),
+                SubmittedAt = now,
+                Bids = new List<EvaluationReportBid>
+                {
+                    new() { BidId = bidA.Id, TechnicalScore = 90, FinancialScore = 92, WeightedTotal = 90.8m, IsCompliant = true, Notes = "Recommended sample offer." },
+                    new() { BidId = bidB.Id, TechnicalScore = 86, FinancialScore = 88, WeightedTotal = 86.8m, IsCompliant = true, Notes = "Alternative compliant offer." }
+                }
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await transaction.CommitAsync();
+        TempData["Message"] = "Four demo evaluation reports were created. Sign in as SourcingManager and open Manager Review to test each decision.";
+        return RedirectToAction(nameof(Index));
     }
 
     public async Task<IActionResult> Users(string? search)
