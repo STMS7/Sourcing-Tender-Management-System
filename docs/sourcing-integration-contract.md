@@ -7,8 +7,8 @@ ApplicationDbContext. No database migration is introduced by this review.
 
 ## Verified repository boundary
 
-The reviewed origin/main commit c25b3e8 includes the officer module, authentication,
-top committee and the technical/financial EvaluationCommitteeController.
+The reviewed origin/main commit a624828 includes the officer module, authentication,
+top committee, sourcing manager and the technical/financial EvaluationCommitteeController.
 Handoff is now tested against the real evaluation controller and its authenticated
 technical and financial pages. Requesting department and supplier workflow
 controllers are still not present in that reviewed main tree.
@@ -231,7 +231,7 @@ Before final team acceptance, run the real pages through:
 department request → authorized approval → officer tender → supplier acceptance
 and bid → compliance → committee report → manager review.
 
-The remaining prerequisite is implementation of those upstream/downstream pages
-against these contracts and agreement on the policy items already listed in
+The remaining prerequisite is implementation of the requesting-department and
+supplier workflow pages against these contracts and agreement on the policy items already listed in
 sourcing-officer.md. Current test coverage is not proof that unimplemented
 pages are conflict-free.
