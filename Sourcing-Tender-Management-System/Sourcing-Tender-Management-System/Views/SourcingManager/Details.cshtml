@@ -1,0 +1,133 @@
+@model EvaluationReport
+@{
+    ViewData["Title"] = "Evaluation Report Review";
+    var isPending = Model.Status == RecommendationStatus.PendingManagerReview && Model.Tender.Status == TenderStatus.AwaitingManagerReview;
+}
+
+<p><a asp-action="Index" class="link-secondary text-decoration-none">&larr; Back to manager workspace</a></p>
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-secondary small fw-semibold mb-1">Consolidated evaluation · Round @Model.Round</p>
+        <h1 class="h2 mb-1">@Model.Tender.TenderNumber — @Model.Tender.Title</h1>
+        <div class="text-secondary">@Model.Tender.Category.Name · Submitted @(Model.SubmittedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—") by @Model.PreparedByUser.FullName</div>
+    </div>
+    <span class="badge text-bg-secondary fs-6">@Model.Status</span>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="card card-body h-100"><span class="small text-secondary">Estimated tender value</span><strong class="fs-5">@Model.Tender.EstimatedValue.ToString("N2")</strong></div></div>
+    <div class="col-md-4"><div class="card card-body h-100"><span class="small text-secondary">Evaluation weights</span><strong class="fs-5">Technical @Model.Tender.TechnicalWeight.ToString("0.#")% · Financial @Model.Tender.FinancialWeight.ToString("0.#")%</strong></div></div>
+    <div class="col-md-4"><div class="card card-body h-100"><span class="small text-secondary">Final authority</span><strong class="fs-5">@(Model.Tender.RequiresTopCommittee ? "Top Committee" : "Sourcing Manager")</strong></div></div>
+</div>
+
+<section class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Committee summary</h2></div>
+    <div class="card-body"><p class="mb-0" style="white-space: pre-line">@Model.Summary</p></div>
+</section>
+
+<section class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Recommendation</h2></div>
+    <div class="card-body">
+        <div class="fw-semibold">@(Model.RecommendedBid?.Supplier.CompanyName ?? "No supplier recommended")</div>
+        @if (Model.RecommendedBid is not null)
+        {
+            <div class="text-secondary">Offer @Model.RecommendedBid.BidNumber · @Model.RecommendedBid.TotalAmount.ToString("N2") @Model.RecommendedBid.Currency · @Model.RecommendedBid.DeliveryDays days delivery</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.RecommendationReason))
+        {
+            <p class="mt-2 mb-0" style="white-space: pre-line">@Model.RecommendationReason</p>
+        }
+    </div>
+</section>
+
+<section class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Supplier comparison</h2></div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Supplier</th><th>Offer</th><th>Amount</th><th>Delivery</th><th>Technical</th><th>Financial</th><th>Weighted</th><th>Compliance</th></tr></thead>
+            <tbody>
+            @foreach (var row in Model.Bids.OrderByDescending(x => x.WeightedTotal))
+            {
+                <tr class="@(row.BidId == Model.RecommendedBidId ? "table-primary" : "")">
+                    <td><strong>@row.Bid.Supplier.CompanyName</strong>@if (row.BidId == Model.RecommendedBidId) { <span class="badge text-bg-primary ms-1">Recommended</span> }<div class="small text-secondary">@row.Notes</div></td>
+                    <td>@row.Bid.BidNumber</td>
+                    <td>@row.Bid.TotalAmount.ToString("N2") @row.Bid.Currency</td>
+                    <td>@row.Bid.DeliveryDays days</td>
+                    <td>@row.TechnicalScore.ToString("0.##")</td>
+                    <td>@row.FinancialScore.ToString("0.##")</td>
+                    <td><strong>@row.WeightedTotal.ToString("0.##")</strong></td>
+                    <td>@if (row.IsCompliant && row.Bid.ComplianceStatus == ComplianceDecision.Compliant) { <span class="badge text-bg-success">Compliant</span> } else { <span class="badge text-bg-danger">Non-compliant</span> }</td>
+                </tr>
+            }
+            @if (Model.Bids.Count == 0)
+            {
+                <tr><td colspan="8" class="text-center text-secondary py-4">The report contains no bid comparison rows.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@if (Model.Votes.Count > 0)
+{
+    <section class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Committee sign-off</h2></div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light"><tr><th>Committee</th><th>Member</th><th>Decision</th><th>Reason</th><th>Recorded</th></tr></thead>
+                <tbody>
+                @foreach (var vote in Model.Votes.OrderBy(x => x.CommitteeType).ThenBy(x => x.MemberUser.FullName))
+                {
+                    <tr><td>@vote.CommitteeType</td><td>@vote.MemberUser.FullName</td><td>@vote.Decision</td><td>@vote.Reason</td><td>@(vote.DecidedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—")</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@if (isPending)
+{
+    <section class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Record your decision</h2></div>
+        <div class="card-body">
+            <p class="text-secondary">Your decision, comments, and timestamp will be included in the tender's audit history.</p>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <form asp-action="Decide" method="post" class="border rounded p-3 h-100">
+                        <input type="hidden" name="id" value="@Model.Id" /><input type="hidden" name="decision" value="approve" />
+                        <h3 class="h6">Approve recommendation</h3>
+                        <p class="small text-secondary">@(Model.Tender.RequiresTopCommittee ? "Forward the approved recommendation for the Top Committee's final decision." : "Approve the recommendation and record the award.")</p>
+                        <label class="form-label" for="approve-comments">Comments <span class="text-secondary">(optional)</span></label>
+                        <textarea id="approve-comments" name="comments" class="form-control mb-3" maxlength="2000" rows="3"></textarea>
+                        <button class="btn btn-success w-100" type="submit">@(Model.Tender.RequiresTopCommittee ? "Approve and forward" : "Approve and award")</button>
+                    </form>
+                </div>
+                <div class="col-lg-4">
+                    <form asp-action="Decide" method="post" class="border rounded p-3 h-100">
+                        <input type="hidden" name="id" value="@Model.Id" /><input type="hidden" name="decision" value="return" />
+                        <h3 class="h6">Return for revision</h3>
+                        <p class="small text-secondary">Send the report back to the evaluation team with changes requested.</p>
+                        <label class="form-label" for="return-comments">Required comments</label>
+                        <textarea id="return-comments" name="comments" class="form-control mb-3" maxlength="2000" rows="3" required></textarea>
+                        <button class="btn btn-outline-primary w-100" type="submit">Return report</button>
+                    </form>
+                </div>
+                <div class="col-lg-4">
+                    <form asp-action="Decide" method="post" class="border rounded p-3 h-100">
+                        <input type="hidden" name="id" value="@Model.Id" /><input type="hidden" name="decision" value="reject" />
+                        <h3 class="h6">Reject recommendation</h3>
+                        <p class="small text-secondary">Reject this recommendation and return the tender to evaluation.</p>
+                        <label class="form-label" for="reject-comments">Required reason</label>
+                        <textarea id="reject-comments" name="comments" class="form-control mb-3" maxlength="2000" rows="3" required></textarea>
+                        <button class="btn btn-outline-danger w-100" type="submit">Reject recommendation</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+}

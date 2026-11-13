@@ -1,0 +1,11 @@
+@page
+@using Sourcing_Tender_Management_System.Areas.Identity.Pages.Account.Manage
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@model BiometricsModel
+@{
+    ViewData["Title"] = "Biometrics";
+    ViewData["ActivePage"] = "Biometrics";
+}
+
+<h3>@ViewData["Title"]</h3>
+<partial name="~/Views/Biometric/_ManagePanel.cshtml" model="Model.Data" />

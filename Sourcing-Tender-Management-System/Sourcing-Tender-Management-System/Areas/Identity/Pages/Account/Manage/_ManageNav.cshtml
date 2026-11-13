@@ -1,0 +1,29 @@
+@* The left menu of the profile ("Manage your account").
+   It replaces the default Identity menu with the same items and markup, plus a "Biometrics" tab
+   (registering a fingerprint device or a face). Nothing else about the profile pages changes. *@
+@using Microsoft.AspNetCore.Identity
+@using Sourcing_Tender_Management_System.Models
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@inject SignInManager<ApplicationUser> SignInManager
+@{
+    var hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
+
+    // Each profile page names itself (ViewData["ActivePage"]); the page file name is the fallback.
+    var activePage = ViewData["ActivePage"] as string
+        ?? System.IO.Path.GetFileNameWithoutExtension(ViewContext.ActionDescriptor.DisplayName);
+
+    string? Active(string page) => string.Equals(activePage, page, StringComparison.OrdinalIgnoreCase) ? "active" : null;
+    string? Current(string page) => string.Equals(activePage, page, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+}
+<ul class="nav nav-pills flex-column">
+    <li class="nav-item"><a class="nav-link @Active("Index")" id="profile" aria-current="@Current("Index")" asp-page="./Index">Profile</a></li>
+    <li class="nav-item"><a class="nav-link @Active("Email")" id="email" aria-current="@Current("Email")" asp-page="./Email">Email</a></li>
+    <li class="nav-item"><a class="nav-link @Active("ChangePassword")" id="change-password" aria-current="@Current("ChangePassword")" asp-page="./ChangePassword">Password</a></li>
+    @if (hasExternalLogins)
+    {
+        <li id="external-logins" class="nav-item"><a id="external-login" class="nav-link @Active("ExternalLogins")" aria-current="@Current("ExternalLogins")" asp-page="./ExternalLogins">External logins</a></li>
+    }
+    <li class="nav-item"><a class="nav-link @Active("TwoFactorAuthentication")" id="two-factor" aria-current="@Current("TwoFactorAuthentication")" asp-page="./TwoFactorAuthentication">Two-factor authentication</a></li>
+    <li class="nav-item"><a class="nav-link @Active("PersonalData")" id="personal-data" aria-current="@Current("PersonalData")" asp-page="./PersonalData">Personal data</a></li>
+    <li class="nav-item"><a class="nav-link @Active("Biometrics")" id="biometrics" aria-current="@Current("Biometrics")" asp-page="./Biometrics">Biometrics</a></li>
+</ul>

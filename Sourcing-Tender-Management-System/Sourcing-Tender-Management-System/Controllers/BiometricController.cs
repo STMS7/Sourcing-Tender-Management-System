@@ -35,21 +35,10 @@ public class BiometricController(
         return View();
     }
 
+    // Registering fingerprints and the face lives in the profile ("Manage your account" > Biometrics).
+    // This address stays valid and simply leads there.
     [Authorize]
-    public async Task<IActionResult> Manage()
-    {
-        var userId = users.GetUserId(User)!;
-        var model = new BiometricManageViewModel
-        {
-            Passkeys = await db.UserPasskeyCredentials.AsNoTracking()
-                .Where(c => c.UserId == userId)
-                .OrderBy(c => c.AddedAt)
-                .Select(c => new PasskeyRow { Id = c.Id, Label = c.DeviceLabel ?? "Device", AddedAt = c.AddedAt, LastUsedAt = c.LastUsedAt })
-                .ToListAsync(),
-            FaceTemplateCount = await faces.CountTemplatesAsync(userId)
-        };
-        return View(model);
-    }
+    public IActionResult Manage() => RedirectToPage("/Account/Manage/Biometrics", new { area = "Identity" });
 
     // ---------- Fingerprint / device passkey ----------
 

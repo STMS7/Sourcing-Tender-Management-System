@@ -23,8 +23,6 @@ public class SourcingTenderForm
     [Required, Display(Name = "Submission deadline (UTC)")] public DateTime? SubmissionDeadline { get; set; }
     [Display(Name = "Bid opening date (UTC)")] public DateTime? OpeningDate { get; set; }
     [Range(typeof(decimal), "0", "9999999999999999.99"), Display(Name = "Estimated value")] public decimal EstimatedValue { get; set; }
-    [Range(typeof(decimal), "0.01", "99.99"), Display(Name = "Technical weight (%)")] public decimal TechnicalWeight { get; set; } = 60;
-    [Range(typeof(decimal), "0.01", "99.99"), Display(Name = "Financial weight (%)")] public decimal FinancialWeight { get; set; } = 40;
 }
 
 public class SourcingCriterionForm
@@ -85,4 +83,12 @@ public class SourcingRecipientMessagesViewModel
     public List<Clarification> Conversations { get; set; } = [];
     public Clarification? Selected { get; set; }
     public bool CanReply { get; set; }
+}
+
+public class SourcingEvaluationReadiness
+{
+    public List<string> Issues { get; set; } = [];
+    public int SubmittedOffers { get; set; }
+    public int CompliantOffers { get; set; }
+    public bool Ready => Issues.Count == 0;
 }

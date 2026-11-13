@@ -30,10 +30,10 @@ async page => {
     await page.getByLabel('Category', { exact: true }).selectOption({ label: 'Food ingredients' });
     await page.getByLabel('Submission deadline (UTC)', { exact: true }).fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 16));
     await page.getByLabel('Terms and conditions', { exact: true }).fill('Food-safe packaging; delivery in sealed cartons.');
-    await page.getByLabel('Financial weight (%)', { exact: true }).fill('30');
+    await page.getByLabel('Submission deadline (UTC)', { exact: true }).fill(new Date(Date.now() - 86400000).toISOString().slice(0, 16));
     await page.getByRole('button', { name: 'Save draft', exact: true }).click();
-    check(await page.getByText('Technical and financial weights must total 100%.', { exact: true }).count() > 0, 'Server rejects invalid weight totals');
-    await page.getByLabel('Financial weight (%)', { exact: true }).fill('40');
+    check(await page.getByText('Choose a future deadline in UTC.', { exact: true }).count() > 0, 'Server rejects an expired deadline');
+    await page.getByLabel('Submission deadline (UTC)', { exact: true }).fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 16));
     await page.getByRole('button', { name: 'Save draft', exact: true }).click();
     await page.waitForURL('**/SourcingOfficer/Details/*');
     check(await page.getByRole('heading', { name: 'Food packaging procurement', exact: true }).isVisible(), 'Draft saves through the authenticated HTML form');
@@ -65,7 +65,7 @@ async page => {
     const anonymous = await page.context().browser().newContext();
     const anonymousPage = await anonymous.newPage();
     await anonymousPage.goto(base + '/SourcingOfficer');
-    check(anonymousPage.url().includes('/Identity/Account/Login'), 'Anonymous access redirects to login');
+    check(/\/(?:Identity\/Account|Auth)\/Login/.test(anonymousPage.url()), 'Anonymous access redirects to login');
     await anonymous.close();
     return { results, screenshotDirectory: output };
 }

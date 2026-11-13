@@ -7,14 +7,16 @@ ApplicationDbContext. No database migration is introduced by this review.
 
 ## Verified repository boundary
 
-The reviewed origin/main commit 5b3f827 already includes the officer module through
-15bfb5f. Its application tree matches that officer commit. The available
-suppliers/fatima branch contains only HomeController; the remote does not yet
-contain request, supplier or evaluation controllers to exercise end to end.
+The reviewed origin/main commit a624828 includes the officer module, authentication,
+top committee, sourcing manager and the technical/financial EvaluationCommitteeController.
+Handoff is now tested against the real evaluation controller and its authenticated
+technical and financial pages. Requesting department and supplier workflow
+controllers are still not present in that reviewed main tree.
 
-Tests therefore verify migrated SQL schema compatibility and producer/consumer
-data contracts. They do not establish compatibility with teammates' unpushed
-pages. Repeat the full user journey when those pages are available.
+Tests verify migrated SQL schema compatibility, producer/consumer data contracts
+and actual evaluation-page receipt. They do not establish compatibility with
+teammates' unpushed request/supplier pages. Repeat the complete purchasing journey
+when those pages are available.
 
 ## Shared names and routes
 
@@ -151,10 +153,20 @@ Also populate the required Role display string. A role membership alone does not
 assign a user to a tender. For an assigned officer, use a separate WorkAssignment
 with Kind.Tender and TenderId.
 
+Each committee position also needs its matching Identity role. The handoff
+checks this so TechnicalRepresentative and FinancialRepresentative accounts can
+actually open the receiving evaluation pages. The department position also
+recognizes RequestingDepartment where the team uses that role alias.
+
 Successful officer handoff sets Tender.Status to UnderEvaluation and creates
 committee notifications/tasks. The evaluation page must select the tender's
 submitted offers with ComplianceStatus.Compliant; it must not score all Bids
 without checking compliance.
+
+This handoff occurs after bid reception and compliance. It does not send a new
+draft directly to evaluation. Its readiness checklist and POST use the same
+validation. Technical and financial task/notification links target
+/EvaluationCommittee/Evaluate/{tenderId}; the officer sees the recorded sent time.
 
 The committee writes an EvaluationReport linked to TenderId, with its Round,
 PreparedByUserId, Summary and recommendation. On submission to the manager, use
@@ -162,10 +174,22 @@ Status.PendingManagerReview, SubmittedAt in UTC, and
 TenderStatus.AwaitingManagerReview. The officer tracking screen reads those
 fields directly. A manager's subsequent decisions belong to the manager module.
 
-Evaluation criteria and weights are locked at publication through
-EvaluationCriteriaLockedAt. Committee and supplier pages must not change them.
-The existing weighting convention is 100% within each criterion group, with the
-tender's TechnicalWeight/FinancialWeight controlling the group split.
+Officer edits to scoring criteria lock at publication through
+EvaluationCriteriaLockedAt. Supplier pages must not change those criteria.
+The existing weighting convention is 100% within each criterion group.
+The overall TechnicalWeight/FinancialWeight split belongs to the technical and
+financial committee, and is not part of the officer's Create/Edit input contract.
+Officer pages display pending until both evaluators submit complete proposals,
+then show the averaged agreed split read-only. Existing numeric defaults in the entity are not
+evidence of an agreed evaluation decision.
+
+The current committee implementation independently stores proposal metadata in
+__weight: EvaluationCriterion rows and writes agreed group weights during
+evaluation. That existing team behavior is not changed by the officer-cycle
+correction. Officer criterion input now rejects that reserved prefix. The team
+still needs to reconcile the committee proposal timing with the brief's
+pre-approved-weight requirement; it is not a policy the officer module can
+approve on its own.
 
 ## Messages
 
@@ -211,7 +235,7 @@ Before final team acceptance, run the real pages through:
 department request → authorized approval → officer tender → supplier acceptance
 and bid → compliance → committee report → manager review.
 
-The remaining prerequisite is implementation of those upstream/downstream pages
-against these contracts and agreement on the policy items already listed in
+The remaining prerequisite is implementation of the requesting-department and
+supplier workflow pages against these contracts and agreement on the policy items already listed in
 sourcing-officer.md. Current test coverage is not proof that unimplemented
 pages are conflict-free.

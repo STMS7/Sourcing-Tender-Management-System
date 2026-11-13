@@ -39,9 +39,10 @@ AskClarification, Reply and Resolve.
    another officer are hidden.
 2. Creating a draft copies the request items, sets ownership from the signed-in
    user, and marks the source request ConvertedToTender in one transaction.
-3. The draft contains category, terms, UTC dates and technical/financial weights.
+3. The draft contains category, terms and UTC dates. Overall technical/financial
+   weights belong to the evaluation committee, not the officer form.
    The officer configures criteria, document requirements and approved suppliers.
-4. Publication checks the future deadline, opening date, items, terms, weights
+4. Publication checks the future deadline, opening date, items, terms, criterion weights
    and supplier eligibility. It locks criteria and configuration, records history,
    and creates in-system notifications for active supplier accounts.
 5. Closing is explicit and permitted only after the deadline. The current shared
@@ -135,6 +136,68 @@ when the team finalizes the integration.
   current model, so this module does not claim to enforce such approval.
 - Explicit versus scheduled tender closure and the interpretation of OpeningDate.
 - Supplier-side invitation links and private file storage.
+
+## Officer cycle and department revision chat
+
+The confirmed cycle sends the tender to the evaluation committee **after**
+receiving supplier offers and finishing compliance, not immediately after draft
+creation. The details page shows a readiness checklist and an explicit
+Send tender and compliant offers to evaluation committee action.
+
+Readiness and the POST action share the same checks. In addition to the existing
+bid and committee-position checks, each assigned member must have the account
+role needed for that position. Technical and financial members receive task and
+notification links to /EvaluationCommittee/Evaluate/{id}. A successful handoff
+records the sent timestamp and makes the tender available to the actual
+EvaluationCommitteeController. The send action is unavailable before closure or
+after the handoff.
+
+RequestDetails includes Chat with requesting department and Request changes in
+chat. The revision shortcut preselects the request owner and supplies a subject
+containing the source request number. Sending creates a normal clarification
+thread; it does not return or reject the request or modify its approval status.
+The department edits request data through its own workflow. The officer can read
+the latest conversation statuses from the source request and reopen the thread.
+Converted source requests remain readable to their sourcing officer while the
+communication stage is active; Create tender is hidden after conversion.
+
+CommitteeWeighting reserves the __weight: criterion-name prefix. Officer-created
+criteria cannot use it or impersonate evaluator proposals. The existing
+committee module's weight-proposal process is otherwise unchanged by this work.
+
+The new sourcing-cycle-browser-checks.js uses the current /Auth/Login route and
+an isolated --preview --handoff-preview fixture. That fixture adds one closed,
+compliant tender ready for the UI handoff. The script checks department messages,
+replies and request history, sends the ready tender, then signs in separately as
+the technical and financial evaluators to verify receipt.
+
+Verified in this update: 70 sourcing SQL checks, 28 existing evaluation committee
+checks, and 19 browser assertions. No shared model or migration change is needed.
+
+## Overall evaluation weights
+
+TechnicalWeight and FinancialWeight are no longer officer-editable or included
+in SourcingTenderForm. Create and Edit do not bind or assign them, so fabricated
+form fields cannot change them. Officer edits also preserve legacy stored values.
+The entity's existing numeric defaults are retained for schema compatibility;
+they are not displayed as an agreed committee decision.
+
+Tender details show Awaiting the technical & financial evaluation committee
+until both actual evaluator proposals are present. Then the agreed percentages
+are shown read-only. CommitteeWeighting and EvaluationCommitteeController remain
+responsible for the existing proposal/agreement process.
+
+This correction concerns the overall technical/financial split. Within-group
+criterion weights and the officer's criterion-definition screen are unchanged.
+The existing policy question about pre-publication approval versus the team's
+current post-bid committee weighting process remains for the team to settle.
+
+Verified in this correction: 72 migrated SQL sourcing checks and seven browser
+assertions. An authenticated Edit POST with fabricated 99/1 weight fields left
+the draft's stored 60/40 values unchanged. Separate technical and financial
+accounts then submitted 80/20 and 60/40 proposals; the officer page displayed the
+resulting agreed 70/30 split read-only. The browser callback is
+weight-ownership-browser-checks.js and uses the handoff preview fixture.
 
 ## Verification
 

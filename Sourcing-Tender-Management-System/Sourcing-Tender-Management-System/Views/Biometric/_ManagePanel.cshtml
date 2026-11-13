@@ -1,19 +1,17 @@
+@* Registering and removing fingerprint devices and the face. Shown in the "Biometrics" tab of the profile
+   (Areas/Identity/Pages/Account/Manage/Biometrics.cshtml). *@
 @model BiometricManageViewModel
-@{
-    ViewData["Title"] = "My biometrics";
-}
 
 <div id="bio-root" data-return-url="/">
     @Html.AntiForgeryToken()
 
-    <h1 class="h3 mb-3">My biometrics</h1>
     <div id="bio-status" class="alert alert-info">
         Register a fingerprint device or your face to sign in without typing a password.
         Your password keeps working too.
     </div>
 
     <div class="row g-3">
-        <div class="col-md-6">
+        <div class="col-12 col-xl-6">
             <div class="card h-100">
                 <div class="card-header">Fingerprint devices</div>
                 <div class="card-body">
@@ -52,7 +50,7 @@
             </div>
         </div>
 
-        <div class="col-md-6">
+        <div class="col-12 col-xl-6">
             <div class="card h-100">
                 <div class="card-header">Face recognition</div>
                 <div class="card-body">
@@ -86,7 +84,4 @@
         <div id="faceHint" class="fw-semibold mt-2"></div>
     </div>
 </div>
-
-@section Scripts {
-    <script src="~/biometric/biometric.js" asp-append-version="true"></script>
-}
+<script src="~/biometric/biometric.js" asp-append-version="true"></script>

@@ -4,11 +4,11 @@ async page => {
     const check = (ok, message) => { if (!ok) throw new Error(message); results.push(message); };
     const login = async (target, email) => {
         await target.goto(base + '/Messages');
-        if (target.url().includes('/Identity/Account/Login')) {
+        if (/\/(?:Identity\/Account|Auth)\/Login/.test(target.url())) {
             await target.getByRole('textbox', { name: 'Email', exact: true }).fill(email);
             await target.getByRole('textbox', { name: 'Password', exact: true }).fill('Preview-Only!4729');
-            await target.getByRole('button', { name: 'Log in', exact: true }).click();
-            await target.waitForURL(url => !url.pathname.includes('/Identity/Account/Login'));
+            await target.getByRole('button', { name: /^(Log in|Login)$/ }).click();
+            await target.waitForURL(url => !/\/(?:Identity\/Account|Auth)\/Login/.test(url.pathname));
         }
     };
     await login(page, 'officer@example.test');
