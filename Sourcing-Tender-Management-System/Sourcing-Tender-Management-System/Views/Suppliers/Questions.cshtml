@@ -1,12 +1,14 @@
 @model List<Clarification>
 @{ ViewData["Title"] = "Clarifications"; }
+<div id="supplier-question-search-results">
 <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Clarifications</h1><a asp-action="Index" class="btn btn-outline-secondary align-self-start">Back to dashboard</a></div>
 <p class="text-muted">Questions addressed to your account. Dates are shown in UTC.</p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-question-search", ResultsId = "supplier-question-search-results", Label = "Search clarification questions and responses" })" />
 @if (TempData["SupplierNotice"] is string notice) { <div class="alert alert-success" role="status">@notice</div> }
 @if (Model.Count == 0) { <div class="alert alert-info">You have no clarification requests yet. Requests from the sourcing officer will appear here.</div> }
 @foreach (var question in Model)
 {
-    <div class="card mb-4"><div class="card-body">
+    <div data-search-item class="card mb-4"><div class="card-body">
         <h2 class="h5">@question.Subject <span class="badge bg-secondary">@question.Status</span></h2>
         <p class="small text-muted">Asked: @question.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</p>
         <p class="text-break" style="white-space: pre-wrap">@question.Question</p>
@@ -25,3 +27,5 @@
         }
     </div></div>
 }
+
+</div>

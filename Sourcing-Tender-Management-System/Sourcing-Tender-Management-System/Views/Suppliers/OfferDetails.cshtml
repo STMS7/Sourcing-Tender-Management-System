@@ -4,7 +4,9 @@
     var canWithdraw = Model.Status == BidStatus.Submitted && Model.Tender.Status == TenderStatus.Published
         && Model.Tender.SubmissionDeadline > DateTime.UtcNow && (Model.Tender.PublishedAt is null || Model.Tender.PublishedAt <= DateTime.UtcNow);
 }
+<div id="supplier-offer-details-search-results">
 <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Offer Details</h1><a asp-action="Offers" class="btn btn-outline-secondary align-self-start">Back to my offers</a></div>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-offer-details-search", ResultsId = "supplier-offer-details-search-results", Label = "Search offered items and attached documents" })" />
 <partial name="_OfferSummary" model="Model" />
 <h2 class="h5">Offer documents</h2>
 @if (Model.Documents.Count == 0) { <p class="text-muted">No documents attached.</p> }
@@ -13,7 +15,7 @@ else
     <ul class="list-group mb-4">
     @foreach (var doc in Model.Documents.OrderBy(x => x.Id))
     {
-        <li class="list-group-item d-flex flex-wrap justify-content-between gap-2"><span class="text-break">@doc.DocumentType — @doc.FileName</span><a asp-action="Download" asp-route-id="@doc.Id">Download PDF</a></li>
+        <li data-search-item class="list-group-item d-flex flex-wrap justify-content-between gap-2"><span class="text-break">@doc.DocumentType — @doc.FileName</span><a asp-action="Download" asp-route-id="@doc.Id">Download PDF</a></li>
     }
     </ul>
 }
@@ -33,3 +35,5 @@ else
         </form>
     </div></div>
 }
+
+</div>

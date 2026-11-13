@@ -3,6 +3,7 @@
     ViewData["Title"] = Model.TenderNumber;
 }
 
+<div id="top-details-search-results">
 <h1 class="h3 mb-3">Top Committee</h1>
 <partial name="_Nav" model="@("")" />
 
@@ -14,6 +15,7 @@
     <div><partial name="_Badge" model="@Model.Status.ToString()" /></div>
 </div>
 
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "top-details-search", ResultsId = "top-details-search-results", Label = "Search bids, votes, request items and criteria" })" />
 @if (!string.IsNullOrWhiteSpace(Model.Description))
 {
     <p>@Model.Description</p>
@@ -107,7 +109,7 @@ else if (Model.MyVote is null)
         <tbody>
         @foreach (var b in Model.Bids)
         {
-            <tr class="@(b.IsRecommended ? "table-primary" : "")">
+            <tr data-search-item class="@(b.IsRecommended ? "table-primary" : "")">
                 <td>
                     <div class="fw-semibold">@b.SupplierName</div>
                     <div class="small text-muted">@b.BidNumber | @b.DocumentCount documents</div>
@@ -150,7 +152,7 @@ else if (Model.MyVote is null)
             <ul class="list-group">
             @foreach (var a in Model.ManagerApprovals)
             {
-                <li class="list-group-item">
+                <li data-search-item class="list-group-item">
                     <div class="d-flex justify-content-between">
                         <strong>@a.Level - @a.ApproverName</strong>
                         <partial name="_Badge" model="@a.Status.ToString()" />
@@ -167,7 +169,7 @@ else if (Model.MyVote is null)
         <ul class="list-group">
         @foreach (var v in Model.CommitteeVotes)
         {
-            <li class="list-group-item">
+            <li data-search-item class="list-group-item">
                 <div class="d-flex justify-content-between">
                     <strong>@v.MemberName</strong>
                     <partial name="_Badge" model="@v.Decision.ToString()" />
@@ -196,7 +198,7 @@ else if (Model.MyVote is null)
             <tbody>
             @foreach (var i in r.Items)
             {
-                <tr><td>@i.ItemName</td><td class="text-end">@i.Quantity.ToString("0.###")</td><td>@i.Unit</td></tr>
+                <tr data-search-item><td>@i.ItemName</td><td class="text-end">@i.Quantity.ToString("0.###")</td><td>@i.Unit</td></tr>
             }
             </tbody>
         </table>
@@ -209,9 +211,11 @@ else if (Model.MyVote is null)
     <tbody>
     @foreach (var c in Model.Criteria)
     {
-        <tr><td>@c.Name</td><td>@c.Type</td><td class="text-end">@c.Weight.ToString("0.##")</td><td class="text-end">@c.MaximumScore.ToString("0.##")</td></tr>
+        <tr data-search-item><td>@c.Name</td><td>@c.Type</td><td class="text-end">@c.Weight.ToString("0.##")</td><td class="text-end">@c.MaximumScore.ToString("0.##")</td></tr>
     }
     </tbody>
 </table>
 
 <a class="btn btn-link ps-0" asp-action="Index">&larr; Back to the dashboard</a>
+
+</div>

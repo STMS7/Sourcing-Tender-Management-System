@@ -22,7 +22,7 @@ namespace Sourcing_Tender_Management_System.Controllers;
 /// A round starts after the latest report; choices older than it no longer count, so a report
 /// the manager rejects or returns starts a fresh round of bid choices (agreed weights stay).
 /// </summary>
-[Authorize(Roles = "TechnicalRepresentative,FinancialRepresentative,SourcingManager,DepartmentRepresentative,RequestingDepartment")]
+[Authorize(Roles = "TechnicalRepresentative,FinancialRepresentative,SourcingManager,DepartmentRepresentative,DepartmentRequester,RequestingDepartment")]
 [AutoValidateAntiforgeryToken]
 public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
 {
@@ -34,7 +34,15 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         m.TenderId == tenderId && m.CommitteeType == CommitteeType.Evaluation && CommitteeRoles.Contains(m.RoleType));
 
     private IQueryable<TenderCommitteeMember> MyMemberships() => db.TenderCommitteeMembers.Where(m =>
-        m.UserId == UserId && m.CommitteeType == CommitteeType.Evaluation && CommitteeRoles.Contains(m.RoleType));
+        m.UserId == UserId && m.CommitteeType == CommitteeType.Evaluation && CommitteeRoles.Contains(m.RoleType) &&
+        // The account must be active and hold the Identity role that matches its committee position.
+        db.Users.Any(u => u.Id == m.UserId && u.IsActive &&
+            db.UserRoles.Any(ur => ur.UserId == u.Id && db.Roles.Any(r => r.Id == ur.RoleId &&
+                ((m.RoleType == CommitteeMemberRole.TechnicalRepresentative && r.Name == "TechnicalRepresentative") ||
+                 (m.RoleType == CommitteeMemberRole.FinancialRepresentative && r.Name == "FinancialRepresentative") ||
+                 (m.RoleType == CommitteeMemberRole.SourcingManager && r.Name == "SourcingManager") ||
+                 (m.RoleType == CommitteeMemberRole.DepartmentRepresentative &&
+                    (r.Name == "DepartmentRepresentative" || r.Name == "DepartmentRequester" || r.Name == "RequestingDepartment")))))));
 
     private static IQueryable<Bid> CompliantBids(IQueryable<Bid> bids, int tenderId) => bids.Where(b =>
         b.TenderId == tenderId && b.Status != BidStatus.Draft && b.Status != BidStatus.Withdrawn &&
@@ -95,8 +103,8 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
     public async Task<IActionResult> Index()
     {
         var memberships = await MyMemberships().AsNoTracking().Include(m => m.Tender).ThenInclude(t => t.EvaluationCriteria)
-            .Where(m => m.Tender.Status != TenderStatus.Draft && m.Tender.Status != TenderStatus.Published &&
-                m.Tender.Status != TenderStatus.Closed)
+            .Where(m => m.Tender.Status != TenderStatus.Cancelled &&
+                (m.Tender.Status != TenderStatus.Draft || m.Tender.EvaluationCriteriaLockedAt != null))
             .OrderByDescending(m => m.Tender.CreatedAt).ToListAsync();
         var rows = new List<EvaluationCommitteeTenderRow>();
         foreach (var m in memberships)
@@ -105,13 +113,18 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             var proposals = ReadProposals(m.Tender.EvaluationCriteria);
             var round = await LoadRoundAsync(m.TenderId);
             var row = new EvaluationCommitteeTenderRow { Tender = m.Tender, Role = role };
-            if (m.Tender.Status != TenderStatus.UnderEvaluation)
-                row.Stage = "Report sent to the sourcing officer";
-            else if (Agree(proposals) == null)
+            var beforeEvaluation = m.Tender.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed;
+            if (beforeEvaluation)
             {
-                row.Stage = "Technical/financial weights pending";
-                row.ActionNeeded = IsEvaluator(role) && !proposals.Any(p => p.Role == role);
+                // Weights are approved while the tender is still a locked draft; offers open later.
+                var weightsAgreed = Agree(proposals) != null;
+                row.Stage = weightsAgreed ? "Weights approved; waiting for bidding and evaluation"
+                    : "Technical/financial weights pending";
+                row.ActionNeeded = !weightsAgreed && m.Tender.Status == TenderStatus.Draft && IsEvaluator(role) &&
+                    !proposals.Any(p => p.Role == role);
             }
+            else if (m.Tender.Status != TenderStatus.UnderEvaluation)
+                row.Stage = "Report sent to the sourcing officer";
             else if (round.AgreedBid == null)
             {
                 row.Stage = "Technical/financial choosing a bid";
@@ -141,17 +154,27 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         if (member == null) return NotFound();
         if (!IsEvaluator(member.RoleType)) return Forbid();
         var tender = await db.Tenders.Include(t => t.EvaluationCriteria).FirstAsync(t => t.Id == tenderId);
-        if (tender.Status != TenderStatus.UnderEvaluation) return Conflict("This tender is not under evaluation.");
+        // Team rule: weights are approved during locked preparation, before publication or any supplier offer.
+        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt == null ||
+            await db.Bids.AnyAsync(b => b.TenderId == tenderId))
+            return Conflict("Criteria and weights must be approved during locked preparation, before publication or supplier offers.");
+        if (!await db.WorkflowTransitions.AnyAsync(w => w.TenderId == tenderId &&
+            w.Reason == "RequestPrePublicationWeights" && w.CreatedAt >= tender.EvaluationCriteriaLockedAt))
+            return Conflict("The sourcing officer must request preparation approval first.");
         if (Agree(ReadProposals(tender.EvaluationCriteria)) != null)
             return Conflict("Both members already submitted weights; the agreed weights are final.");
-        if (Validate(technicalWeight, financialWeight) is string error)
+        if (!ModelState.IsValid || Validate(technicalWeight, financialWeight) is string)
         {
-            TempData["Error"] = error;
+            TempData["Error"] = Validate(technicalWeight, financialWeight) ?? "Enter valid weight percentages.";
             return RedirectToAction(nameof(Evaluate), new { id = tenderId });
         }
         var role = member.RoleType!.Value;
         Upsert(tender, role, CriterionType.Technical, technicalWeight);
         Upsert(tender, role, CriterionType.Financial, financialWeight);
+        db.WorkflowTransitions.Add(new WorkflowTransition { TenderId = tender.Id,
+            ProcurementRequestId = tender.ProcurementRequestId, FromStage = WorkflowStage.Sourcing,
+            ToStage = WorkflowStage.Sourcing, Action = WorkflowAction.Approved, PerformedByUserId = UserId,
+            Reason = "Pre-publication approval:" + role });
         Log(tender, "SubmitWeights", $"{role}: technical {technicalWeight}%, financial {financialWeight}%");
 
         var agreed = Agree(ReadProposals(tender.EvaluationCriteria));
@@ -160,8 +183,15 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             tender.TechnicalWeight = agreed.Technical;
             tender.FinancialWeight = agreed.Financial;
             Log(tender, "WeightsAgreed", $"Agreed weights: technical {agreed.Technical}%, financial {agreed.Financial}%");
+            db.WorkflowTransitions.Add(new WorkflowTransition { TenderId = tender.Id,
+                ProcurementRequestId = tender.ProcurementRequestId, FromStage = WorkflowStage.Sourcing,
+                ToStage = WorkflowStage.Sourcing, Action = WorkflowAction.Approved, PerformedByUserId = UserId,
+                Reason = EvaluationPreparation.ApprovalReason });
             await NotifyCommittee(tender.Id, Evaluators, "Evaluation weights agreed",
-                $"{tender.TenderNumber}: technical {agreed.Technical}%, financial {agreed.Financial}%. Choose a bid.");
+                $"{tender.TenderNumber}: technical {agreed.Technical}%, financial {agreed.Financial}%. Ready for publication.");
+            db.Notifications.Add(new Notification { UserId = tender.CreatedByUserId, Title = "Tender preparation approved",
+                Message = $"{tender.TenderNumber}: both members approved the locked criteria and weights. You may publish after completing supplier selection.",
+                Type = NotificationType.ActionRequired, Link = $"/SourcingOfficer/Details/{tender.Id}" });
         }
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -182,6 +212,8 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         if (tender.Status != TenderStatus.UnderEvaluation) return Conflict("This tender is not under evaluation.");
         if (Agree(ReadProposals(tender.EvaluationCriteria)) == null)
             return Conflict("Both members must submit weights before choosing a bid.");
+        if (!await EvaluationPreparation.Approved(db, tender))
+            return Conflict("This tender has no valid approval recorded before publication. Follow the team's documented procedure for legacy tenders.");
         if ((await LoadRoundAsync(tenderId)).AgreedBid != null)
             return Conflict("The bid is already agreed. It changes only if the manager or department denies it.");
         if (!await CompliantBids(db.Bids, tenderId).AnyAsync(b => b.Id == bidId))
@@ -342,9 +374,12 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         var tender = await db.Tenders.AsNoTracking().Include(t => t.Items).Include(t => t.DocumentRequirements)
             .Include(t => t.EvaluationCriteria).Include(t => t.CommitteeMembers).ThenInclude(m => m.User)
             .AsSplitQuery().FirstAsync(t => t.Id == tenderId);
-        if (tender.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed) return null;
-        var bids = await CompliantBids(db.Bids, tenderId).AsNoTracking().Include(b => b.Supplier)
-            .Include(b => b.Items).Include(b => b.Documents).AsSplitQuery().OrderBy(b => b.TotalAmount).ToListAsync();
+        if (tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt == null) return null;
+        // Preparation and bidding pages must never expose sealed offer data.
+        var offersReleased = tender.Status is TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview
+            or TenderStatus.AwaitingCommitteeDecision or TenderStatus.Awarded;
+        var bids = offersReleased ? await CompliantBids(db.Bids, tenderId).AsNoTracking().Include(b => b.Supplier)
+            .Include(b => b.Items).Include(b => b.Documents).AsSplitQuery().OrderBy(b => b.TotalAmount).ToListAsync() : [];
         var proposals = ReadProposals(tender.EvaluationCriteria);
         var round = await LoadRoundAsync(tenderId);
         var myRole = member.RoleType!.Value;
@@ -413,7 +448,8 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         db.WorkflowTransitions.Add(new WorkflowTransition
         {
             TenderId = tender.Id, ProcurementRequestId = tender.ProcurementRequestId,
-            FromStage = WorkflowStage.Evaluation, ToStage = WorkflowStage.Evaluation,
+            FromStage = tender.Status == TenderStatus.Draft ? WorkflowStage.Sourcing : WorkflowStage.Evaluation,
+            ToStage = tender.Status == TenderStatus.Draft ? WorkflowStage.Sourcing : WorkflowStage.Evaluation,
             Action = WorkflowAction.Submitted, PerformedByUserId = UserId, Reason = Truncate(reason, 2000)
         });
     }

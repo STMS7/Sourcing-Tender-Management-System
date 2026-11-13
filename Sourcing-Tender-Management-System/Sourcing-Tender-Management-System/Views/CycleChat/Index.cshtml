@@ -1,14 +1,16 @@
 @model IEnumerable<Sourcing_Tender_Management_System.Models.Clarification>
 @{ ViewData["Title"] = "Clarification Inbox"; }
+<div id="clarification-search-results">
 <h2>Clarification Inbox</h2>
 <p>Only conversations in which you are a participant are listed. Start from a request, tender or bid.</p>
 <p><a asp-controller="Department" asp-action="Index">Department Requests</a></p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "clarification-search", ResultsId = "clarification-search-results", Label = "Search your clarification conversations" })" />
 <table class="table table-bordered">
 <thead><tr><th>Subject</th><th>Context</th><th>From</th><th>To</th><th>Status</th><th>Created</th></tr></thead>
 <tbody>
 @foreach (var c in Model)
 {
-    <tr>
+    <tr data-search-item>
         <td><a asp-action="Thread" asp-route-id="@c.Id">@c.Subject</a></td>
         <td>@(c.ProcurementRequestId.HasValue ? "Request #" + c.ProcurementRequestId : c.TenderId.HasValue ? "Tender #" + c.TenderId : "Bid #" + c.BidId)</td>
         <td>@c.AskedByUser?.FullName</td><td>@c.RecipientUser?.FullName</td><td>@c.Status</td><td>@c.AskedAt.ToLocalTime()</td>
@@ -16,3 +18,5 @@
 }
 </tbody>
 </table>
+
+</div>

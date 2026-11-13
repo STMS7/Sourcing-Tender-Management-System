@@ -4,6 +4,7 @@
     var isPending = Model.Status == RecommendationStatus.PendingManagerReview && Model.Tender.Status == TenderStatus.AwaitingManagerReview;
 }
 
+<div id="manager-details-search-results">
 <p><a asp-action="Index" class="link-secondary text-decoration-none">&larr; Back to manager workspace</a></p>
 @if (TempData["Error"] is string error)
 {
@@ -24,6 +25,7 @@
     <div class="col-md-4"><div class="card card-body h-100"><span class="small text-secondary">Final authority</span><strong class="fs-5">Top Committee</strong></div></div>
 </div>
 
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "manager-details-search", ResultsId = "manager-details-search-results", Label = "Search report comparisons and recorded votes" })" />
 <section class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Committee summary</h2></div>
     <div class="card-body"><p class="mb-0" style="white-space: pre-line">@Model.Summary</p></div>
@@ -52,7 +54,7 @@
             <tbody>
             @foreach (var row in Model.Bids.OrderByDescending(x => x.WeightedTotal))
             {
-                <tr class="@(row.BidId == Model.RecommendedBidId ? "table-primary" : "")">
+                <tr data-search-item class="@(row.BidId == Model.RecommendedBidId ? "table-primary" : "")">
                     <td><strong>@row.Bid.Supplier.CompanyName</strong>@if (row.BidId == Model.RecommendedBidId) { <span class="badge text-bg-primary ms-1">Recommended</span> }<div class="small text-secondary">@row.Notes</div></td>
                     <td>@row.Bid.BidNumber</td>
                     <td>@row.Bid.TotalAmount.ToString("N2") @row.Bid.Currency</td>
@@ -82,7 +84,7 @@
                 <tbody>
                 @foreach (var vote in Model.Votes.OrderBy(x => x.CommitteeType).ThenBy(x => x.MemberUser.FullName))
                 {
-                    <tr><td>@vote.CommitteeType</td><td>@vote.MemberUser.FullName</td><td>@vote.Decision</td><td>@vote.Reason</td><td>@(vote.DecidedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—")</td></tr>
+                    <tr data-search-item><td>@vote.CommitteeType</td><td>@vote.MemberUser.FullName</td><td>@vote.Decision</td><td>@vote.Reason</td><td>@(vote.DecidedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—")</td></tr>
                 }
                 </tbody>
             </table>
@@ -131,3 +133,5 @@
         </div>
     </section>
 }
+
+</div>

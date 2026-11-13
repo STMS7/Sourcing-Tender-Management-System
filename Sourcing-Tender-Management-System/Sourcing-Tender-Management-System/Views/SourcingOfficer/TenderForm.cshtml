@@ -1,8 +1,9 @@
 @model SourcingTenderForm
-@{ var editing = Model.Id != 0; ViewData["Title"] = editing ? "Edit tender draft" : "Create tender draft"; }
+@{ var editing = Model.Id != 0; var accepting = ViewBag.AcceptingRequest is true; ViewData["Title"] = editing ? "Edit tender draft" : accepting ? "Accept request and create tender" : "Create tender draft"; }
 <h1>@ViewData["Title"]</h1>
-<p class="text-secondary">Items are copied from the approved request. Configure criteria, documents and suppliers after saving.</p>
-<form asp-action="@(editing ? "Edit" : "Create")" method="post" class="form-panel">
+<p class="text-secondary">Items are copied from the purchase request. Configure criteria, documents and suppliers after saving. Send to evaluation after receiving supplier offers and completing compliance.</p>
+@if (accepting) { <p class="alert alert-info">Saving this form accepts the department request and creates its tender draft together.</p> }
+<form asp-action="@(editing ? "Edit" : accepting ? "AcceptRequest" : "Create")" method="post" class="form-panel">
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
     <input asp-for="Id" type="hidden" /><input asp-for="ProcurementRequestId" type="hidden" />
     <div class="mb-3"><label asp-for="Title" class="form-label"></label><input asp-for="Title" class="form-control" /><span asp-validation-for="Title" class="text-danger"></span></div>
@@ -12,7 +13,8 @@
     <p class="small text-secondary">Enter dates in UTC. If no opening date is specified, bids may be opened after the deadline and closure.</p>
     <div class="mb-3"><label asp-for="TermsAndConditions" class="form-label"></label><textarea asp-for="TermsAndConditions" class="form-control" rows="5" placeholder="Quality specifications, delivery conditions, payment requirements…"></textarea><span asp-validation-for="TermsAndConditions" class="text-danger"></span></div>
     <div class="mb-3"><label asp-for="EstimatedValue" class="form-label"></label><input asp-for="EstimatedValue" type="number" min="0" step=".01" class="form-control" /></div>
-    <p class="small text-secondary">The technical and financial evaluation committee determines the overall evaluation weights. Agreed weights will appear in the tender details.</p>
-    <div class="actions"><button class="btn btn-primary" type="submit">Save draft</button><a class="btn btn-link" asp-action="@(editing ? "Details" : "Requests")" asp-route-id="@(editing ? Model.Id : (int?)null)">Cancel</a></div>
+    <p class="small text-secondary">The technical and financial members approve criteria and overall evaluation weights before publication. Request their approval from the tender details after preparing the draft.</p>
+    @if (accepting) { <div class="mb-3"><label asp-for="ReviewComment" class="form-label"></label><textarea asp-for="ReviewComment" class="form-control" rows="3" maxlength="2000"></textarea><span asp-validation-for="ReviewComment" class="text-danger"></span></div> }
+    <div class="actions"><button class="btn btn-primary" type="submit">@(accepting ? "Accept and create draft" : "Save draft")</button><a class="btn btn-link" asp-action="@(editing ? "Details" : accepting ? "RequestDetails" : "Requests")" asp-route-id="@(editing ? Model.Id : accepting ? Model.ProcurementRequestId : (int?)null)">Cancel</a></div>
 </form>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }

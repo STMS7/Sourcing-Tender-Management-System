@@ -76,7 +76,7 @@ public static class CommitteeWeighting
         {
             var technical = list.FirstOrDefault(c => c.Name == ProposalName(role, CriterionType.Technical));
             var financial = list.FirstOrDefault(c => c.Name == ProposalName(role, CriterionType.Financial));
-            if (technical != null && financial != null)
+            if (technical != null && financial != null && Validate(technical.Weight, financial.Weight) == null)
                 proposals.Add(new Proposal(role, technical.Weight, financial.Weight));
         }
         return proposals;

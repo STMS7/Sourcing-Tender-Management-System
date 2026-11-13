@@ -1,6 +1,7 @@
 @model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @using Sourcing_Tender_Management_System.Models
 @{ ViewData["Title"] = "Request Details"; }
+<div id="department-details-search-results">
 <h2>Request Details</h2>
 <dl>
 <dt>Number</dt><dd>@Model.RequestNumber</dd>
@@ -11,33 +12,38 @@
 <dt>Estimated budget</dt><dd>@Model.EstimatedBudget</dd>
 <dt>Status</dt><dd>@Model.Status</dd>
 </dl>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-details-search", ResultsId = "department-details-search-results", Label = "Search request items and review notes" })" />
 <h3>Items</h3>
 <table class="table table-bordered">
 <thead><tr><th>Item</th><th>Specifications</th><th>Quantity</th><th>Unit</th><th>Estimated unit price</th></tr></thead>
 <tbody>
 @foreach (var i in Model.Items)
 {
-    <tr><td>@i.ItemName</td><td>@i.Specifications</td><td>@i.Quantity</td><td>@i.Unit</td><td>@i.EstimatedUnitPrice</td></tr>
+    <tr data-search-item><td>@i.ItemName</td><td>@i.Specifications</td><td>@i.Quantity</td><td>@i.Unit</td><td>@i.EstimatedUnitPrice</td></tr>
 }
 </tbody></table>
 <h3>Review notes from Sourcing Officer</h3>
 <ul>
 @foreach (var r in Model.Reviews.OrderByDescending(r => r.ReviewedAt))
 {
-    <li>@r.ReviewedAt.ToLocalTime() — @r.Decision — @r.Reason (@r.ReviewerUser?.FullName)</li>
+    <li data-search-item>@r.ReviewedAt.ToLocalTime() — @r.Decision — @r.Reason (@r.ReviewerUser?.FullName)</li>
 }
 </ul>
 <h3>Related tenders</h3>
 <ul>
-@foreach (var t in Model.Tenders) { <li>@t.TenderNumber – @t.Status</li> }
+@foreach (var t in Model.Tenders) { <li data-search-item>@t.TenderNumber – @t.Status</li> }
 </ul>
 @if (Model.Status == ProcurementRequestStatus.Draft || Model.Status == ProcurementRequestStatus.Returned)
 {
     <a asp-action="Edit" asp-route-id="@Model.Id">Edit</a>
     <form asp-action="Submit" asp-route-id="@Model.Id" method="post"><button type="submit">Submit / Resubmit</button></form>
 }
-@if (Model.Status == ProcurementRequestStatus.Submitted || Model.Status == ProcurementRequestStatus.UnderReview || Model.Status == ProcurementRequestStatus.Returned || Model.Status == ProcurementRequestStatus.Approved)
+@if (Model.Status == ProcurementRequestStatus.Submitted || Model.Status == ProcurementRequestStatus.UnderReview || Model.Status == ProcurementRequestStatus.Returned || Model.Status == ProcurementRequestStatus.Approved ||
+    (Model.Status == ProcurementRequestStatus.ConvertedToTender && Model.Tenders.Any(t => t.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation)))
 {
     <a asp-controller="CycleChat" asp-action="New" asp-route-procurementRequestId="@Model.Id">Ask for clarification</a>
 }
+<p><a asp-controller="CycleChat" asp-action="Index">Messages and clarification responses</a></p>
 <p><a asp-action="Index">Back to requests</a></p>
+
+</div>

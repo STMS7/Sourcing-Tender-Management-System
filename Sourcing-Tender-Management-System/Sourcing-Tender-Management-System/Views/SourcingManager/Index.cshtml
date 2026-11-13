@@ -3,6 +3,7 @@
     ViewData["Title"] = "Sourcing Manager";
 }
 
+<div id="manager-search-results">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
     <div>
         <p class="text-uppercase text-secondary small fw-semibold mb-1">Decision workspace</p>
@@ -21,6 +22,7 @@
     <div class="alert alert-danger" role="alert">@error</div>
 }
 
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "manager-search", ResultsId = "manager-search-results", Label = "Search pending reports and recent decisions" })" />
 <section class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Reports awaiting your decision</h2></div>
     <div class="table-responsive">
@@ -35,7 +37,7 @@
             {
                 @foreach (var report in Model.PendingReports)
                 {
-                    <tr>
+                    <tr data-search-item>
                         <td><strong>@report.Tender.TenderNumber</strong><div class="small text-secondary">@report.Tender.Title</div></td>
                         <td>@(report.SubmittedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—")</td>
                         <td>@report.PreparedByUser.FullName</td>
@@ -64,7 +66,7 @@
             {
                 @foreach (var report in Model.RecentReports)
                 {
-                    <tr>
+                    <tr data-search-item>
                         <td><strong>@report.Tender.TenderNumber</strong><div class="small text-secondary">@report.Tender.Title</div></td>
                         <td>@report.Round</td>
                         <td><span class="badge text-bg-secondary">@report.Status</span></td>
@@ -77,3 +79,5 @@
         </table>
     </div>
 </section>
+
+</div>

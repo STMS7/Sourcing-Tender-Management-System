@@ -1,10 +1,12 @@
 @model List<TenderInvitation>
 @{ ViewData["Title"] = "Tender Invitations"; }
+<div id="invitation-search-results">
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h2 mb-0">Tender Invitations</h1>
     <a asp-action="Index" class="btn btn-outline-secondary">Back to dashboard</a>
 </div>
 <p class="text-muted">Review the tenders your company has been invited to participate in. Dates are shown in UTC.</p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "invitation-search", ResultsId = "invitation-search-results", Label = "Search your tender invitations" })" />
 @if (Model.Count == 0)
 {
     <div class="alert alert-info" role="status">You have no tender invitations yet. Invitations will appear here when a sourcing officer invites your company.</div>
@@ -17,7 +19,7 @@ else
             <tbody>
             @foreach (var invitation in Model)
             {
-                <tr>
+                <tr data-search-item>
                     <td>@invitation.Tender.TenderNumber</td>
                     <td>@invitation.Tender.Title</td>
                     <td>@invitation.InvitedAt.ToString("dd MMM yyyy HH:mm")</td>
@@ -30,3 +32,5 @@ else
         </table>
     </div>
 }
+
+</div>
