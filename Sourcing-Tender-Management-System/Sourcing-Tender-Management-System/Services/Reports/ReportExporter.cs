@@ -215,7 +215,7 @@ public class ReportExporter : IReportExporter
 
                             if (table.Rows.Count == 0)
                             {
-                                block.Item().PaddingTop(2).Text("No data for the selected filters.").FontColor(Colors.Grey.Darken1);
+                                block.Item().PaddingTop(2).Text("No data to show.").FontColor(Colors.Grey.Darken1);
                                 return;
                             }
 

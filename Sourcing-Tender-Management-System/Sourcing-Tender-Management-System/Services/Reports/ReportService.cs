@@ -10,6 +10,9 @@ public interface IReportService
 {
     IReadOnlyList<ReportCatalogEntry> GetCatalog(ReportViewer viewer);
     Task<ReportPageViewModel> BuildAsync(ReportKind kind, ReportFilter filter, ReportViewer viewer);
+
+    /// <summary>The full file of one tender (request, suppliers, bids, scores, decisions, timeline), or null if it does not exist.</summary>
+    Task<ReportDocument?> BuildTenderFileAsync(int tenderId, ReportViewer viewer);
 }
 
 /// <summary>
@@ -17,7 +20,7 @@ public interface IReportService
 /// Each report is a <see cref="ReportDocument"/> made of headline tiles and tables, so the screen, the Excel file
 /// and the PDF all show exactly the same numbers.
 /// </summary>
-public class ReportService(ApplicationDbContext db) : IReportService
+public partial class ReportService(ApplicationDbContext db) : IReportService
 {
     /// <summary>A tender still waiting for a decision more than this many days after its deadline counts as delayed.</summary>
     public const int EvaluationDelayDays = 14;
@@ -194,6 +197,7 @@ public class ReportService(ApplicationDbContext db) : IReportService
         var rows = await query.OrderByDescending(t => t.CreatedAt)
             .Select(t => new
             {
+                t.Id,
                 t.TenderNumber,
                 t.Title,
                 Category = t.Category.Name,
@@ -240,7 +244,7 @@ public class ReportService(ApplicationDbContext db) : IReportService
             Columns = new[] { "Number", "Title", "Category", "Status", "Deadline", "Invited", "Accepted", "Bids", "Participation", "Estimated value", "Awarded amount" }
         };
         foreach (var r in rows)
-            detail.Add(r.TenderNumber, r.Title, r.Category, Pretty(r.Status), r.SubmissionDeadline, r.Invited, r.Accepted, r.Bids,
+            detail.Add(new ReportLink(r.TenderNumber, "Tender", r.Id), r.Title, r.Category, Pretty(r.Status), r.SubmissionDeadline, r.Invited, r.Accepted, r.Bids,
                 r.Invited == 0 ? "-" : Percent(r.InvitedWhoBid, r.Invited), r.EstimatedValue,
                 r.AwardedAmount is null ? null : $"{r.AwardedAmount.Value.ToString("N2", CultureInfo.InvariantCulture)} {r.AwardedCurrency}");
         doc.Tables.Add(detail);
@@ -251,7 +255,7 @@ public class ReportService(ApplicationDbContext db) : IReportService
             Note = "Tenders that are past their deadline (or already closed) and received no submitted bid.",
             Columns = new[] { "Number", "Title", "Status", "Deadline", "Invited" }
         };
-        foreach (var r in noBids) zero.Add(r.TenderNumber, r.Title, Pretty(r.Status), r.SubmissionDeadline, r.Invited);
+        foreach (var r in noBids) zero.Add(new ReportLink(r.TenderNumber, "Tender", r.Id), r.Title, Pretty(r.Status), r.SubmissionDeadline, r.Invited);
         doc.Tables.Add(zero);
 
         var delays = new ReportTable
@@ -261,7 +265,7 @@ public class ReportService(ApplicationDbContext db) : IReportService
             Columns = new[] { "Number", "Title", "Status", "Deadline", "Days waiting", "Delayed" }
         };
         foreach (var x in delayed)
-            delays.Add(x.Row.TenderNumber, x.Row.Title, Pretty(x.Row.Status), x.Row.SubmissionDeadline, x.DaysWaiting,
+            delays.Add(new ReportLink(x.Row.TenderNumber, "Tender", x.Row.Id), x.Row.Title, Pretty(x.Row.Status), x.Row.SubmissionDeadline, x.DaysWaiting,
                 x.DaysWaiting > EvaluationDelayDays ? "Yes" : "No");
         doc.Tables.Add(delays);
 

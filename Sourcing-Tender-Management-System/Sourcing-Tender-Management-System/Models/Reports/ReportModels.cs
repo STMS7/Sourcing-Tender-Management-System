@@ -47,6 +47,14 @@ public class ReportTable
         Rows.Any(r => column < r.Length && r[column] is int or long or decimal or double or float);
 }
 
+/// <summary>
+/// A table cell that links to another report page. On screen it is a link; in Excel and PDF it is just its text.
+/// </summary>
+public record ReportLink(string Text, string Action, int Id)
+{
+    public override string ToString() => Text;
+}
+
 /// <summary>One bar of a chart.</summary>
 public record ChartPoint(string Label, decimal Value);
 
