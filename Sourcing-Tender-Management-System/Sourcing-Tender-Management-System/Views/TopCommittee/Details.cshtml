@@ -219,3 +219,8 @@ else if (Model.MyVote is null)
 <a class="btn btn-link ps-0" asp-action="Index">&larr; Back to the dashboard</a>
 
 </div>
+
+@if (Model.Bids.Count > 0)
+{
+    <partial name="_BidAnalysisButton" model="@(new BidAnalysisButtonViewModel { Url = Url.Action("AnalyzeBids", "TopCommittee", new { id = Model.TenderId })!, TenderNumber = Model.TenderNumber })" />
+}

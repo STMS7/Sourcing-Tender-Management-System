@@ -146,6 +146,23 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         return page == null ? NotFound() : View(page);
     }
 
+    // POST /EvaluationCommittee/AnalyzeBids?tenderId=5 — AI assistant popup for all four members.
+    // It only ranks and explains the compliant bids; choosing, accepting and denying stay with the members.
+    [HttpPost]
+    public async Task<IActionResult> AnalyzeBids(int tenderId,
+        [FromServices] Services.AiAssistant.IBidAnalysisService analysis, CancellationToken ct)
+    {
+        if (!await MyMemberships().AnyAsync(m => m.TenderId == tenderId, ct)) return NotFound();
+        var status = await db.Tenders.Where(t => t.Id == tenderId).Select(t => t.Status).FirstAsync(ct);
+        // Same rule as the page: sealed offers are never analyzed.
+        if (status is not (TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview
+            or TenderStatus.AwaitingCommitteeDecision or TenderStatus.Awarded))
+            return Conflict("Bids are not released to the committee yet.");
+        var model = await analysis.AnalyzeAsync(new Services.AiAssistant.BidAnalysisRequest(tenderId,
+            BidAnalysisAudience.EvaluationCommittee, UserId, IncludePendingCompliance: false), ct);
+        return model is null ? NotFound() : PartialView("_BidAnalysis", model);
+    }
+
     [HttpPost]
     public async Task<IActionResult> SubmitWeights(int tenderId, decimal technicalWeight, decimal financialWeight)
     {
