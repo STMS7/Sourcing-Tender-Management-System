@@ -10,6 +10,8 @@ public static class TopCommitteeServiceCollectionExtensions
         services.AddScoped<ITopCommitteeService, TopCommitteeService>();
         services.AddScoped<ITopCommitteeVotingService, TopCommitteeVotingService>();
         services.AddScoped<ITopCommitteeStatisticsService, TopCommitteeStatisticsService>();
+        services.AddScoped<ITopCommitteeMeetingService, TopCommitteeMeetingService>();
+        services.AddHostedService<TopCommitteeMeetingSchemaInitializer>();
         services.AddReports(); // the reports pages (/Reports) live in this module's folders too
         return services;
     }

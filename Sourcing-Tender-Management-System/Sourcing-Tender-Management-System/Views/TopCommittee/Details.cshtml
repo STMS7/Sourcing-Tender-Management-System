@@ -12,7 +12,13 @@
         <h2 class="h4 mb-1">@Model.TenderNumber - @Model.Title</h2>
         <div class="text-muted">@Model.CategoryName | Estimated value @Model.EstimatedValue.ToString("N2")</div>
     </div>
-    <div><partial name="_Badge" model="@Model.Status.ToString()" /></div>
+    <div class="d-flex align-items-center gap-2">
+        @if (Model.MyVote is not null)
+        {
+            <a class="btn btn-sm btn-outline-primary" asp-action="Meeting" asp-route-id="@Model.TenderId">Committee meeting</a>
+        }
+        <partial name="_Badge" model="@Model.Status.ToString()" />
+    </div>
 </div>
 
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "top-details-search", ResultsId = "top-details-search-results", Label = "Search bids, votes, request items and criteria" })" />
