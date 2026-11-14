@@ -255,6 +255,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         if (tender == null) return NotFound();
         if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null)
             return Conflict("Only unlocked draft tenders can be edited.");
+        ViewBag.CategoryLocked = await db.TenderInvitations.AnyAsync(i => i.TenderId == id);
         await LoadCategories();
         return View("TenderForm", new SourcingTenderForm
         {
@@ -274,6 +275,9 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt != null)
             return Conflict("This tender is locked.");
         await ValidateTender(model);
+        ViewBag.CategoryLocked = await db.TenderInvitations.AnyAsync(i => i.TenderId == tender.Id);
+        if (model.CategoryId != tender.CategoryId && (bool)ViewBag.CategoryLocked)
+            ModelState.AddModelError(nameof(model.CategoryId), "Remove the selected suppliers before changing the category. Then select suppliers matching the new category.");
         if (!ModelState.IsValid) return await InvalidTender(model);
         ApplyForm(tender, model);
         Log(tender, "EditDraft", WorkflowStage.Sourcing, WorkflowStage.Sourcing);
@@ -300,6 +304,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             .OrderBy(s => s.CompanyName).ToListAsync();
         ViewBag.CanReadOffers = CanReadOffers(tender);
         ViewBag.PrePublicationApproved = await EvaluationPreparation.Approved(db, tender);
+        ViewBag.PublicationReadiness = await PublicationReadiness(tender);
         ViewBag.PreparationWaitingReasons = await PreparationWaitingReasons(tender);
         ViewBag.Handoff = await CheckEvaluationHandoff(tender);
         ViewBag.EvaluationSentAt = await db.WorkflowTransitions.Where(w => w.TenderId == id &&
@@ -398,16 +403,13 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         if (tender.SubmissionDeadline <= DateTime.UtcNow || tender.OpeningDate < tender.SubmissionDeadline ||
             tender.Items.Count == 0 || string.IsNullOrWhiteSpace(tender.TermsAndConditions))
             ModelState.AddModelError("", "Complete the terms, items and future deadline.");
-        foreach (var type in Enum.GetValues<CriterionType>())
-            if (tender.EvaluationCriteria.Where(c => c.Type == type && !c.Name.StartsWith(CommitteeWeighting.ProposalPrefix)).Sum(c => c.Weight) != 100)
-                ModelState.AddModelError("", $"{type} criteria must total 100% within their group.");
         if (tender.Invitations.Count == 0 || tender.Invitations.Any(i => !i.Supplier.IsActive ||
             i.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved ||
             !i.Supplier.SupplierCategories.Any(c => c.CategoryId == tender.CategoryId)))
             ModelState.AddModelError("", "Select at least one supplier. Every selected supplier must be approved, active and registered in this tender's category.");
-        if (!await EvaluationPreparation.Approved(db, tender))
-            ModelState.AddModelError("", "Obtain technical and financial approval of the locked criteria and weights before publication.");
-        foreach (var issue in await EvaluationPreparation.MemberIssues(db, tender)) ModelState.AddModelError("", issue);
+        var publication = await PublicationReadiness(tender);
+        foreach (var dependency in publication.TeamDependencies)
+            ModelState.AddModelError("", dependency);
         if (await db.Bids.AnyAsync(b => b.TenderId == id))
             ModelState.AddModelError("", "A draft containing offers cannot be published through preparation.");
         if (!ModelState.IsValid) return FormError(id);
@@ -529,7 +531,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         if (tender == null) return NotFound();
         if (tender.Status != TenderStatus.Closed || !CanReadOffers(tender)) return Conflict("Complete the bidding stage first.");
         var readiness = await CheckEvaluationHandoff(tender);
-        foreach (var issue in readiness.Issues) ModelState.AddModelError("", issue);
+        foreach (var issue in readiness.Issues.Concat(readiness.TeamDependencies)) ModelState.AddModelError("", issue);
         var members = tender.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation).ToList();
         if (!ModelState.IsValid) return FormError(id);
         tender.Status = TenderStatus.UnderEvaluation;
@@ -723,8 +725,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         else
         {
             page.Contexts = await MyTenders().AsNoTracking().Where(t => t.Status == TenderStatus.Closed ||
-                t.Status == TenderStatus.UnderEvaluation || t.Status == TenderStatus.AwaitingManagerReview ||
-                (t.Status == TenderStatus.Draft && t.EvaluationCriteriaLockedAt != null))
+                t.Status == TenderStatus.UnderEvaluation || t.Status == TenderStatus.AwaitingManagerReview)
                 .OrderByDescending(t => t.CreatedAt).Select(t => new SourcingMessageContext
                 { Key = "tender:" + t.Id, Label = t.TenderNumber + " — " + t.Title }).ToListAsync();
             threads = threads.Where(c => c.TenderId != null && c.BidId == null && c.ProcurementRequestId == null);
@@ -785,7 +786,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             return result;
         }
         if (!await EvaluationPreparation.Approved(db, tender))
-            result.Issues.Add("This tender has no valid pre-publication approval of criteria and weights. Do not change weights after bids; resolve the legacy tender through the team's documented procedure.");
+            result.TeamDependencies.Add("Evaluation preparation has no verified approval. The responsible team must resolve this record before handoff; you do not set evaluation rules.");
         var bids = await SubmittedOffers(db.Bids).Where(b => b.TenderId == tender.Id)
             .Include(b => b.Supplier).ThenInclude(s => s.SupplierCategories).Include(b => b.Items).Include(b => b.Documents).AsSplitQuery().ToListAsync();
         result.SubmittedOffers = bids.Count;
@@ -799,7 +800,29 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         foreach (var bid in bids.Where(b => b.ComplianceStatus == ComplianceDecision.Compliant))
             if (SourcingBidEligibility.Failure(tender, bid, accepted.Contains(bid.SupplierId)) is string failure)
                 result.Issues.Add($"{bid.BidNumber}: {failure}");
-        result.Issues.AddRange(await EvaluationPreparation.MemberIssues(db, tender));
+        if ((await EvaluationPreparation.MemberIssues(db, tender)).Count != 0)
+            result.TeamDependencies.Add("Admin must complete or correct the evaluation assignment before the committee can receive this tender.");
+        return result;
+    }
+
+    private async Task<SourcingPublicationReadiness> PublicationReadiness(Tender tender)
+    {
+        var result = new SourcingPublicationReadiness();
+        if (tender.Items.Count == 0) result.OfficerTasks.Add("Add the requested items.");
+        if (string.IsNullOrWhiteSpace(tender.TermsAndConditions)) result.OfficerTasks.Add("Complete the tender terms.");
+        if (tender.SubmissionDeadline <= DateTime.UtcNow) result.OfficerTasks.Add("Set a future submission deadline.");
+        if (tender.OpeningDate < tender.SubmissionDeadline) result.OfficerTasks.Add("Set the opening date on or after the submission deadline.");
+        if (tender.Invitations.Count == 0) result.OfficerTasks.Add("Select at least one approved supplier in this category.");
+        else if (tender.Invitations.Any(i => !i.Supplier.IsActive ||
+            i.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved ||
+            !i.Supplier.SupplierCategories.Any(c => c.CategoryId == tender.CategoryId)))
+            result.OfficerTasks.Add("Remove ineligible suppliers and select approved suppliers matching this category.");
+        if (!await EvaluationPreparation.Approved(db, tender))
+            result.TeamDependencies.Add("Waiting for the evaluation committee's preparation approval. This is completed by the responsible team, not by the sourcing officer.");
+        if ((await EvaluationPreparation.MemberIssues(db, tender)).Count != 0)
+            result.TeamDependencies.Add("Waiting for Admin to complete the evaluation assignment.");
+        if (await db.Bids.AnyAsync(b => b.TenderId == tender.Id))
+            result.TeamDependencies.Add("This draft already contains offers. Ask the responsible team to resolve its workflow state before publication.");
         return result;
     }
     private void Audit(string action, string entity, string? id) =>

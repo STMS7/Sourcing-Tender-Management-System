@@ -8,9 +8,18 @@
 <div id="request-detail-results">
 <a asp-action="Requests">Back to purchase requests</a>
 <h1 class="mt-3">@Model.Title</h1>
+<details class="my-3"><summary>Record QR code and sharing link</summary>
 <partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "PurchaseRequest", Model.RequestNumber)' />
+</details>
 <p>@Model.RequestNumber · @Model.Department.Name · <span class="status">@Model.Status</span></p>
 <p>Requested by <strong>@Model.RequestedByUser.FullName</strong>.</p>
+<partial name="_SourcingCycle" model="@(Model.Status == ProcurementRequestStatus.ConvertedToTender ? 1 : 0)" />
+@if (canReview) {
+<section class="so-next" aria-labelledby="request-next-heading">
+    <h2 id="request-next-heading">Your next step: review this request</h2>
+    <p>Check the items, quantities and specifications below. Accept creates one linked draft tender. Return asks the department to revise and resubmit. Permanent rejection closes the request; both decisions require a message.</p>
+</section>
+}
 <div class="actions mb-4">
 @if (canReview) {
     <a class="btn btn-primary" asp-action="AcceptRequest" asp-route-id="@Model.Id">Accept and create tender</a>

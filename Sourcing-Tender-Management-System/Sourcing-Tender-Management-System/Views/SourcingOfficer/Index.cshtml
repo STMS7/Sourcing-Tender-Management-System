@@ -1,13 +1,19 @@
 @model SourcingDashboardViewModel
 @{ ViewData["Title"] = "Sourcing officer"; }
 <h1>Sourcing officer dashboard</h1>
-<p class="text-secondary">Manage approved purchase requests, prepare tenders and move compliant offers to evaluation.</p>
+<p class="text-secondary">Review department requests, prepare supplier invitations and send compliant offers to evaluation.</p>
+<partial name="_SourcingCycle" model="@(-1)" />
+<section class="so-next" aria-labelledby="start-heading">
+    <h2 id="start-heading">Start with a department request</h2>
+    <p>Review the request and choose: accept into a tender, return with a message for changes, or reject permanently. After acceptance, prepare the supplier invitation and follow the steps above.</p>
+    <a class="btn btn-primary" asp-action="Requests">Review incoming requests</a>
+</section>
 <div class="summary-strip">
     <a asp-action="Requests">Requests awaiting review: <strong>@Model.IncomingRequests</strong></a>
     <a asp-action="Requests">Approved requests: <strong>@Model.ApprovedRequests</strong></a>
     <a asp-action="Tenders" asp-route-status="Draft">Draft tenders: <strong>@Model.DraftTenders</strong></a>
     <a asp-action="Tenders" asp-route-status="Published">Published tenders: <strong>@Model.PublishedTenders</strong></a>
-    <span>Offers awaiting compliance: <strong>@Model.PendingCompliance</strong></span>
+    <a asp-action="Tenders" asp-route-status="Closed">Offers awaiting compliance: <strong>@Model.PendingCompliance</strong></a>
 </div>
 <h2>Recent tenders</h2>
 <partial name="_TenderTable" model="Model.RecentTenders" />

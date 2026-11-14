@@ -1,0 +1,20 @@
+.sourcing-workspace .so-cycle { margin: 1.5rem 0; padding: 1.25rem; background: #f2f5f8; border: 1px solid #dbe2e8; border-radius: .75rem; }
+.sourcing-workspace .so-cycle h2 { font-size: 1rem; margin: 0 0 1rem; }
+.sourcing-workspace .so-cycle ol { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0; }
+.sourcing-workspace .so-cycle li { display: flex; gap: .65rem; align-items: flex-start; color: #536474; font-size: .85rem; overflow-wrap: anywhere; }
+.sourcing-workspace .so-step-number { display: grid; place-items: center; flex: 0 0 1.7rem; height: 1.7rem; border: 1px solid #8497a8; border-radius: 50%; font-variant-numeric: tabular-nums; }
+.sourcing-workspace .so-cycle .so-step-current { color: #084298; font-weight: 700; }
+.sourcing-workspace .so-step-current .so-step-number { background: #084298; color: #fff; border-color: #084298; }
+.sourcing-workspace .so-step-done .so-step-number { background: #e1ece3; border-color: #738c78; color: #254e31; }
+.sourcing-workspace .so-next { margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #c1cedb; border-radius: .75rem; }
+.sourcing-workspace .so-next h2 { margin: 0 0 .65rem; }
+.sourcing-workspace .so-next p:last-child { margin-bottom: 0; }
+.sourcing-workspace .so-readiness { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.sourcing-workspace .so-readiness h3 { margin: 0 0 .75rem; }
+.sourcing-workspace .so-readiness ul { margin-bottom: 0; padding-left: 1.2rem; }
+.sourcing-workspace .so-readiness li + li { margin-top: .5rem; }
+.sourcing-workspace .so-counts { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1rem 0; }
+.sourcing-workspace .so-counts p { margin: 0; }
+.sourcing-workspace .so-next a { text-underline-offset: .2rem; }
+@media (max-width: 900px) { .sourcing-workspace .so-cycle ol { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 575px) { .sourcing-workspace .so-cycle ol, .sourcing-workspace .so-readiness { grid-template-columns: 1fr; } .sourcing-workspace .so-cycle { padding: 1rem; } .sourcing-workspace .so-next { padding: 1rem; } }
