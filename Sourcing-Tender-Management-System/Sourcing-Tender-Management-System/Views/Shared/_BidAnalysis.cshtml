@@ -1,0 +1,95 @@
+@model BidAnalysisViewModel
+@{
+    var topScored = Model.Rows.FirstOrDefault(r => r.BidId == Model.TopScoredBidId);
+    var recommended = Model.Rows.FirstOrDefault(r => r.BidId == Model.RecommendedBidId);
+    var preferred = Model.Narrative?.PreferredLabel is string label ? Model.Rows.FirstOrDefault(r => r.Label == label) : null;
+    string Name(BidAnalysisRow? r) => r == null ? "" : $"{r.Label}: {r.SupplierName} ({r.BidNumber})";
+}
+
+<div class="alert alert-secondary small" role="note">
+    This is an assistant only. It does not accept, reject or vote. The decision is yours.
+</div>
+
+@if (Model.Message is not null)
+{
+    <div class="alert alert-info mb-0" role="status">@Model.Message</div>
+}
+else
+{
+    foreach (var warning in Model.Warnings)
+    {
+        <div class="alert alert-warning small py-2" role="alert">@warning</div>
+    }
+
+    if (Model.Narrative is { } n)
+    {
+        <section class="card border-primary mb-3">
+            <div class="card-body">
+                <h3 class="h6">AI view</h3>
+                <p class="mb-2">@n.Summary</p>
+                @if (preferred != null)
+                {
+                    <p class="mb-2"><strong>Prefers:</strong> @Name(preferred)<br />@n.PreferredReason</p>
+                }
+                @if (recommended != null)
+                {
+                    <p class="mb-2 small"><strong>Recommended by the sourcing manager:</strong> @Name(recommended)</p>
+                }
+                @if (n.Risks.Count > 0)
+                {
+                    <div class="small fw-semibold">Risks</div>
+                    <ul class="small">@foreach (var risk in n.Risks) { <li>@risk</li> }</ul>
+                }
+                @if (n.QuestionsToCheck.Count > 0)
+                {
+                    <div class="small fw-semibold">Check before you decide</div>
+                    <ul class="small mb-0">@foreach (var q in n.QuestionsToCheck) { <li>@q</li> }</ul>
+                }
+            </div>
+        </section>
+    }
+    else
+    {
+        <div class="alert alert-light border small" role="status">@Model.NarrativeUnavailableReason</div>
+        if (recommended != null)
+        {
+            <p class="small"><strong>Recommended by the sourcing manager:</strong> @Name(recommended)</p>
+        }
+    }
+
+    <h3 class="h6">Scores</h3>
+    <p class="small text-muted">
+        @Model.ScoringSummary Highest score: @Name(topScored).
+        Financial = lowest cost / bid cost x 100. Technical = @(Model.TechnicalFromCommitteeScores ? "average committee score" : "share of tender items quoted").
+    </p>
+    foreach (var r in Model.Rows)
+    {
+        <div class="card mb-3 @(r.BidId == Model.TopScoredBidId ? "border-success" : "")">
+            <div class="card-body">
+                <div class="d-flex justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h4 class="h6 mb-0">#@r.Rank - @Name(r)
+                            @if (r.BidId == Model.RecommendedBidId) { <span class="badge text-bg-primary">Recommended</span> }
+                            @if (r.Compliance != ComplianceDecision.Compliant) { <span class="badge text-bg-warning">@r.Compliance</span> }
+                        </h4>
+                        <div class="small text-muted">@r.TotalAmount.ToString("N2") @r.Currency | @r.DeliveryDays days</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fs-5 fw-semibold">@r.Total.ToString("0.#") / 100</div>
+                        <div class="small text-muted">Technical @r.Technical.ToString("0.#") | Financial @r.Financial.ToString("0.#")</div>
+                    </div>
+                </div>
+                <div class="progress my-2" role="progressbar" aria-label="Score for @r.Label" aria-valuenow="@((int)r.Total)" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar @(r.BidId == Model.TopScoredBidId ? "bg-success" : "")" style="width:@((int)r.Total)%"></div>
+                </div>
+                @if (r.AssistantNote is not null) { <p class="small mb-1">@r.AssistantNote</p> }
+                @if (r.Strengths.Count > 0) { <div class="small"><strong>Strengths:</strong> @string.Join(" ", r.Strengths)</div> }
+                @if (r.Weaknesses.Count > 0) { <div class="small"><strong>Weak points:</strong> @string.Join(" ", r.Weaknesses)</div> }
+            </div>
+        </div>
+    }
+    <p class="small text-muted mb-0">
+        @(Model.ModelName is null ? "Scores only (no AI text)." : "Text by local model " + Model.ModelName + ".")
+        @Model.AnalyzedAt.ToString("dd MMM yyyy HH:mm") UTC
+    </p>
+}

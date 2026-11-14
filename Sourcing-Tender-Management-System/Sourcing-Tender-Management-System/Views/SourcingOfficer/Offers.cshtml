@@ -56,3 +56,8 @@ else {
 }
 
 </div>
+
+@if (Model.Count > 0)
+{
+    <partial name="_BidAnalysisButton" model="@(new BidAnalysisButtonViewModel { Url = Url.Action("AnalyzeOffers", "SourcingOfficer", new { id = tender.Id })!, TenderNumber = tender.TenderNumber })" />
+}

@@ -158,3 +158,8 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 </div>
 
 </div>
+
+@if (offersReleased && Model.Bids.Count > 0)
+{
+    <partial name="_BidAnalysisButton" model="@(new BidAnalysisButtonViewModel { Url = Url.Action("AnalyzeBids", "EvaluationCommittee", new { tenderId = tender.Id })!, TenderNumber = tender.TenderNumber })" />
+}

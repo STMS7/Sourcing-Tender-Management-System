@@ -492,6 +492,20 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             .Include(b => b.Documents).AsSplitQuery().OrderBy(b => b.Supplier.CompanyName).ToListAsync());
     }
 
+    // POST /SourcingOfficer/AnalyzeOffers/5 — AI assistant popup on the offer comparison page.
+    // It only ranks and explains the offers; compliance and forwarding stay the officer's decision.
+    [HttpPost]
+    public async Task<IActionResult> AnalyzeOffers(int id,
+        [FromServices] Services.AiAssistant.IBidAnalysisService analysis, CancellationToken ct)
+    {
+        var tender = await MyTenders().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (tender == null) return NotFound();
+        if (!CanReadOffers(tender)) return Conflict("Offers remain sealed until bidding is closed and the opening date is reached.");
+        var model = await analysis.AnalyzeAsync(new Services.AiAssistant.BidAnalysisRequest(id,
+            BidAnalysisAudience.SourcingOfficer, OfficerId, IncludePendingCompliance: true), ct);
+        return model is null ? NotFound() : PartialView("_BidAnalysis", model);
+    }
+
     public async Task<IActionResult> DownloadBidDocument(int id,
         [FromServices] IWebHostEnvironment environment, [FromServices] IConfiguration configuration)
     {
