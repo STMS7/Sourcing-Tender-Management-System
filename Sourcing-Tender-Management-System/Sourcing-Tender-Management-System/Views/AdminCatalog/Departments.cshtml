@@ -1,5 +1,6 @@
 @model IReadOnlyList<Sourcing_Tender_Management_System.Models.Department>
 @{ ViewData["Title"] = "Departments"; }
+<div id="department-catalog-search-results">
 <h1>Departments</h1>
 @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
 @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
@@ -12,10 +13,11 @@
     <div class="col-md-2 form-check"><input type="checkbox" name="isActive" value="true" checked class="form-check-input" id="newDepartmentActive" /><label for="newDepartmentActive">Active</label></div>
     <div class="col-md-2"><button class="btn btn-primary" type="submit">Add</button></div>
 </form>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-catalog-search", ResultsId = "department-catalog-search-results", Label = "Search existing departments" })" />
 <h2 class="h5">Existing departments</h2>
 @foreach (var item in Model)
 {
-    <form asp-action="SaveDepartment" method="post" class="row g-2 mb-2">
+    <form data-search-item asp-action="SaveDepartment" method="post" class="row g-2 mb-2">
         @Html.AntiForgeryToken()
         <input type="hidden" name="id" value="@item.Id" />
         <div class="col-md-4"><input name="name" value="@item.Name" class="form-control" required maxlength="150" /></div>
@@ -24,3 +26,5 @@
         <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Save</button></div>
     </form>
 }
+
+</div>

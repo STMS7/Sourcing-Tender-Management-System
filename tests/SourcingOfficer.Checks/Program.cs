@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Sourcing_Tender_Management_System.Controllers;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
+using Sourcing_Tender_Management_System.Services;
 
 // Destructive operations are limited to this newly generated, isolated test database.
 var databaseName = "STMS_SourcingChecks_" + Guid.NewGuid().ToString("N");
@@ -44,6 +45,16 @@ async Task<TResult> Act<TResult>(Func<SourcingOfficerController, Task<TResult>> 
     };
     return await action(controller);
 }
+async Task<IActionResult> AdminAct(Func<AdminCommitteeController, Task<IActionResult>> action, string userId = "admin")
+{
+    await using var db = new ApplicationDbContext(options);
+    var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+        new[] { new Claim(ClaimTypes.NameIdentifier, userId), new Claim(ClaimTypes.Role, "Admin") }, "checks")) };
+    var controller = new AdminCommitteeController(db) {
+        ControllerContext = new ControllerContext { HttpContext = http },
+        TempData = new TempDataDictionary(http, new MemoryTempData()) };
+    return await action(controller);
+}
 async Task<TResult> RecipientAct<TResult>(Func<MessagesController, Task<TResult>> action, string userId)
 {
     await using var db = new ApplicationDbContext(options);
@@ -68,7 +79,30 @@ async Task<IActionResult> EvaluatorAct(string userId, Func<EvaluationCommitteeCo
     };
     return await action(controller);
 }
-int requestId, categoryId, supplierId, tenderId, bidId;
+IActionResult CycleAct(string userId, Func<CycleChatController, IActionResult> action)
+{
+    var services = new ServiceCollection().AddLogging();
+    services.AddDbContext<ApplicationDbContext>(o => o.UseSqlServer(connection));
+    services.AddIdentityCore<ApplicationUser>(o => o.Stores.MaxLengthForKeys = 128)
+        .AddRoles<IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>();
+    using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+    var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+        new[] { new Claim(ClaimTypes.NameIdentifier, userId) }, "checks")) };
+    var controller = ActivatorUtilities.CreateInstance<CycleChatController>(scope.ServiceProvider);
+    controller.ControllerContext = new ControllerContext { HttpContext = http };
+    controller.TempData = new TempDataDictionary(http, new MemoryTempData());
+    return action(controller);
+}
+async Task<IActionResult> SubmitCommitteeWeights(string user, int id, decimal technical, decimal financial)
+{
+    await using var db = new ApplicationDbContext(options);
+    var type = user == "technical" ? CriterionType.Technical : CriterionType.Financial;
+    var rows = await db.EvaluationCriteria.Where(c => c.TenderId == id && c.Type == type && !c.Name.StartsWith("__weight:"))
+        .Select(c => new CommitteeCriterionWeightInput { CriterionId = c.Id, Weight = 100 }).ToListAsync();
+    return await EvaluatorAct(user, c => c.SubmitWeights(id, technical, financial, rows));
+}
+int requestId, categoryId, supplierId, tenderId, bidId, wrongSupplierId, unmappedSupplierId;
 try
 {
     await using (var db = new ApplicationDbContext(options))
@@ -76,12 +110,12 @@ try
         // Exercise the team's actual migration chain, including seeded roles and indexes.
         await db.Database.MigrateAsync();
         Check(!(await db.Database.GetPendingMigrationsAsync()).Any(), "The actual team migrations apply without pending schema changes");
-        foreach (var id in new[] { "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
+        foreach (var id in new[] { "admin", "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
             db.Users.Add(new ApplicationUser { Id = id, FullName = id, UserName = id, NormalizedUserName = id.ToUpperInvariant(), IsActive = true });
         roleIds = await db.Roles.ToDictionaryAsync(r => r.Name!, r => r.Id);
         Check(new[] { "ProcurementOfficer", "SourcingOfficer", "Supplier", "DepartmentRepresentative", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative" }
             .All(roleIds.ContainsKey), "Migration-seeded role names match the communication and sourcing modules");
-        foreach (var (user, role) in new[] { ("officer", "ProcurementOfficer"), ("other", "ProcurementOfficer"),
+        foreach (var (user, role) in new[] { ("admin", "Admin"), ("officer", "ProcurementOfficer"), ("other", "ProcurementOfficer"),
             ("requester", "DepartmentRepresentative"), ("supplier-user", "Supplier"), ("manager", "SourcingManager"),
             ("department", "DepartmentRepresentative"), ("financial", "FinancialRepresentative"), ("technical", "TechnicalRepresentative") })
             db.UserRoles.Add(new IdentityUserRole<string> { UserId = user, RoleId = roleIds[role] });
@@ -91,6 +125,14 @@ try
         db.AddRange(department, category, supplier);
         await db.SaveChangesAsync();
         categoryId = category.Id; supplierId = supplier.Id;
+        var wrongCategory = new Category { Name = "Office hardware" };
+        var wrongSupplier = new Supplier { CompanyName = "Hardware supplier", RegistrationNumber = "REG-WRONG", Email = "wrong@example.test",
+            RegistrationStatus = SupplierRegistrationStatus.Approved, SupplierCategories = [new SupplierCategory { Category = wrongCategory }] };
+        var unmappedSupplier = new Supplier { CompanyName = "Unmapped supplier", RegistrationNumber = "REG-UNMAPPED", Email = "unmapped@example.test",
+            RegistrationStatus = SupplierRegistrationStatus.Approved };
+        db.AddRange(wrongSupplier, unmappedSupplier); await db.SaveChangesAsync();
+        wrongSupplierId = wrongSupplier.Id; unmappedSupplierId = unmappedSupplier.Id;
+        db.SupplierCategories.Add(new SupplierCategory { SupplierId = supplierId, CategoryId = categoryId });
         (await db.Users.FindAsync("supplier-user"))!.SupplierId = supplierId;
         var request = new ProcurementRequest
         {
@@ -161,15 +203,110 @@ try
     await Act(c => c.Publish(tenderId));
     await using (var db = new ApplicationDbContext(options))
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft, "Incomplete tender cannot publish");
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical, Weight = 100 }));
+    Check(await Act(c => c.RequestWeightApproval(tenderId)) is RedirectToActionResult,
+        "Missing external preparation redirects to tender details instead of raw errors");
+    await using (var db = new ApplicationDbContext(options))
+        Check((await db.Tenders.FindAsync(tenderId))!.EvaluationCriteriaLockedAt == null,
+            "Waiting for Admin and committee does not lock the draft");
+    await Act(async c => {
+        var result = await c.Details(tenderId);
+        var waiting = (List<string>)c.ViewBag.PreparationWaitingReasons;
+        Check(waiting.Count == 2 && waiting.Any(r => r.Contains("Admin")) && waiting.Any(r => r.Contains("technical and financial")),
+            "Officer details identify Admin assignment and committee criteria as separate waiting dependencies");
+        return result;
+    });
+    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical }));
     await using (var db = new ApplicationDbContext(options))
         Check(!await db.EvaluationCriteria.AnyAsync(), "Officer criteria cannot impersonate internal committee weight proposals");
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical, Weight = 100 }));
-    await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Cost", Type = CriterionType.Financial, Weight = 100 }));
+    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical }))
+        is ForbidResult, "Officer cannot create evaluation criteria or maximum scores");
+    Check(typeof(SourcingCriterionForm).GetProperty("Weight") == null,
+        "Officer criterion input exposes no weight field for model binding");
+    await using (var db = new ApplicationDbContext(options)) {
+        Check(!await db.EvaluationCriteria.AnyAsync(), "Denied officer criterion writes leave the database unchanged");
+        // External committee input: the committee's authoring UI is outside this officer test.
+        db.EvaluationCriteria.AddRange(
+            new EvaluationCriterion { TenderId = tenderId, Name = "Technical fit", Type = CriterionType.Technical, MaximumScore = 100 },
+            new EvaluationCriterion { TenderId = tenderId, Name = "Cost", Type = CriterionType.Financial, MaximumScore = 100 });
+        await db.SaveChangesAsync();
+        Check(await Act(c => c.RemoveCriterion(db.EvaluationCriteria.Local.First().Id)) is ForbidResult,
+            "Officer cannot delete committee criteria before preparation locks");
+    }
     await Act(c => c.AddRequirement(new SourcingRequirementForm { TenderId = tenderId, DocumentType = "Food quality certificate", IsMandatory = true }));
+    await Act(async c => {
+        var details = (ViewResult)await c.Details(tenderId);
+        var choices = (List<Supplier>)details.ViewData["Suppliers"]!;
+        Check(choices.Count == 1 && choices.Single().Id == supplierId, "Supplier picker includes only matching category suppliers");
+        return details;
+    });
+    Check(await Act(c => c.Invite(tenderId, new[] { wrongSupplierId })) is BadRequestObjectResult,
+        "Forged cross-category invitation is rejected");
+    Check(await Act(c => c.Invite(tenderId, new[] { supplierId, unmappedSupplierId })) is BadRequestObjectResult,
+        "Mixed eligible/ineligible selection cannot create partial invitations");
     await Act(c => c.Invite(tenderId, new[] { supplierId, supplierId }));
     await using (var db = new ApplicationDbContext(options))
         Check(await db.TenderInvitations.CountAsync() == 1, "Duplicate supplier selections create one invitation");
+    Check(await Act(c => c.AssignEvaluationCommittee(new SourcingCommitteeForm { TenderId = tenderId,
+        ManagerUserId = "manager", DepartmentUserId = "department", TechnicalUserId = "technical", FinancialUserId = "financial" }))
+        is ForbidResult, "Officer cannot assign the committee through the legacy endpoint");
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId }), "officer")
+        is ForbidResult, "Admin assignment rechecks the database role despite a forged Admin claim");
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId,
+        ManagerUserId = "manager", DepartmentUserId = "department", TechnicalUserId = "technical", FinancialUserId = "financial" }))
+        is RedirectToActionResult, "Admin assigns four authorized committee members before publication");
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId,
+        ManagerUserId = "manager", DepartmentUserId = "department", TechnicalUserId = "technical", FinancialUserId = "technical" }))
+        is RedirectToActionResult, "Invalid committee selection returns validation feedback");
+    await using (var db = new ApplicationDbContext(options))
+        Check(await db.TenderCommitteeMembers.CountAsync(m => m.TenderId == tenderId && m.UserId == "financial") == 1,
+            "Invalid committee selection preserves the valid assignments");
+    Check(await Act(c => c.RequestWeightApproval(tenderId), "other") is NotFoundResult,
+        "Another officer cannot request preparation approval");
+    await Act(c => c.RequestWeightApproval(tenderId));
+    Check(await AdminAct(c => c.Assign(new SourcingCommitteeForm { TenderId = tenderId }))
+        is ConflictObjectResult, "Admin cannot reassign a locked preparation committee");
+    Check(await EvaluatorAct("technical", c => c.Evaluate(tenderId)) is ViewResult {
+        Model: EvaluationCommitteeViewModel prep } && prep.Bids.Count == 0,
+        "Committee receives draft preparation without supplier offers");
+    await SubmitCommitteeWeights("technical", tenderId, 80, 20);
+    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Changed after review" }))
+        is ForbidResult, "Officer cannot create criteria during preparation approval");
+    Check(await Act(c => c.Edit(tenderId)) is ConflictObjectResult,
+        "Direct edit links reject locked preparation instead of displaying an unusable form");
+    Check(await Act(c => c.AddRequirement(new SourcingRequirementForm { TenderId = tenderId, DocumentType = "Changed document" }))
+        is ConflictObjectResult, "Preparation approval freezes document requirements");
+    await using (var db = new ApplicationDbContext(options)) {
+        var proposalId = await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Name.StartsWith("__weight:")).Select(c => c.Id).FirstAsync();
+        Check(await Act(c => c.RemoveCriterion(proposalId)) is ForbidResult, "Officer cannot remove committee approval rows");
+    }
+    Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null)) is ViewResult {
+        Model: SourcingMessagesViewModel preparationChat } && preparationChat.Recipients.Count == 4,
+        "Locked preparation supports authorized committee clarification");
+    await Act(c => c.ReopenPreparation(tenderId));
+    await using (var db = new ApplicationDbContext(options))
+        Check(!await db.EvaluationCriteria.AnyAsync(c => c.TenderId == tenderId && c.Name.StartsWith("__weight:")) &&
+            (await db.Tenders.FindAsync(tenderId))!.EvaluationCriteriaLockedAt == null,
+            "Reopening draft invalidates all previous approvals");
+    Check(await SubmitCommitteeWeights("technical", tenderId, 80, 20) is ConflictObjectResult,
+        "Committee cannot approve before officer relocks preparation");
+    await Act(c => c.RequestWeightApproval(tenderId));
+    await SubmitCommitteeWeights("technical", tenderId, 80, 20);
+    await Act(c => c.Publish(tenderId));
+    await using (var db = new ApplicationDbContext(options))
+        Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft,
+            "One committee proposal cannot authorize publication");
+    await SubmitCommitteeWeights("financial", tenderId, 60, 40);
+    await using (var db = new ApplicationDbContext(options)) {
+        db.SupplierCategories.Remove(await db.SupplierCategories.SingleAsync(c => c.SupplierId == supplierId));
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.Publish(tenderId));
+    await using (var db = new ApplicationDbContext(options)) {
+        Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft,
+            "Publication revalidates prepared invitation categories");
+        db.SupplierCategories.Add(new SupplierCategory { SupplierId = supplierId, CategoryId = categoryId });
+        await db.SaveChangesAsync();
+    }
     await Act(c => c.Publish(tenderId));
     await using (var db = new ApplicationDbContext(options))
     {
@@ -177,7 +314,9 @@ try
         Check(tender!.Status == TenderStatus.Published && tender.EvaluationCriteriaLockedAt != null, "Publish locks evaluation criteria");
         Check(await db.Notifications.AnyAsync(n => n.UserId == "supplier-user"), "Publishing notifies supplier accounts");
     }
-    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Late change", Weight = 1 })) is ConflictObjectResult, "Criteria cannot change after publication");
+    Check(await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "Late change" })) is ForbidResult, "Officer cannot create criteria after publication");
+    Check(await Act(c => c.ReopenPreparation(tenderId)) is ConflictObjectResult,
+        "Published preparation cannot be reopened or approvals reset");
     Check(await Act(c => c.Close(tenderId)) is ConflictObjectResult, "Early closure is rejected");
     Check(await Act(c => c.Offers(tenderId)) is ConflictObjectResult, "Offers remain sealed during bidding");
     await using (var db = new ApplicationDbContext(options))
@@ -250,13 +389,17 @@ try
         await db.SaveChangesAsync();
     }
     await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.Compliant, Reason = "Certificate and requirements checked" }));
+    await using (var db = new ApplicationDbContext(options))
+    {
+        db.TenderCommitteeMembers.Remove(await db.TenderCommitteeMembers.SingleAsync(m => m.TenderId == tenderId && m.UserId == "manager"));
+        await db.SaveChangesAsync();
+    }
     await Act(c => c.ForwardToEvaluation(tenderId));
     await using (var db = new ApplicationDbContext(options))
     {
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Closed, "Evaluation handoff requires an assigned four-person committee");
-        var positions = new[] { ("manager", CommitteeMemberRole.SourcingManager), ("department", CommitteeMemberRole.DepartmentRepresentative),
-            ("financial", CommitteeMemberRole.FinancialRepresentative), ("technical", CommitteeMemberRole.TechnicalRepresentative) };
-        foreach (var (user, role) in positions) db.TenderCommitteeMembers.Add(new TenderCommitteeMember { TenderId = tenderId, UserId = user, Role = role.ToString(), RoleType = role });
+        db.TenderCommitteeMembers.Add(new TenderCommitteeMember { TenderId = tenderId, UserId = "manager",
+            Role = "SourcingManager", RoleType = CommitteeMemberRole.SourcingManager });
         await db.SaveChangesAsync();
     }
     await using (var db = new ApplicationDbContext(options))
@@ -303,13 +446,13 @@ try
     Check(await EvaluatorAct("financial", c => c.Evaluate(tenderId))
         is ViewResult { Model: EvaluationCommitteeViewModel receivedFinancial } && receivedFinancial.Bids.Count == 1,
         "The financial committee's real controller receives the same eligible tender");
-    await EvaluatorAct("technical", c => c.SubmitWeights(tenderId, 80, 20));
-    await EvaluatorAct("financial", c => c.SubmitWeights(tenderId, 60, 40));
+    Check(await SubmitCommitteeWeights("technical", tenderId, 99, 1) is ConflictObjectResult,
+        "Weights cannot be changed after bidding and handoff");
     await using (var db = new ApplicationDbContext(options))
     {
         var evaluated = (await db.Tenders.FindAsync(tenderId))!;
         Check(evaluated.TechnicalWeight == 70 && evaluated.FinancialWeight == 30,
-            "Actual technical and financial committee proposals determine the overall weights");
+            "Previously approved committee weights survive publication and handoff");
     }
     Check(await Act(c => c.Compliance(new SourcingComplianceForm { BidId = bidId, Decision = ComplianceDecision.NonCompliant, Reason = "Late change" })) is ConflictObjectResult, "Compliance cannot change after handoff");
     Check(await Act(c => c.ForwardToEvaluation(tenderId)) is ConflictObjectResult, "Duplicate evaluation handoff is rejected");
@@ -449,11 +592,100 @@ try
         report.SubmittedAt = null;
         await db.SaveChangesAsync();
     }
+    // Shared Clarification rows must work through both independently implemented inboxes.
+    await Act(c => c.AskClarification(new SourcingClarificationForm { TenderId = tenderId, BidId = bidId,
+        RecipientUserId = "supplier-user", Subject = "Cross inbox officer", Question = "Confirm delivery." }));
+    int crossId;
+    await using (var db = new ApplicationDbContext(options))
+        crossId = await db.Clarifications.Where(c => c.Subject == "Cross inbox officer").Select(c => c.Id).SingleAsync();
+    Check(CycleAct("supplier-user", c => c.Thread(crossId)) is ViewResult cross && (bool)cross.ViewData["CanReply"]!,
+        "CycleChat can reply to officer messages carrying both tender and bid context");
+    Check(CycleAct("supplier-user", c => c.Reply(crossId, "Delivery confirmed via CycleChat")) is RedirectToActionResult,
+        "Supplier response crosses from CycleChat into the officer's thread");
+    Check(await Act(c => c.Messages(null, null, crossId)) is ViewResult { Model: SourcingMessagesViewModel crossModel } &&
+        crossModel.Selected!.Responses.Any(r => r.ResponseText == "Delivery confirmed via CycleChat"),
+        "Officer reads responses posted from the teammate's chat");
+    Check(CycleAct("supplier-user", c => c.New(null, null, bidId, "officer", "Supplier bid-only context", "Confirm packaging"))
+        is RedirectToActionResult, "Supplier can start an authorized bid-only CycleChat thread");
+    int bidOnlyId;
+    await using (var db = new ApplicationDbContext(options))
+        bidOnlyId = await db.Clarifications.Where(c => c.Subject == "Supplier bid-only context").Select(c => c.Id).SingleAsync();
+    Check(await Act(c => c.Messages(null, null, bidOnlyId)) is ViewResult { Model: SourcingMessagesViewModel bidOnlyModel } &&
+        bidOnlyModel.CanReply, "Officer can respond to supplier-originated bid-only contexts");
+    Check(await RecipientAct(c => c.Reply(bidOnlyId, "Generic inbox reply"), "supplier-user") is RedirectToActionResult,
+        "Shared recipient inbox supports CycleChat's bid-only shape");
+    Check(CycleAct("requester", c => c.Reply(crossId, "Unrelated reply")) is NotFoundResult,
+        "Cross-inbox compatibility never exposes supplier threads to other parties");
+    var wrongContext = CycleAct("supplier-user", c => c.New(null, tenderId + 9999, bidId, "officer",
+        "Mismatched context", "Invalid tender"));
+    await using (var db = new ApplicationDbContext(options))
+        Check(wrongContext is ViewResult && !await db.Clarifications.AnyAsync(c => c.Subject == "Mismatched context"),
+            "Explicit tender IDs must match the bid in CycleChat");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.OpeningDate = DateTime.UtcNow.AddHours(1);
+        await db.SaveChangesAsync();
+    }
+    Check(CycleAct("supplier-user", c => c.Reply(crossId, "Too early")) is ConflictObjectResult,
+        "CycleChat respects sealed-offer opening dates");
+    Check(await RecipientAct(c => c.Reply(bidOnlyId, "Too early"), "supplier-user") is ConflictObjectResult,
+        "Generic inbox applies the same sealed-offer gate");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.OpeningDate = null;
+        await db.SaveChangesAsync();
+    }
+    await Act(c => c.AskClarification(new SourcingClarificationForm { TenderId = tenderId,
+        RecipientUserId = "manager", Subject = "Cross inbox committee", Question = "Confirm report status" }));
+    int managerThread;
+    await using (var db = new ApplicationDbContext(options))
+        managerThread = await db.Clarifications.Where(c => c.Subject == "Cross inbox committee").Select(c => c.Id).SingleAsync();
+    Check(CycleAct("manager", c => c.Reply(managerThread, "Committee manager reply")) is RedirectToActionResult,
+        "Assigned sourcing manager can reply to officer committee threads through CycleChat");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.AwaitingManagerReview;
+        await db.SaveChangesAsync();
+    }
+    Check(CycleAct("manager", c => c.Reply(managerThread, "Report is awaiting review")) is RedirectToActionResult,
+        "Both inboxes retain officer committee communication while report awaits manager review");
+    await using (var db = new ApplicationDbContext(options)) {
+        (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.UnderEvaluation;
+        await db.SaveChangesAsync();
+    }
+    foreach (var alias in new[] { "DepartmentRequester", "RequestingDepartment" }) {
+        await using (var db = new ApplicationDbContext(options)) {
+            var role = await db.Roles.SingleOrDefaultAsync(r => r.Name == alias);
+            if (role == null) {
+                role = new IdentityRole(alias) { NormalizedName = alias.ToUpperInvariant() };
+                db.Roles.Add(role); await db.SaveChangesAsync();
+            }
+            db.UserRoles.RemoveRange(db.UserRoles.Where(r => r.UserId == "department"));
+            await db.SaveChangesAsync();
+            db.UserRoles.Add(new IdentityUserRole<string> { UserId = "department", RoleId = role.Id });
+            await db.SaveChangesAsync();
+        }
+        Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null)) is ViewResult {
+            Model: SourcingMessagesViewModel aliasModel } && aliasModel.Recipients.Any(r => r.Id == "department"),
+            alias + " is available for assigned committee clarification");
+        Check(CycleAct("department", c => c.New(null, tenderId, null, "officer", "Committee alias " + alias, "Clarify evaluation"))
+            is RedirectToActionResult, alias + " can use the teammate committee chat");
+    }
+    await using (var db = new ApplicationDbContext(options)) {
+        db.UserRoles.RemoveRange(db.UserRoles.Where(r => r.UserId == "department"));
+        await db.SaveChangesAsync();
+        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "department", RoleId = roleIds["DepartmentRepresentative"] });
+        await db.SaveChangesAsync();
+    }
+    Check(await Act(c => c.SendCommitteeMessage(tenderId, "Team handoff", "Review the compliant offers."), "other")
+        is NotFoundResult, "Another officer cannot broadcast committee messages for this tender");
+    Check(await Act(c => c.SendCommitteeMessage(tenderId, "Team handoff", "Review the compliant offers."))
+        is RedirectToActionResult, "Officer messages the committee without selecting a member");
+    await using (var db = new ApplicationDbContext(options))
+        Check(await db.Clarifications.CountAsync(c => c.TenderId == tenderId && c.Subject == "Team handoff") == 4,
+            "Committee message reaches exactly the four authorized participants");
     Console.WriteLine($"All {checks} sourcing workflow checks passed.");
     if (preview)
     {
         await using var db = new ApplicationDbContext(options);
-        foreach (var accountId in new[] { "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
+        foreach (var accountId in new[] { "admin", "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
         {
             var account = (await db.Users.FindAsync(accountId))!;
             account.UserName = account.Email = accountId + "@example.test";
@@ -478,7 +710,8 @@ try
             var ready = new Tender { TenderNumber = "TND-HANDOFF-PREVIEW", Title = "Packaging tender ready for evaluation",
                 CategoryId = categoryId, CreatedByUserId = "officer", ProcurementRequest = source,
                 Status = TenderStatus.Closed, PublishedAt = DateTime.UtcNow.AddDays(-3),
-                SubmissionDeadline = DateTime.UtcNow.AddDays(-1), EvaluationCriteriaLockedAt = DateTime.UtcNow.AddDays(-3),
+                SubmissionDeadline = DateTime.UtcNow.AddDays(-1), EvaluationCriteriaLockedAt = DateTime.UtcNow.AddDays(-4),
+                TechnicalWeight = 70, FinancialWeight = 30,
                 TermsAndConditions = "Food-safe packaging and agreed delivery.", Items = [item],
                 EvaluationCriteria = [
                     new EvaluationCriterion { Name = "Quality", Type = CriterionType.Technical, Weight = 100, MaximumScore = 100 },
@@ -491,9 +724,41 @@ try
             ready.Bids.Add(new Bid { BidNumber = "BID-HANDOFF-PREVIEW", SupplierId = supplierId, Status = BidStatus.Submitted,
                 ComplianceStatus = ComplianceDecision.Compliant, TotalAmount = 100,
                 Items = [new BidItem { TenderItem = item, UnitPrice = .10m, TotalPrice = 100, TechnicalResponse = "Food-safe packaging." }] });
+            // Synthetic already-published scenario, with approval evidence preceding publication.
+            foreach (var criterion in await db.EvaluationCriteria.AsNoTracking().Where(c => c.TenderId == tenderId && c.Name.StartsWith("__weight:")).ToListAsync())
+                ready.EvaluationCriteria.Add(new EvaluationCriterion { Name = criterion.Name, Type = criterion.Type,
+                    Weight = criterion.Weight, MaximumScore = 0 });
             db.Tenders.Add(ready);
+            await db.SaveChangesAsync();
+            foreach (var (user, role) in new[] { ("technical", CommitteeMemberRole.TechnicalRepresentative), ("financial", CommitteeMemberRole.FinancialRepresentative) })
+                db.WorkflowTransitions.Add(new WorkflowTransition { TenderId = ready.Id, FromStage = WorkflowStage.Sourcing,
+                    ToStage = WorkflowStage.Sourcing, Action = WorkflowAction.Approved, PerformedByUserId = user,
+                    Reason = "Pre-publication approval:" + role, CreatedAt = ready.PublishedAt!.Value.AddHours(-1) });
+            db.WorkflowTransitions.Add(new WorkflowTransition { TenderId = ready.Id, FromStage = WorkflowStage.Sourcing,
+                ToStage = WorkflowStage.Sourcing, Action = WorkflowAction.Approved, PerformedByUserId = "financial",
+                Reason = EvaluationPreparation.ApprovalReason, CreatedAt = ready.PublishedAt!.Value.AddMinutes(-30) });
         }
         await db.SaveChangesAsync();
+        if (args.Contains("--handoff-preview")) {
+            // External producer fixture; never created by an officer criterion endpoint.
+            var source = await db.ProcurementRequests.SingleAsync(r => r.RequestNumber == "PR-PREVIEW");
+            source.Status = ProcurementRequestStatus.ConvertedToTender;
+            db.Tenders.Add(new Tender { TenderNumber = "TND-PREPARATION-PREVIEW",
+                Title = "Browser preparation and category verification", CategoryId = categoryId,
+                CreatedByUserId = "officer", ProcurementRequestId = source.Id, Status = TenderStatus.Draft,
+                SubmissionDeadline = DateTime.UtcNow.AddDays(10), TermsAndConditions = "Food-safe packaging.",
+                Items = [new TenderItem { ItemName = "Food-safe bags", Quantity = 10000, Unit = "pcs" }],
+                EvaluationCriteria = [
+                    new EvaluationCriterion { Name = "Quality specifications", Type = CriterionType.Technical, MaximumScore = 100 },
+                    new EvaluationCriterion { Name = "Delivery quality", Type = CriterionType.Technical, MaximumScore = 100 },
+                    new EvaluationCriterion { Name = "Total cost", Type = CriterionType.Financial, MaximumScore = 100 }] });
+            await db.SaveChangesAsync();
+            db.Tenders.Add(new Tender { TenderNumber = "TND-WAITING-PREVIEW", Title = "Waiting for committee preparation",
+                CategoryId = categoryId, CreatedByUserId = "officer", Status = TenderStatus.Draft,
+                SubmissionDeadline = DateTime.UtcNow.AddDays(10), TermsAndConditions = "Food-safe packaging.",
+                Items = [new TenderItem { ItemName = "Food-safe bags", Quantity = 50, Unit = "pcs" }] });
+            await db.SaveChangesAsync();
+        }
         Console.WriteLine("PREVIEW_DATABASE=" + databaseName);
     }
 }

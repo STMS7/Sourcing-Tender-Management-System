@@ -1,0 +1,23 @@
+@model WorkspaceSearchViewModel
+@{
+    var languageData = new Microsoft.AspNetCore.Mvc.ViewFeatures.ViewDataDictionary(ViewData) {
+        ["VoiceLanguageId"] = Model.Id + "-language"
+    };
+}
+<form method="get" class="row g-3 align-items-end my-3" role="search"
+      data-live-search data-local-search data-results="@Model.ResultsId"
+      data-row-selector="[data-search-item]" data-search-status="@(Model.Id)-status"
+      data-empty-state="@(Model.Id)-empty" hidden>
+    <div class="col-md-6">
+        <label for="@Model.Id" class="form-label">@Model.Label</label>
+        <input id="@Model.Id" type="search" class="form-control" placeholder="@Model.Placeholder"
+               dir="auto" autocomplete="off" data-search-input />
+    </div>
+    <div class="col-md-3"><partial name="_VoiceLanguage" view-data="languageData" /></div>
+    <div class="col-md-3 d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-primary" type="button" data-voice-search aria-pressed="false">Search by voice</button>
+        <button class="btn btn-link" type="button" data-search-reset>Clear search</button>
+    </div>
+    <p class="col-12 small text-secondary mb-0" id="@(Model.Id)-status" role="status">Search the records loaded on this page.</p>
+</form>
+<p id="@(Model.Id)-empty" class="alert alert-info" data-search-empty hidden>No matching records. Clear the search to show all records.</p>

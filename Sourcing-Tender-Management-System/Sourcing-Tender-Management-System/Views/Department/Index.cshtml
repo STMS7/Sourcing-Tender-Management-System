@@ -1,0 +1,51 @@
+@model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
+@using Sourcing_Tender_Management_System.Models
+@{
+    ViewData["Title"] = "My Purchase Requests";
+}
+<h2>My Purchase Requests</h2>
+<p><a asp-action="Dashboard">Dashboard</a> | <a asp-action="Create">Create Request</a> | <a asp-controller="CycleChat" asp-action="Index">Clarifications</a></p>
+<form method="get" asp-action="Index" class="row g-3 align-items-end mb-3" role="search"
+      data-live-search data-search-response="document" data-results="department-request-results" data-search-status="department-request-status">
+    <div class="col-md-6"><label for="department-request-query" class="form-label">Request title or number</label><input id="department-request-query" type="search" name="search" value="@ViewBag.Search" class="form-control" placeholder="Search title / number" dir="auto" data-search-input /></div>
+    <div class="col-md-3"><label for="department-request-filter" class="form-label">Request status</label><select id="department-request-filter" name="status" class="form-select">
+        <option value="">All statuses</option>
+        @foreach (var status in Enum.GetValues<ProcurementRequestStatus>())
+        {
+            <option value="@status" selected="@(Convert.ToString(ViewBag.Status) == status.ToString())">@status</option>
+        }
+    </select></div>
+    <div class="col-md-3"><partial name="_VoiceLanguage" /></div>
+    <div class="col-12 d-flex flex-wrap gap-2"><button type="button" class="btn btn-outline-primary" data-voice-search aria-pressed="false">Search by voice</button><button type="submit" class="btn btn-primary">Search</button><button type="button" class="btn btn-link" data-search-reset>Clear search</button></div>
+</form>
+<p id="department-request-status" role="status" class="small text-secondary"></p>
+<div id="department-request-results" aria-busy="false">
+<div class="table-responsive"><table class="table table-bordered">
+    <thead><tr><th>Number</th><th>Title</th><th>Priority</th><th>Required</th><th>Budget</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var r in Model)
+    {
+        <tr data-search-item>
+            <td>@r.RequestNumber</td><td>@r.Title</td><td>@r.Priority</td>
+            <td>@r.RequiredByDate?.ToString("yyyy-MM-dd")</td><td>@r.EstimatedBudget</td>
+            <td>@r.Status</td>
+            <td>
+                <a asp-action="Details" asp-route-id="@r.Id">Details</a>
+                @if (r.Status == ProcurementRequestStatus.Draft || r.Status == ProcurementRequestStatus.Returned)
+                {
+                    <a asp-action="Edit" asp-route-id="@r.Id">Edit</a>
+                    <form asp-action="Submit" asp-route-id="@r.Id" method="post" style="display:inline">
+                        <button type="submit">Submit</button>
+                    </form>
+                }
+                @if (r.Status == ProcurementRequestStatus.Draft)
+                {
+                    <a asp-action="Delete" asp-route-id="@r.Id">Delete</a>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table></div>
+@if (!Model.Any()) { <p>No purchase requests found.</p> }
+</div>

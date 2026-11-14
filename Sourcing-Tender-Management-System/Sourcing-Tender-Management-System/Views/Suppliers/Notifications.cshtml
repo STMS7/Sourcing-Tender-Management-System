@@ -1,10 +1,12 @@
 @model List<Notification>
 @{ ViewData["Title"] = "My Notifications"; }
+<div id="notification-search-results">
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h2 mb-0">My Notifications</h1>
     <a asp-action="Index" class="btn btn-outline-secondary">Back to dashboard</a>
 </div>
 <p class="text-muted">Notifications addressed to your account only. Dates are shown in UTC.</p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "notification-search", ResultsId = "notification-search-results", Label = "Search your notifications" })" />
 @if (TempData["SupplierNotice"] is string notice)
 {
     <div class="alert alert-success" role="status">@notice</div>
@@ -15,7 +17,7 @@
 }
 @foreach (var notification in Model)
 {
-    <div class="card mb-3 @(notification.IsRead ? "" : "border-primary")"><div class="card-body">
+    <div data-search-item class="card mb-3 @(notification.IsRead ? "" : "border-primary")"><div class="card-body">
         <div class="d-flex flex-wrap justify-content-between gap-2">
             <h2 class="h5">@notification.Title</h2>
             <span class="badge align-self-start @(notification.IsRead ? "bg-secondary" : "bg-primary")">@(notification.IsRead ? "Read" : "Unread")</span>
@@ -35,3 +37,5 @@
         }
     </div></div>
 }
+
+</div>
