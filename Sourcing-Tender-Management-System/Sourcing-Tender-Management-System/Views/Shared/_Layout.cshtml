@@ -37,6 +37,9 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Admin</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="AdminCommittee" asp-action="Index">Committees</a>
+                            </li>
                         }
                         @if (User.IsInRole("SourcingManager"))
                         {
@@ -49,6 +52,8 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="SourcingOfficer" asp-action="Index">Sourcing</a>
                             </li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Requests">Requests</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Tenders">Tenders</a></li>
                         }
                         @if (User.IsInRole("TechnicalRepresentative") || User.IsInRole("FinancialRepresentative") ||
                             User.IsInRole("SourcingManager") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
@@ -60,6 +65,10 @@
                         @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("ProcurementOfficer") && !User.IsInRole("SourcingOfficer"))
                         {
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Messages" asp-action="Index">Messages</a></li>
+                        }
+                        @if (User.IsInRole("TopCommittee"))
+                        {
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="TopCommittee" asp-action="Index">Top committee</a></li>
                         }
                         @if (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
                         {

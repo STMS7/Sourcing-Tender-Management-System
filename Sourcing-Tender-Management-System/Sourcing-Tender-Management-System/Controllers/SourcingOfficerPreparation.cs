@@ -16,16 +16,11 @@ public partial class SourcingOfficerController
     {
         var reasons = new List<string>();
         if ((await EvaluationPreparation.MemberIssues(db, tender)).Count != 0)
-            reasons.Add("Waiting for Admin to assign four eligible evaluation committee members.");
-        var missing = Enum.GetValues<CriterionType>().Where(type =>
-            !tender.EvaluationCriteria.Any(c => c.Type == type && !CommitteeWeighting.IsWeightProposal(c)))
-            .Select(type => type.ToString().ToLowerInvariant()).ToList();
-        if (missing.Count != 0)
-            reasons.Add("Waiting for the evaluation committee to prepare " + string.Join(" and ", missing) + " criteria.");
+            reasons.Add("The automatic evaluation committee is incomplete. Admin must activate one eligible user for each required role.");
         return reasons;
     }
 
-    [NonAction]
+    [HttpPost]
     public async Task<IActionResult> RequestWeightApproval(int id)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -56,7 +51,7 @@ public partial class SourcingOfficerController
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    [NonAction]
+    [HttpPost]
     public async Task<IActionResult> ReopenPreparation(int id)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);

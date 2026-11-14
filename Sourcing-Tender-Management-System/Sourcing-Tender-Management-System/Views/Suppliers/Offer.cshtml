@@ -1,7 +1,7 @@
 @model SupplierOfferViewModel
 @{ ViewData["Title"] = "Submit Offer"; var tender = Model.Tender!; }
 <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Submit Offer</h1><a asp-action="Invitation" asp-route-id="@Model.InvitationId" class="btn btn-outline-secondary align-self-start">Back to invitation</a></div>
-<div class="alert alert-info"><strong>@tender.TenderNumber — @tender.Title</strong><br />Submission deadline (UTC): @tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm")</div>
+<div class="alert alert-info"><strong>@tender.TenderNumber — @tender.Title</strong><br />Submission deadline (device time): <time class="device-local-time" datetime="@DateTime.SpecifyKind(tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></div>
 <form asp-action="Offer" method="post" enctype="multipart/form-data">
     <input asp-for="InvitationId" type="hidden" />
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
@@ -10,7 +10,7 @@
         <div class="row">
             <div class="col-md-6 mb-3"><label asp-for="Currency" class="form-label">Currency code (e.g. JOD or USD)</label><input asp-for="Currency" type="text" class="form-control" maxlength="3" /><span asp-validation-for="Currency" class="text-danger"></span></div>
             <div class="col-md-6 mb-3"><label asp-for="DeliveryDays" class="form-label">Delivery timeframe in days</label><input asp-for="DeliveryDays" type="number" class="form-control" min="1" max="3650" /><span asp-validation-for="DeliveryDays" class="text-danger"></span></div>
-            <div class="col-md-6 mb-3"><label asp-for="ValidUntil" class="form-label">Offer valid until</label><input asp-for="ValidUntil" type="date" class="form-control"  /><span asp-validation-for="ValidUntil" class="text-danger"></span></div>
+            <div class="col-md-6 mb-3"><label asp-for="ValidUntil" class="form-label">Offer valid until</label><input asp-for="ValidUntil" type="date" min="@tender.SubmissionDeadline.ToString("yyyy-MM-dd")" class="form-control" /><div class="form-text">Must be on or after the tender deadline. A safe default is filled automatically.</div><span asp-validation-for="ValidUntil" class="text-danger"></span></div>
         </div>
         <div class="mb-3"><label asp-for="TechnicalSummary" class="form-label">Technical summary</label><textarea asp-for="TechnicalSummary" class="form-control" rows="3"></textarea><span asp-validation-for="TechnicalSummary" class="text-danger"></span></div>
         <div class="mb-3"><label asp-for="PaymentTerms" class="form-label">Payment terms</label><textarea asp-for="PaymentTerms" class="form-control" rows="2"></textarea><span asp-validation-for="PaymentTerms" class="text-danger"></span></div>

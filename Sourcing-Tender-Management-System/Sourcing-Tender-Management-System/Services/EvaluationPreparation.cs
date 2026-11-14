@@ -24,7 +24,7 @@ public static class EvaluationPreparation
     public static async Task<bool> Approved(ApplicationDbContext db, Tender tender)
     {
         var weights = CommitteeWeighting.Agree(CommitteeWeighting.ReadProposals(tender.EvaluationCriteria));
-        if (!(tender.EvaluationCriteriaLockedAt != null && weights != null && CriterionWeightsReady(tender.EvaluationCriteria) &&
+        if (!(tender.EvaluationCriteriaLockedAt != null && weights != null &&
             CommitteeWeighting.Validate(weights.Technical, weights.Financial) == null &&
             tender.TechnicalWeight == weights.Technical && tender.FinancialWeight == weights.Financial &&
             await db.WorkflowTransitions.AnyAsync(w => w.TenderId == tender.Id &&
