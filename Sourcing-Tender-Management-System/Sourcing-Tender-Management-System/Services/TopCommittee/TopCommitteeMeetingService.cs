@@ -63,9 +63,22 @@ public partial class TopCommitteeMeetingService(
             .FirstOrDefaultAsync();
         if (tender is null) return null;
 
-        var members = await db.CommitteeVotes.AsNoTracking()
+        var memberRows = await db.CommitteeVotes.AsNoTracking()
             .Where(v => v.CommitteeType == CommitteeType.Top && v.EvaluationReport.TenderId == tenderId)
-            .Select(v => v.MemberUser.FullName).Distinct().OrderBy(n => n).ToListAsync();
+            .Select(v => new
+            {
+                v.MemberUserId,
+                Name = v.MemberUser.FullName,
+                Position = db.CommitteePositions
+                    .Where(p => p.UserId == v.MemberUserId && p.CommitteeType == CommitteeType.Top && p.IsActive)
+                    .Select(p => p.PositionName).FirstOrDefault()
+            })
+            .ToListAsync();
+        var members = memberRows
+            .GroupBy(m => m.MemberUserId).Select(g => g.First())
+            .OrderBy(m => m.Name)
+            .Select(m => string.IsNullOrWhiteSpace(m.Position) ? m.Name : $"{m.Name} - {m.Position}")
+            .ToList();
 
         var entityId = tenderId.ToString();
         var activity = await db.AuditLogs.AsNoTracking()

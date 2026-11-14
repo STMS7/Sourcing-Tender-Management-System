@@ -177,7 +177,10 @@ else if (Model.MyVote is null)
         {
             <li data-search-item class="list-group-item">
                 <div class="d-flex justify-content-between">
-                    <strong>@v.MemberName</strong>
+                    <div>
+                        <strong>@v.MemberName</strong>
+                        @if (!string.IsNullOrWhiteSpace(v.Position)) { <div class="small text-muted">@v.Position</div> }
+                    </div>
                     <partial name="_Badge" model="@v.Decision.ToString()" />
                 </div>
                 @if (!string.IsNullOrWhiteSpace(v.Reason)) { <div class="small">@v.Reason</div> }
