@@ -22,8 +22,8 @@ else
                 <tr data-search-item>
                     <td>@invitation.Tender.TenderNumber</td>
                     <td>@invitation.Tender.Title</td>
-                    <td>@invitation.InvitedAt.ToString("dd MMM yyyy HH:mm")</td>
-                    <td>@invitation.Tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm")</td>
+                    <td><time class="device-local-time" datetime="@DateTime.SpecifyKind(invitation.InvitedAt, DateTimeKind.Utc).ToString("O")">@invitation.InvitedAt.ToString("dd MMM yyyy HH:mm") UTC</time></td>
+                    <td><time class="device-local-time" datetime="@DateTime.SpecifyKind(invitation.Tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@invitation.Tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></td>
                     <td><span class="badge bg-secondary">@invitation.Status</span></td>
                     <td><a asp-action="Invitation" asp-route-id="@invitation.Id" class="btn btn-sm btn-outline-primary">View details</a></td>
                 </tr>

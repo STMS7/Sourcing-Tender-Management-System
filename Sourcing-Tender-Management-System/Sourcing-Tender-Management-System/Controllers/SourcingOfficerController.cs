@@ -112,7 +112,8 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
     }
 
     [HttpPost]
-    public Task<IActionResult> Create(SourcingTenderForm model) => SaveTender(model, false);
+    public Task<IActionResult> Create(SourcingTenderForm model, int clientUtcOffsetMinutes = 0) =>
+        SaveTender(model, false, clientUtcOffsetMinutes);
 
     [HttpGet]
     public async Task<IActionResult> AcceptRequest(int id)
@@ -128,10 +129,12 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
     }
 
     [HttpPost]
-    public Task<IActionResult> AcceptRequest(SourcingTenderForm model) => SaveTender(model, true);
+    public Task<IActionResult> AcceptRequest(SourcingTenderForm model, int clientUtcOffsetMinutes = 0) =>
+        SaveTender(model, true, clientUtcOffsetMinutes);
 
-    private async Task<IActionResult> SaveTender(SourcingTenderForm model, bool acceptRequest)
+    private async Task<IActionResult> SaveTender(SourcingTenderForm model, bool acceptRequest, int clientUtcOffsetMinutes)
     {
+        NormalizeClientDates(model, clientUtcOffsetMinutes);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var request = await (acceptRequest ? ReviewableRequests() : AvailableRequests())
             .Include(r => r.Items).FirstOrDefaultAsync(r => r.Id == model.ProcurementRequestId);
@@ -158,6 +161,10 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
                 ReviewerUserId = OfficerId, Decision = RequestReviewDecision.Approved,
                 Reason = string.IsNullOrWhiteSpace(model.ReviewComment) ? "Accepted and converted to a tender draft." : model.ReviewComment.Trim() });
         await db.SaveChangesAsync();
+        // Committee membership is determined by the organisation, not per-tender manual picks:
+        // one active sourcing manager, one technical representative, one financial representative,
+        // and the active representative of the requesting department.
+        await EnsureDefaultEvaluationCommitteeAsync(tender, request);
         await CompleteRequestAssignment(request.Id);
         if (acceptRequest) RecordRequestEvent(request.Id, "AcceptAndCreateTender", WorkflowAction.Approved, WorkflowStage.Sourcing);
         db.Notifications.Add(new Notification { UserId = request.RequestedByUserId, Title = "Purchase request accepted",
@@ -169,6 +176,36 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         TempData["Success"] = acceptRequest ? "Request accepted and tender draft created. Receive supplier offers and complete compliance before sending to evaluation."
             : "Tender draft created. Configure criteria, document requirements and suppliers before publishing.";
         return RedirectToAction(nameof(Details), new { id = tender.Id });
+    }
+
+    private async Task EnsureDefaultEvaluationCommitteeAsync(Tender tender, ProcurementRequest request)
+    {
+        var roleNames = new Dictionary<CommitteeMemberRole, string[]>
+        {
+            [CommitteeMemberRole.SourcingManager] = ["SourcingManager"],
+            [CommitteeMemberRole.TechnicalRepresentative] = ["TechnicalRepresentative"],
+            [CommitteeMemberRole.FinancialRepresentative] = ["FinancialRepresentative"],
+            [CommitteeMemberRole.DepartmentRepresentative] = ["DepartmentRepresentative", "DepartmentRequester", "RequestingDepartment"]
+        };
+
+        foreach (var entry in roleNames)
+        {
+            var candidate = await db.Users.Where(u => u.IsActive && u.Id != request.RequestedByUserId &&
+                (entry.Key != CommitteeMemberRole.DepartmentRepresentative || u.DepartmentId == request.DepartmentId) &&
+                db.UserRoles.Any(ur => ur.UserId == u.Id && db.Roles.Any(r => r.Id == ur.RoleId && entry.Value.Contains(r.Name!))))
+                .OrderBy(u => u.CreatedAt).FirstOrDefaultAsync();
+            if (candidate == null)
+            {
+                TempData["Warning"] = "The tender was created, but the default evaluation committee is incomplete. Ask Admin to activate one user for each required role.";
+                continue;
+            }
+            db.TenderCommitteeMembers.Add(new TenderCommitteeMember
+            {
+                TenderId = tender.Id, UserId = candidate.Id, CommitteeType = CommitteeType.Evaluation,
+                RoleType = entry.Key, Role = entry.Key.ToString()
+            });
+        }
+        await db.SaveChangesAsync();
     }
 
     [HttpPost]
@@ -267,8 +304,9 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
     }
 
     [HttpPost]
-    public async Task<IActionResult> Edit(SourcingTenderForm model)
+    public async Task<IActionResult> Edit(SourcingTenderForm model, int clientUtcOffsetMinutes = 0)
     {
+        NormalizeClientDates(model, clientUtcOffsetMinutes);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var tender = await MyTenders().FirstOrDefaultAsync(t => t.Id == model.Id);
         if (tender == null) return NotFound();
@@ -457,6 +495,20 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         return View(await SubmittedOffers(db.Bids).AsNoTracking().Where(b => b.TenderId == id)
             .Include(b => b.Supplier).Include(b => b.Items).ThenInclude(i => i.TenderItem)
             .Include(b => b.Documents).AsSplitQuery().OrderBy(b => b.Supplier.CompanyName).ToListAsync());
+    }
+
+    // POST /SourcingOfficer/AnalyzeOffers/5 — AI assistant popup on the offer comparison page.
+    // It only ranks and explains the offers; compliance and forwarding stay the officer's decision.
+    [HttpPost]
+    public async Task<IActionResult> AnalyzeOffers(int id,
+        [FromServices] Services.AiAssistant.IBidAnalysisService analysis, CancellationToken ct)
+    {
+        var tender = await MyTenders().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (tender == null) return NotFound();
+        if (!CanReadOffers(tender)) return Conflict("Offers remain sealed until bidding is closed and the opening date is reached.");
+        var model = await analysis.AnalyzeAsync(new Services.AiAssistant.BidAnalysisRequest(id,
+            BidAnalysisAudience.SourcingOfficer, OfficerId, IncludePendingCompliance: true), ct);
+        return model is null ? NotFound() : PartialView("_BidAnalysis", model);
     }
 
     public async Task<IActionResult> DownloadBidDocument(int id,
@@ -756,7 +808,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.TermsAndConditions))
             ModelState.AddModelError("", "Enter a title and terms.");
         if (!await db.Categories.AnyAsync(c => c.Id == form.CategoryId)) ModelState.AddModelError(nameof(form.CategoryId), "Choose an existing category.");
-        if (form.SubmissionDeadline == null || form.SubmissionDeadline <= DateTime.UtcNow) ModelState.AddModelError(nameof(form.SubmissionDeadline), "Choose a future deadline in UTC.");
+        if (form.SubmissionDeadline == null || form.SubmissionDeadline <= DateTime.UtcNow) ModelState.AddModelError(nameof(form.SubmissionDeadline), "Choose a future deadline using your device time.");
         if (form.OpeningDate != null && form.OpeningDate < form.SubmissionDeadline) ModelState.AddModelError(nameof(form.OpeningDate), "Opening cannot precede the submission deadline.");
     }
 
@@ -767,6 +819,19 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         tender.SubmissionDeadline = DateTime.SpecifyKind(form.SubmissionDeadline!.Value, DateTimeKind.Utc);
         tender.OpeningDate = form.OpeningDate is { } opening ? DateTime.SpecifyKind(opening, DateTimeKind.Utc) : null;
         tender.EstimatedValue = form.EstimatedValue;
+    }
+
+    private static void NormalizeClientDates(SourcingTenderForm form, int clientUtcOffsetMinutes)
+    {
+        // JavaScript Date.getTimezoneOffset returns UTC - local time (Jordan is normally -180).
+        // Clamp the value to real-world time zones before converting device-local input to UTC.
+        clientUtcOffsetMinutes = Math.Clamp(clientUtcOffsetMinutes, -840, 840);
+        if (form.SubmissionDeadline is { } deadline)
+            form.SubmissionDeadline = DateTime.SpecifyKind(deadline, DateTimeKind.Unspecified)
+                .AddMinutes(clientUtcOffsetMinutes);
+        if (form.OpeningDate is { } opening)
+            form.OpeningDate = DateTime.SpecifyKind(opening, DateTimeKind.Unspecified)
+                .AddMinutes(clientUtcOffsetMinutes);
     }
     private async Task LoadCategories() => ViewBag.Categories = new SelectList(await db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync(), "Id", "Name");
     private async Task<IActionResult> InvalidTender(SourcingTenderForm form, ProcurementRequest? request = null)

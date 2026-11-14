@@ -13,13 +13,21 @@ namespace Sourcing_Tender_Management_System.Services.Biometric;
 public class BiometricSignInService(
     UserManager<ApplicationUser> users,
     SignInManager<ApplicationUser> signInManager,
-    ApplicationDbContext db)
+    ApplicationDbContext db,
+    StaffNetworkPolicy network)
 {
     public const string FaceMethod = "biometric-face";
     public const string PasskeyMethod = "biometric-passkey";
 
     public async Task<bool> SignInAsync(ApplicationUser user, string method, string? ipAddress)
     {
+        // Staff users must sign in from the company network (VPN)
+        if (user.SupplierId is null &&
+    !network.IsAllowed(System.Net.IPAddress.TryParse(ipAddress, out var ip) ? ip : null))
+        {
+            await AuditAsync(user.Id, "BiometricLoginFailed", method, ipAddress, "outside company network");
+            return false;
+        }
         // The same rules as the password sign-in (AuthController): an active account, and a supplier
         // account only once its company is approved and active.
         if (!user.IsActive || !await SupplierAllowsSignInAsync(user) ||

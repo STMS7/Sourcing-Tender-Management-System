@@ -25,6 +25,7 @@
             <select asp-for="Role" asp-items="ViewBag.Roles" class="form-select">
                 <option value="">Choose a role</option>
             </select>
+            <div class="form-text">Choosing TopCommittee automatically activates this user as a voting member. The committee supports four active members.</div>
         </div>
         <div class="mb-3">
             <label asp-for="DepartmentId" class="form-label">Department (staff)</label>
