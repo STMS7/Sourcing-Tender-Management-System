@@ -221,3 +221,9 @@
 الكوتش حدّدت إنه اللجنة العليا 4 أشخاص من الإدارة العليا (CEO وChiefs). عدّلت مسميات مقاعد بيانات الـ demo من (Chairperson / Finance / Technical / Legal) إلى: **CEO، Chief Financial Officer (CFO)، Chief Operating Officer (COO)، Chief Technology Officer (CTO)**. الـ seeder بيحدّث مسميات الحسابات الموجودة أصلاً بدون ما يعيد بناء البيانات.
 - المسمى صار بيظهر جنب اسم العضو: بصفحة مراجعة العطاء (قائمة التصويت)، وبصفحة الاجتماع، وبعمود Position بتقرير تصويت اللجنة العليا (الصفحة، Excel، PDF).
 - ما لمست منطق التصويت ولا الجداول. لجنة التقييم (تركيبتها حسب الكوتش: Department Manager, Department Financial Officer, Sourcing Department Representative, Financial Manager) مسؤولية التيم، ما غيّرتها.
+
+## تعديلات صغيرة على الأدمن وتسجيل المورد
+- **تسجيل المورد:** بقي رابط واحد بالنافبار (`/Suppliers/Register`)، و`/Auth/RegisterSupplier` صار يحوّل عليه. كود الصفحة القديمة ما انحذف.
+- **Create user:** انشال حقل Supplier (الموردين بيسجّلوا حساباتهم بنفسهم).
+- **القسم:** بيخص موظفي الأقسام فقط (`DepartmentRequester` و`DepartmentRepresentative`). باقي الأدوار (اللجنة العليا، المدير، الفني، المالي، الـ Officer، الأدمن) على مستوى الشركة، فالحقل بيختفي وما بينحفظ لهم قسم. موظف القسم لازم ياخد قسم.
+- الجلسة بتضل بعد إعادة تشغيل المشروع (مفحوص، بدون تغيير كود)؛ بتنفقد بس لما يتسكّر المتصفح إلا إذا فعّل Remember me.

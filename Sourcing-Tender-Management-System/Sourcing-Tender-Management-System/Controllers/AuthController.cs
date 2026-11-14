@@ -49,7 +49,8 @@ public class AuthController(
     }
 
     [AllowAnonymous, HttpGet]
-    public IActionResult RegisterSupplier() => View(new SupplierRegistrationViewModel());
+    // Supplier sign-up now lives on one page (Suppliers/Register). Old links and bookmarks land there.
+    public IActionResult RegisterSupplier() => RedirectToAction("Register", "Suppliers");
 
     [AllowAnonymous, HttpPost, ValidateAntiForgeryToken, RequestSizeLimit(12_000_000)]
     public async Task<IActionResult> RegisterSupplier(SupplierRegistrationViewModel model)
