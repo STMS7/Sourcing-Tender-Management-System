@@ -147,8 +147,61 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> SubmitWeights(int tenderId, decimal technicalWeight, decimal financialWeight,
-        List<CommitteeCriterionWeightInput>? criterionWeights = null)
+    public async Task<IActionResult> AddCriterion(int tenderId, string name, string? description, decimal maximumScore = 100)
+    {
+        var member = await MyMemberships().FirstOrDefaultAsync(m => m.TenderId == tenderId);
+        if (member == null) return NotFound();
+        if (!IsEvaluator(member.RoleType)) return Forbid();
+        var tender = await db.Tenders.Include(t => t.EvaluationCriteria).FirstAsync(t => t.Id == tenderId);
+        if (tender.Status != TenderStatus.Draft || tender.EvaluationCriteriaLockedAt == null ||
+            await db.Bids.AnyAsync(b => b.TenderId == tenderId))
+            return Conflict("Criteria can only be prepared in the locked draft before supplier offers.");
+        var role = member.RoleType!.Value;
+        if (ReadProposals(tender.EvaluationCriteria).Any(p => p.Role == role))
+            return Conflict("Your criteria are locked after submitting your approval.");
+        name = name?.Trim() ?? string.Empty;
+        description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        var type = role == CommitteeMemberRole.TechnicalRepresentative ? CriterionType.Technical : CriterionType.Financial;
+        if (name.Length is < 2 or > 200 || description?.Length > 1000 || maximumScore <= 0 || maximumScore > 1000 ||
+            tender.EvaluationCriteria.Any(c => !CommitteeWeighting.IsWeightProposal(c) && c.Name == name))
+        {
+            TempData["Error"] = "Enter a unique criterion name (2-200 characters) and a valid maximum score.";
+            return RedirectToAction(nameof(Evaluate), new { id = tenderId });
+        }
+        tender.EvaluationCriteria.Add(new EvaluationCriterion
+        {
+            Name = name, Description = description, Type = type, Weight = 0, MaximumScore = maximumScore
+        });
+        Log(tender, "AddCriterion", $"{role} added {type} criterion: {name}");
+        await db.SaveChangesAsync();
+        TempData["Success"] = $"{type} criterion added. Add all criteria, then assign weights totalling 100%.";
+        return RedirectToAction(nameof(Evaluate), new { id = tenderId });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RemoveCriterion(int id)
+    {
+        var criterion = await db.EvaluationCriteria.Include(c => c.Tender).ThenInclude(t => t.EvaluationCriteria)
+            .FirstOrDefaultAsync(c => c.Id == id);
+        if (criterion == null) return NotFound();
+        var member = await MyMemberships().FirstOrDefaultAsync(m => m.TenderId == criterion.TenderId);
+        if (member == null) return NotFound();
+        if (!IsEvaluator(member.RoleType)) return Forbid();
+        var role = member.RoleType!.Value;
+        var type = role == CommitteeMemberRole.TechnicalRepresentative ? CriterionType.Technical : CriterionType.Financial;
+        if (criterion.Type != type || CommitteeWeighting.IsWeightProposal(criterion) ||
+            criterion.Tender.Status != TenderStatus.Draft || criterion.Tender.EvaluationCriteriaLockedAt == null ||
+            ReadProposals(criterion.Tender.EvaluationCriteria).Any(p => p.Role == role))
+            return Conflict("You can remove only your own criteria before submitting your approval.");
+        db.EvaluationCriteria.Remove(criterion);
+        Log(criterion.Tender, "RemoveCriterion", $"{role} removed {type} criterion: {criterion.Name}");
+        await db.SaveChangesAsync();
+        TempData["Success"] = "Criterion removed.";
+        return RedirectToAction(nameof(Evaluate), new { id = criterion.TenderId });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitWeights(int tenderId, decimal technicalWeight, decimal financialWeight)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var member = await MyMemberships().FirstOrDefaultAsync(m => m.TenderId == tenderId);
@@ -164,24 +217,13 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             return Conflict("The sourcing officer must request preparation approval first.");
         if (Agree(ReadProposals(tender.EvaluationCriteria)) != null)
             return Conflict("Both members already submitted weights; the agreed weights are final.");
-        var myType = member.RoleType == CommitteeMemberRole.TechnicalRepresentative ? CriterionType.Technical : CriterionType.Financial;
-        var myCriteria = tender.EvaluationCriteria.Where(c => c.Type == myType && !CommitteeWeighting.IsWeightProposal(c)).ToList();
-        if (criterionWeights == null || myCriteria.Count == 0 ||
-            criterionWeights.Count != myCriteria.Count ||
-            criterionWeights.Select(c => c.CriterionId).Distinct().Count() != myCriteria.Count ||
-            criterionWeights.Any(c => myCriteria.All(expected => expected.Id != c.CriterionId)) ||
-            criterionWeights.Any(c => c.Weight < 0 || c.Weight > 100 || decimal.Round(c.Weight, 2) != c.Weight) ||
-            criterionWeights.Sum(c => c.Weight) != 100)
-            ModelState.AddModelError("", $"Provide all {myType} criterion weights, totalling 100%, using only your assigned group.");
-        if (!ModelState.IsValid || CommitteeWeighting.Validate(technicalWeight, financialWeight) is string)
+        if (CommitteeWeighting.Validate(technicalWeight, financialWeight) is string)
         {
             TempData["Error"] = CommitteeWeighting.Validate(technicalWeight, financialWeight) ??
                 string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
             return RedirectToAction(nameof(Evaluate), new { id = tenderId });
         }
         var role = member.RoleType!.Value;
-        foreach (var value in criterionWeights!)
-            myCriteria.Single(c => c.Id == value.CriterionId).Weight = value.Weight;
         Upsert(tender, role, CriterionType.Technical, technicalWeight);
         Upsert(tender, role, CriterionType.Financial, financialWeight);
         db.WorkflowTransitions.Add(new WorkflowTransition { TenderId = tender.Id,
@@ -193,11 +235,6 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         var agreed = Agree(ReadProposals(tender.EvaluationCriteria));
         if (agreed != null)
         {
-            if (!EvaluationPreparation.CriterionWeightsReady(tender.EvaluationCriteria))
-            {
-                TempData["Error"] = "Both members must assign valid criterion weights in their own groups before approval.";
-                return RedirectToAction(nameof(Evaluate), new { id = tenderId });
-            }
             tender.TechnicalWeight = agreed.Technical;
             tender.FinancialWeight = agreed.Financial;
             Log(tender, "WeightsAgreed", $"Agreed weights: technical {agreed.Technical}%, financial {agreed.Financial}%");

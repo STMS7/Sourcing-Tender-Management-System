@@ -198,6 +198,8 @@ public class AdminController(
     public async Task<IActionResult> CreateUser(AdminCreateUserViewModel model)
     {
         await ValidateAssignmentsAsync(model.Role, model.DepartmentId, model.SupplierId);
+        if (model.Role == "TopCommittee" && await ActiveTopCommitteeCountAsync() >= 4)
+            ModelState.AddModelError(nameof(model.Role), "The Top Committee already has four active members.");
         if (model.Role == "Supplier" || model.SupplierId.HasValue)
             ModelState.AddModelError(nameof(model.Role), "Suppliers register their own accounts.");
         if (await userManager.FindByEmailAsync(model.Email) is not null)
@@ -236,6 +238,7 @@ public class AdminController(
             return View(model);
         }
 
+        await SyncTopCommitteePositionAsync(user, model.Role, user.IsActive);
         await LogUserActionAsync("Create", user.Id);
         TempData["Message"] = "User created.";
         return RedirectToAction(nameof(Users));
@@ -272,6 +275,8 @@ public class AdminController(
             ModelState.AddModelError(nameof(model.Email), "This email is already in use.");
 
         var currentRoles = await userManager.GetRolesAsync(user);
+        if (model.Role == "TopCommittee" && model.IsActive && await ActiveTopCommitteeCountAsync(user.Id) >= 4)
+            ModelState.AddModelError(nameof(model.Role), "The Top Committee already has four other active members.");
         if (user.SupplierId.HasValue)
         {
             if (model.Role != "Supplier" || model.SupplierId != user.SupplierId)
@@ -327,6 +332,8 @@ public class AdminController(
             var added = await userManager.AddToRoleAsync(user, model.Role);
             if (!added.Succeeded) { AddErrors(added); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
         }
+
+        await SyncTopCommitteePositionAsync(user, model.Role, model.IsActive);
 
         if (!model.IsActive)
         {
@@ -387,6 +394,47 @@ public class AdminController(
             .OrderBy(x => x.Name).Select(x => x.Name).ToListAsync());
         ViewBag.Departments = new SelectList(await db.Departments.OrderBy(x => x.Name).ToListAsync(), "Id", "Name");
         ViewBag.Suppliers = new SelectList(await db.Suppliers.OrderBy(x => x.CompanyName).ToListAsync(), "Id", "CompanyName");
+    }
+
+    private Task<int> ActiveTopCommitteeCountAsync(string? excludingUserId = null) =>
+        db.CommitteePositions.CountAsync(p => p.CommitteeType == CommitteeType.Top && p.IsActive &&
+            (excludingUserId == null || p.UserId != excludingUserId));
+
+    private async Task SyncTopCommitteePositionAsync(ApplicationUser user, string role, bool isActive)
+    {
+        var positions = await db.CommitteePositions
+            .Where(p => p.CommitteeType == CommitteeType.Top && p.UserId == user.Id).ToListAsync();
+        var shouldBeMember = role == "TopCommittee" && isActive;
+        if (!shouldBeMember)
+        {
+            foreach (var membership in positions.Where(p => p.IsActive))
+            {
+                membership.IsActive = false;
+                membership.EffectiveTo = DateTime.UtcNow;
+            }
+            return;
+        }
+
+        var existingPosition = positions.OrderByDescending(p => p.EffectiveFrom).FirstOrDefault();
+        if (existingPosition != null)
+        {
+            existingPosition.IsActive = true;
+            existingPosition.EffectiveFrom = DateTime.UtcNow;
+            existingPosition.EffectiveTo = null;
+            return;
+        }
+
+        var names = new[] { "Executive Director", "Chief Financial Officer", "Founder / Board Chair", "Legal & Compliance Director" };
+        var usedNames = await db.CommitteePositions.Where(p => p.CommitteeType == CommitteeType.Top && p.IsActive)
+            .Select(p => p.PositionName).ToListAsync();
+        db.CommitteePositions.Add(new CommitteePosition
+        {
+            CommitteeType = CommitteeType.Top,
+            PositionName = names.FirstOrDefault(name => !usedNames.Contains(name)) ?? "Top Committee Member",
+            UserId = user.Id,
+            IsActive = true,
+            EffectiveFrom = DateTime.UtcNow
+        });
     }
 
     private void AddErrors(IdentityResult result)

@@ -105,12 +105,14 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         Questions = await db.Clarifications.CountAsync(x => x.RecipientUserId == account!.Id && x.Status == ClarificationStatus.Pending && (x.BidId == null || x.Bid!.SupplierId == supplier!.Id)) });
 
     public async Task<IActionResult> Invitations() => View(await db.TenderInvitations.AsNoTracking().Include(x => x.Tender)
-        .Where(x => x.SupplierId == supplier!.Id).OrderByDescending(x => x.InvitedAt).ToListAsync());
+        .Where(x => x.SupplierId == supplier!.Id && x.Tender.Status != TenderStatus.Draft)
+        .OrderByDescending(x => x.InvitedAt).ToListAsync());
 
     public async Task<IActionResult> Invitation(int id)
     {
         var item = await db.TenderInvitations.AsNoTracking().Include(x => x.Tender).ThenInclude(x => x.Items)
-            .Include(x => x.Tender).ThenInclude(x => x.DocumentRequirements).SingleOrDefaultAsync(x => x.Id == id && x.SupplierId == supplier!.Id);
+            .Include(x => x.Tender).ThenInclude(x => x.DocumentRequirements).SingleOrDefaultAsync(x => x.Id == id &&
+                x.SupplierId == supplier!.Id && x.Tender.Status != TenderStatus.Draft);
         return item is null ? NotFound() : View(item);
     }
     private static bool Open(Tender tender) => tender.Status == TenderStatus.Published && tender.SubmissionDeadline > DateTime.UtcNow
@@ -151,13 +153,20 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         var invitation = await OfferInvitation(model.InvitationId);
         if (invitation is null) return NotFound();
         model.Tender = invitation.Tender;
+        model.Currency = (model.Currency ?? string.Empty).Trim().ToUpperInvariant();
+        // Keep supplier submission practical: when the browser omits the date, use the safe
+        // default already shown on the GET page instead of returning an unclear empty error.
+        if (model.ValidUntil == null || model.ValidUntil.Value.Date < invitation.Tender.SubmissionDeadline.Date)
+            model.ValidUntil = invitation.Tender.SubmissionDeadline.Date.AddDays(30);
         if (!Open(invitation.Tender) || invitation.Status != InvitationStatus.Accepted) return BadRequest("Bidding is closed or the invitation has not been accepted.");
         if (await db.Bids.AnyAsync(x => x.TenderId == invitation.TenderId && x.SupplierId == supplier!.Id)) return BadRequest("An offer already exists for this tender.");
         model.Items ??= [];
         model.Files ??= [];
         var expected = invitation.Tender.Items.Select(x => x.Id).Order().ToArray();
         if (expected.Length == 0 || !expected.SequenceEqual(model.Items.Select(x => x.TenderItemId).Order())) return BadRequest("The submitted items do not match this tender.");
-        if (model.ValidUntil?.Date < invitation.Tender.SubmissionDeadline.Date) ModelState.AddModelError(nameof(model.ValidUntil), "The offer must remain valid through the submission deadline.");
+        ModelState.Remove(nameof(model.Currency));
+        ModelState.Remove(nameof(model.ValidUntil));
+        TryValidateModel(model);
         var requirements = invitation.Tender.DocumentRequirements.ToDictionary(x => x.Id);
         if (model.Files.Select(x => x.RequirementId).Distinct().Count() != model.Files.Count || model.Files.Any(x => !requirements.ContainsKey(x.RequirementId))) return BadRequest("Invalid document requirements.");
         foreach (var requirement in requirements.Values.Where(x => x.IsMandatory))
