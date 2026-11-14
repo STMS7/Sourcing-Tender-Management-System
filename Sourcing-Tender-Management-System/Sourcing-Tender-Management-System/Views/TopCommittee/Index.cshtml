@@ -97,6 +97,10 @@ else
                         <a class="btn btn-sm btn-primary" asp-action="Details" asp-route-id="@t.TenderId">
                             @(t.MyVote == CommitteeDecision.Pending ? "Review and vote" : "Review")
                         </a>
+                        @if (t.MyVote is not null)
+                        {
+                            <a class="btn btn-sm btn-outline-primary" asp-action="Meeting" asp-route-id="@t.TenderId">Meeting</a>
+                        }
                     </td>
                 </tr>
             }

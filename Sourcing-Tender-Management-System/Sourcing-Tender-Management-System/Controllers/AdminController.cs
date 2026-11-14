@@ -216,7 +216,7 @@ public class AdminController(
             Email = model.Email.Trim(),
             EmailConfirmed = true,
             FullName = model.FullName.Trim(),
-            DepartmentId = model.Role == "Supplier" ? null : model.DepartmentId,
+            DepartmentId = BelongsToDepartment(model.Role) ? model.DepartmentId : null,
             SupplierId = model.Role == "Supplier" ? model.SupplierId : null,
             IsActive = true
         };
@@ -257,7 +257,7 @@ public class AdminController(
             FullName = user.FullName,
             Email = user.Email ?? string.Empty,
             Role = roles.FirstOrDefault() ?? string.Empty,
-            DepartmentId = user.DepartmentId,
+            DepartmentId = BelongsToDepartment(roles.FirstOrDefault()) ? user.DepartmentId : null,
             SupplierId = user.SupplierId,
             IsActive = user.IsActive
         });
@@ -308,7 +308,7 @@ public class AdminController(
         user.UserName = model.Email.Trim();
         user.EmailConfirmed = user.SupplierId is null || await db.Suppliers.AnyAsync(x => x.Id == user.SupplierId &&
             x.RegistrationStatus == SupplierRegistrationStatus.Approved);
-        user.DepartmentId = model.Role == "Supplier" ? null : model.DepartmentId;
+        user.DepartmentId = BelongsToDepartment(model.Role) ? model.DepartmentId : null;
         user.SupplierId = model.Role == "Supplier" ? model.SupplierId : null;
         user.IsActive = model.IsActive;
 
@@ -376,12 +376,23 @@ public class AdminController(
         return RedirectToAction(nameof(Users));
     }
 
+    // Only department staff belong to a department. Everyone else (Top Committee, Sourcing Manager, Technical and
+    // Financial representatives, sourcing staff, Admin) works for the whole company, so no department is stored.
+    private static readonly string[] DepartmentRoles = { "DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment" };
+
+    private static bool BelongsToDepartment(string? role) => role is not null && DepartmentRoles.Contains(role);
+
     private async Task ValidateAssignmentsAsync(string role, int? departmentId, int? supplierId)
     {
         if (string.IsNullOrWhiteSpace(role) || !await roleManager.RoleExistsAsync(role))
             ModelState.AddModelError("Role", "Choose an existing role.");
-        if (departmentId.HasValue && !await db.Departments.AnyAsync(x => x.Id == departmentId.Value))
-            ModelState.AddModelError("DepartmentId", "Department not found.");
+        if (BelongsToDepartment(role))
+        {
+            if (!departmentId.HasValue)
+                ModelState.AddModelError("DepartmentId", "Choose the department of this department user.");
+            else if (!await db.Departments.AnyAsync(x => x.Id == departmentId.Value))
+                ModelState.AddModelError("DepartmentId", "Department not found.");
+        }
         if (supplierId.HasValue && !await db.Suppliers.AnyAsync(x => x.Id == supplierId.Value))
             ModelState.AddModelError("SupplierId", "Supplier not found.");
         if (role == "Supplier" && !supplierId.HasValue)
