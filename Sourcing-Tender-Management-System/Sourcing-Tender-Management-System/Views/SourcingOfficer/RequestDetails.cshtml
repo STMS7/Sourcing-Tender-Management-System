@@ -5,6 +5,7 @@
 }
 <a asp-action="Requests">Back to approved requests</a>
 <h1 class="mt-3">@Model.Title</h1>
+<partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "PurchaseRequest", Model.RequestNumber)' />
 <p>@Model.RequestNumber · @Model.Department.Name · <span class="status">@Model.Status</span></p>
 <p>Requested by <strong>@Model.RequestedByUser.FullName</strong>.</p>
 <div class="actions mb-4">
