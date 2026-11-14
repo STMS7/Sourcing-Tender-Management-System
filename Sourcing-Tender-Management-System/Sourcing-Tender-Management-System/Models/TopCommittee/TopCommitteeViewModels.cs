@@ -185,6 +185,9 @@ public class ReviewManagerApproval
 public class ReviewVote
 {
     public string MemberName { get; set; } = string.Empty;
+
+    /// <summary>The member's seat on the committee (for example CEO), or null if none is recorded.</summary>
+    public string? Position { get; set; }
     public CommitteeDecision Decision { get; set; }
     public string? Reason { get; set; }
     public DateTime? DecidedAt { get; set; }

@@ -1,0 +1,90 @@
+@model MeetingPageViewModel
+@{
+    ViewData["Title"] = "Committee meeting - " + Model.TenderNumber;
+}
+
+<h1 class="h3 mb-3">Top Committee</h1>
+<partial name="_Nav" model="@("")" />
+
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+    <div>
+        <a asp-action="Details" asp-route-id="@Model.TenderId" class="small">&larr; Back to the tender</a>
+        <h2 class="h4 mb-1">Committee meeting: @Model.TenderNumber - @Model.Title</h2>
+        <div class="text-muted">A private video room for the committee members of this tender.</div>
+    </div>
+    <div><partial name="_Badge" model="@Model.Status.ToString()" /></div>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="alert alert-info">
+    <strong>How to start:</strong> the first person presses <strong>Start meeting</strong>, then <strong>Join meeting</strong>.
+    The free video service asks the first person to press <strong>Log in</strong> (Google, GitHub or Facebook) so they become
+    the moderator; until then you will see "waiting for a moderator". The other members press the same buttons and enter
+    automatically once the moderator is in.
+</div>
+
+<div class="card mb-4" id="meeting-card" data-start-url="@Url.Action("StartMeeting", new { id = Model.TenderId })">
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+            <button type="button" class="btn btn-primary" id="meeting-start">Start meeting</button>
+            <button type="button" class="btn btn-outline-secondary" id="meeting-newtab">Open in a new tab</button>
+            <button type="button" class="btn btn-outline-danger d-none" id="meeting-leave">Leave meeting</button>
+            <span class="badge text-bg-light d-none" id="meeting-count">0 in the meeting</span>
+        </div>
+        <div id="meeting-status" class="small text-muted" role="status" aria-live="polite">
+            Press <strong>Start meeting</strong>. Your browser will ask for permission to use the camera and microphone.
+        </div>
+        <div id="meeting-error" class="alert alert-danger mt-3 d-none" role="alert"></div>
+    </div>
+    <div id="meet" class="d-none" style="height:70vh;min-height:480px;border-top:1px solid var(--bs-border-color)"></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <h2 class="h5">Committee members</h2>
+        @if (Model.Members.Count == 0)
+        {
+            <div class="text-muted">No members assigned.</div>
+        }
+        else
+        {
+            <ul class="list-group">
+                @foreach (var member in Model.Members)
+                {
+                    <li class="list-group-item">@member</li>
+                }
+            </ul>
+        }
+    </div>
+    <div class="col-md-6">
+        <h2 class="h5">Recent joins</h2>
+        @if (Model.Activity.Count == 0)
+        {
+            <div class="text-muted">Nobody has joined yet.</div>
+        }
+        else
+        {
+            <ul class="list-group">
+                @foreach (var row in Model.Activity)
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>@row.Member</span>
+                        <span class="text-muted small">@row.At.ToString("yyyy-MM-dd HH:mm") UTC</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+<div class="small text-muted">
+    The room name is private and only given to the committee members of this tender. The video is carried by the
+    public Jitsi service, which receives your name and your camera and microphone stream while you are in the room.
+    The other members get a notification when the first person starts the meeting. If the video cannot start inside
+    this page, use <strong>Open in a new tab</strong>: it opens the same room.
+</div>
+
+@section Scripts {
+    <script src="~/js/top-committee-meeting.js" asp-append-version="true"></script>
+}

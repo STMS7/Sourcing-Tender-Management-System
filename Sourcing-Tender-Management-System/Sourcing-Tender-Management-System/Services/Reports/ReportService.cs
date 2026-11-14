@@ -522,7 +522,7 @@ public partial class ReportService(ApplicationDbContext db) : IReportService
         var votes = await db.CommitteeVotes.AsNoTracking()
             .Where(v => v.CommitteeType == CommitteeType.Top && reportIds.Contains(v.EvaluationReportId))
             .OrderBy(v => v.EvaluationReport.Tender.TenderNumber).ThenBy(v => v.MemberUser.FullName)
-            .Select(v => new { v.EvaluationReport.Tender.TenderNumber, v.EvaluationReport.Round, Member = v.MemberUser.FullName, v.Decision, v.Reason, v.DecidedAt })
+            .Select(v => new { v.EvaluationReport.Tender.TenderNumber, v.EvaluationReport.Round, Member = v.MemberUser.FullName, Position = db.CommitteePositions.Where(p => p.UserId == v.MemberUserId && p.CommitteeType == CommitteeType.Top && p.IsActive).Select(p => p.PositionName).FirstOrDefault(), v.Decision, v.Reason, v.DecidedAt })
             .ToListAsync();
 
         var awarded = await db.Tenders.AsNoTracking()
@@ -571,10 +571,10 @@ public partial class ReportService(ApplicationDbContext db) : IReportService
         var voteTable = new ReportTable
         {
             Title = "Top Committee voting records",
-            Columns = new[] { "Tender", "Round", "Member", "Vote", "Justification", "Voted" }
+            Columns = new[] { "Tender", "Round", "Member", "Position", "Vote", "Justification", "Voted" }
         };
         foreach (var v in votes)
-            voteTable.Add(v.TenderNumber, v.Round, v.Member, Pretty(v.Decision), v.Reason, v.DecidedAt);
+            voteTable.Add(v.TenderNumber, v.Round, v.Member, v.Position, Pretty(v.Decision), v.Reason, v.DecidedAt);
         doc.Tables.Add(voteTable);
 
         var awardedTable = new ReportTable

@@ -14,6 +14,7 @@ public class TopCommitteeController(
     ITopCommitteeService topCommittee,
     ITopCommitteeVotingService voting,
     ITopCommitteeStatisticsService statistics,
+    ITopCommitteeMeetingService meetings,
     UserManager<ApplicationUser> userManager) : Controller
 {
     // GET /TopCommittee — tenders awaiting the committee's final decision.
@@ -78,6 +79,27 @@ public class TopCommitteeController(
         return result.TenderId > 0
             ? RedirectToAction(nameof(Details), new { id = result.TenderId })
             : RedirectToAction(nameof(Index));
+    }
+
+    // GET /TopCommittee/Meeting/5 — the committee's video meeting page for one tender (members of that tender only).
+    public async Task<IActionResult> Meeting(int id)
+    {
+        var model = await meetings.GetPageAsync(id, userManager.GetUserId(User)!);
+        return model is null ? NotFound() : View(model);
+    }
+
+    // POST /TopCommittee/StartMeeting/5 — checks again that the caller is a member, then returns the private room
+    // for the browser to open. The room name is never written into a page, only returned to an allowed member.
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartMeeting(int id)
+    {
+        var result = await meetings.StartAsync(id, userManager.GetUserId(User)!, HttpContext.Connection.RemoteIpAddress?.ToString());
+        if (!result.Succeeded)
+        {
+            return StatusCode(result.StatusCode, new { ok = false, error = result.Error });
+        }
+
+        return Json(new { ok = true, domain = result.Domain, room = result.RoomName, displayName = result.DisplayName, subject = result.Subject });
     }
 
     // GET /TopCommittee/Statistics — site-wide numbers: suppliers, requests, tenders, decisions, dealings per supplier.

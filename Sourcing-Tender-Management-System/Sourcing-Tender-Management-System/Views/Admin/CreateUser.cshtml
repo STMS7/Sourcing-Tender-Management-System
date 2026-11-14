@@ -27,21 +27,19 @@
             </select>
             <div class="form-text">Choosing TopCommittee automatically activates this user as a voting member. The committee supports four active members.</div>
         </div>
-        <div class="mb-3">
-            <label asp-for="DepartmentId" class="form-label">Department (staff)</label>
+        <div class="mb-3" id="department-group">
+            <label asp-for="DepartmentId" class="form-label">Department</label>
             <select asp-for="DepartmentId" asp-items="ViewBag.Departments" class="form-select">
-                <option value="">None</option>
+                <option value="">Choose a department</option>
             </select>
-        </div>
-        <div class="mb-3">
-            <label asp-for="SupplierId" class="form-label">Supplier (Supplier role)</label>
-            <select asp-for="SupplierId" asp-items="ViewBag.Suppliers" class="form-select">
-                <option value="">None</option>
-            </select>
+            <div class="form-text">Only department users belong to a department. Top Committee, Sourcing Manager, Technical and Financial representatives work for the whole company.</div>
         </div>
         <button class="btn btn-primary" type="submit">Create</button>
         <a class="btn btn-link" asp-action="Users">Cancel</a>
     </form>
 </div>
 
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <partial name="_DepartmentRoleScript" />
+}
