@@ -22,25 +22,21 @@
             <h1>@(firstName == null ? "Welcome back" : $"Welcome back, {firstName}")</h1>
             <p>Manage approved purchase requests, prepare tenders and move compliant offers to evaluation.</p>
         </div>
-        <div class="ow-head-actions">
-            <a class="btn btn-primary" asp-action="Requests">Review requests</a>
-            <a class="btn btn-outline-primary" asp-action="Messages">Open messages</a>
-        </div>
     </header>
 
     <ul class="ow-kpis" aria-label="Sourcing summary">
         <li><a class="ow-kpi is-gold" asp-action="Requests"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconInbox + svgClose)</span><span class="ow-kpi-value">@Model.IncomingRequests</span><span class="ow-kpi-label">Requests awaiting review</span><span class="ow-kpi-note">Waiting for your review</span></a></li>
-        <li><a class="ow-kpi" asp-action="Requests"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconCheck + svgClose)</span><span class="ow-kpi-value">@Model.ApprovedRequests</span><span class="ow-kpi-label">Approved requests</span><span class="ow-kpi-note">Ready to become tenders</span></a></li>
+        <li><a class="ow-kpi" asp-action="Requests" asp-route-status="Approved"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconCheck + svgClose)</span><span class="ow-kpi-value">@Model.ApprovedRequests</span><span class="ow-kpi-label">Approved requests</span><span class="ow-kpi-note">Ready to become tenders</span></a></li>
         <li><a class="ow-kpi" asp-action="Tenders" asp-route-status="Draft"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconDoc + svgClose)</span><span class="ow-kpi-value">@Model.DraftTenders</span><span class="ow-kpi-label">Draft tenders</span><span class="ow-kpi-note">Still being prepared</span></a></li>
         <li><a class="ow-kpi" asp-action="Tenders" asp-route-status="Published"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconSend + svgClose)</span><span class="ow-kpi-value">@Model.PublishedTenders</span><span class="ow-kpi-label">Published tenders</span><span class="ow-kpi-note">Open for supplier offers</span></a></li>
-        <li><div class="ow-kpi is-dark"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconScale + svgClose)</span><span class="ow-kpi-value">@Model.PendingCompliance</span><span class="ow-kpi-label">Offers awaiting compliance</span><span class="ow-kpi-note">Closed tenders to review</span></div></li>
+        <li><a class="ow-kpi is-dark" asp-action="Tenders" asp-route-status="Closed"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconScale + svgClose)</span><span class="ow-kpi-value">@Model.PendingCompliance</span><span class="ow-kpi-label">Offers awaiting compliance</span><span class="ow-kpi-note">Closed tenders to review</span></a></li>
     </ul>
 
     <h2 class="ow-section-title">Quick actions</h2>
     <ul class="ow-actions">
         <li><a class="ow-action" asp-action="Requests"><span class="ow-action-icon">@Html.Raw(svgOpen + IconList + svgClose)</span><strong>Review requests</strong><span>Open the purchase requests</span></a></li>
-        <li><a class="ow-action" asp-action="Requests"><span class="ow-action-icon">@Html.Raw(svgOpen + IconDoc + svgClose)</span><strong>Create a tender</strong><span>Start from an approved request</span></a></li>
-        <li><a class="ow-action" asp-action="Tenders"><span class="ow-action-icon">@Html.Raw(svgOpen + IconScale + svgClose)</span><strong>Evaluate offers</strong><span>Open a tender to compare offers</span></a></li>
+        <li><a class="ow-action" asp-action="Requests" asp-route-status="Approved"><span class="ow-action-icon">@Html.Raw(svgOpen + IconDoc + svgClose)</span><strong>Create a tender</strong><span>Start from an approved request</span></a></li>
+        <li><a class="ow-action" asp-action="Tenders" asp-route-status="Closed"><span class="ow-action-icon">@Html.Raw(svgOpen + IconScale + svgClose)</span><strong>Review offer compliance</strong><span>Open a tender to compare offers</span></a></li>
         <li><a class="ow-action" asp-action="Messages"><span class="ow-action-icon">@Html.Raw(svgOpen + IconChat + svgClose)</span><strong>Open messages</strong><span>Questions and clarifications</span></a></li>
     </ul>
 

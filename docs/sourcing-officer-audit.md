@@ -1,3 +1,5 @@
+> Historical audit snapshot. For the current Sourcing Officer guidance and verification, see [the sourcing cycle guide](sourcing-cycle-guide.md) and [current delivery notes](sourcing-team-delivery.md). Counts and gaps below describe the earlier snapshot.
+
 # Sourcing Officer cycle audit
 
 The implemented officer flow is tested from department request submission

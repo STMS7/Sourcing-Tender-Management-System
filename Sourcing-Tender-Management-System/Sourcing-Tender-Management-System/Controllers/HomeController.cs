@@ -16,8 +16,13 @@ namespace Sourcing_Tender_Management_System.Controllers
         }
 
         // Public landing page (Zaytouna). Statistics come from the real database.
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public async Task<IActionResult> Index()
         {
+            // Home is the public boundary requested by the team: leaving the
+            // workspace ends the session. A GET only presents the existing,
+            // antiforgery-protected logout POST; it does not mutate authentication.
+            if (User.Identity?.IsAuthenticated == true) return View("LeaveWorkspace");
             ViewBag.ActiveTenders = await _db.Tenders.CountAsync(t => t.Status == TenderStatus.Published);
             ViewBag.ApprovedSuppliers = await _db.Suppliers.CountAsync(s => s.IsActive && s.RegistrationStatus == SupplierRegistrationStatus.Approved);
             ViewBag.CompletedRequests = await _db.ProcurementRequests.CountAsync(r => r.Status == ProcurementRequestStatus.ConvertedToTender);

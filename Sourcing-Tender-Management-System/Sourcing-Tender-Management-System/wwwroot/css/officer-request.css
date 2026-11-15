@@ -1,0 +1,21 @@
+/* Request details inherit the existing officer workspace, not the old blue panels. */
+.or-request .ow-head { margin-bottom:.5rem; }
+.or-request .or-reference { display:flex; flex-wrap:wrap; align-items:center; gap:.65rem; font-size:.85rem; overflow-wrap:anywhere; }
+.or-owner { margin:0 0 1.2rem; color:var(--ow-muted); font-size:.9rem; }
+.or-decisions,.or-summary { padding:1rem 1.2rem; margin-bottom:1.2rem; background:var(--ow-glass); border:1px solid var(--ow-line); border-radius:var(--ow-radius); }
+.zt-app main.zt-heritage .or-request .or-decisions h2,.zt-app main.zt-heritage .or-request .or-summary h2 { font-size:1.05rem; margin:0 0 .9rem; }
+.zt-app main.zt-heritage .or-request .or-decisions h2::before,.zt-app main.zt-heritage .or-request .or-summary h2::before { display:none; }
+.or-request .so-cycle { margin-block:1.2rem; }
+.or-request .so-next { padding:1rem 1.2rem; margin-block:1.2rem; background:var(--ow-sage); border-color:var(--ow-line); }
+.or-request .so-next p { font-size:.9rem; line-height:1.6; }
+.or-request .or-summary dl { margin-bottom:0; }
+.or-request .or-summary dt,.or-request .or-summary dd { font-size:.9rem; padding-block:.3rem; }
+.or-sharing { margin:1rem 0 1.5rem; font-size:.85rem; }
+.or-request > .form-panel,.or-request > #request-reject { max-width:none; padding:1.2rem; border:1px solid var(--ow-line); background:var(--ow-glass); border-radius:var(--ow-radius); scroll-margin-top:24px; }
+.or-request #request-reject { border-color:#B4411E40; }
+.or-request .actions > form { margin:0; }
+@media(max-width:767px) {
+ .or-request .ow-head { align-items:stretch; }.or-request .ow-head > .btn { width:100%; }
+ .or-request .actions { align-items:stretch; }.or-request .actions > :is(a,form) { width:100%; }.or-request .actions form .btn { width:100%; }
+ .or-decisions,.or-summary { padding:1rem; }.or-request .or-summary dt { padding-bottom:0; }.or-request .or-summary dd { padding-top:0; }
+}

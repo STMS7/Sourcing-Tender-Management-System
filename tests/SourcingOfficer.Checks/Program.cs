@@ -200,6 +200,14 @@ try
     await Act(c => c.Publish(tenderId));
     await using (var db = new ApplicationDbContext(options))
         Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Draft, "Incomplete tender cannot publish");
+    await Act(async c => {
+        var details = await c.Details(tenderId);
+        var readiness = (SourcingPublicationReadiness)c.ViewBag.PublicationReadiness;
+        Check(!readiness.Ready && readiness.OfficerTasks.Any(t => t.Contains("supplier")) &&
+            readiness.TeamDependencies.Count == 2,
+            "Publication checklist separates officer supplier selection from external committee/Admin dependencies");
+        return details;
+    });
     Check(await Act(c => c.RequestWeightApproval(tenderId)) is RedirectToActionResult,
         "Missing external preparation redirects to tender details instead of raw errors");
     await using (var db = new ApplicationDbContext(options))
@@ -208,8 +216,10 @@ try
     await Act(async c => {
         var result = await c.Details(tenderId);
         var waiting = (List<string>)c.ViewBag.PreparationWaitingReasons;
-        Check(waiting.Count == 2 && waiting.Any(r => r.Contains("Admin")) && waiting.Any(r => r.Contains("technical and financial")),
-            "Officer details identify Admin assignment and committee criteria as separate waiting dependencies");
+        var publication = (SourcingPublicationReadiness)c.ViewBag.PublicationReadiness;
+        Check(waiting.Any(r => r.Contains("Admin")) &&
+            publication.TeamDependencies.Any(r => r.Contains("preparation approval")),
+            "Officer details identify Admin eligibility and committee preparation as separate waiting dependencies");
         return result;
     });
     await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical }));
@@ -243,6 +253,24 @@ try
     await Act(c => c.Invite(tenderId, new[] { supplierId, supplierId }));
     await using (var db = new ApplicationDbContext(options))
         Check(await db.TenderInvitations.CountAsync() == 1, "Duplicate supplier selections create one invitation");
+    SourcingTenderForm categoryEdit;
+    int otherCategory;
+    await using (var db = new ApplicationDbContext(options)) {
+        var current = (await db.Tenders.FindAsync(tenderId))!;
+        otherCategory = await db.Categories.Where(c => c.Id != categoryId).Select(c => c.Id).FirstAsync();
+        categoryEdit = new SourcingTenderForm { Id = tenderId, CategoryId = otherCategory,
+            Title = current.Title, Description = current.Description, TermsAndConditions = current.TermsAndConditions!,
+            SubmissionDeadline = current.SubmissionDeadline, OpeningDate = current.OpeningDate, EstimatedValue = current.EstimatedValue };
+    }
+    Check(await Act(c => c.Edit(categoryEdit)) is ViewResult,
+        "Changing category after supplier selection returns validation feedback");
+    await using (var db = new ApplicationDbContext(options))
+        Check((await db.Tenders.FindAsync(tenderId))!.CategoryId == categoryId &&
+            await db.TenderInvitations.CountAsync(i => i.TenderId == tenderId) == 1,
+            "Forged category change preserves category and existing invitations");
+    categoryEdit.CategoryId = categoryId;
+    Check(await Act(c => c.Edit(categoryEdit)) is RedirectToActionResult,
+        "Other draft edits remain allowed when the selected supplier category stays unchanged");
     Check(await Act(c => c.AssignEvaluationCommittee(new SourcingCommitteeForm { TenderId = tenderId,
         ManagerUserId = "manager", DepartmentUserId = "department", TechnicalUserId = "technical", FinancialUserId = "financial" }))
         is ForbidResult, "Officer cannot assign the committee through the legacy endpoint");
@@ -276,9 +304,8 @@ try
         var proposalId = await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Name.StartsWith("__weight:")).Select(c => c.Id).FirstAsync();
         Check(await Act(c => c.RemoveCriterion(proposalId)) is ForbidResult, "Officer cannot remove committee approval rows");
     }
-    Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null)) is ViewResult {
-        Model: SourcingMessagesViewModel preparationChat } && preparationChat.Recipients.Count == 4,
-        "Locked preparation supports authorized committee clarification");
+    Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null)) is NotFoundResult,
+        "Officer committee composer excludes preparation drafts outside the officer's message stages");
     await Act(c => c.ReopenPreparation(tenderId));
     await using (var db = new ApplicationDbContext(options))
         Check(!await db.EvaluationCriteria.AnyAsync(c => c.TenderId == tenderId && c.Name.StartsWith("__weight:")) &&

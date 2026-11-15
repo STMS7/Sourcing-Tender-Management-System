@@ -5,15 +5,21 @@
     var canReview = ViewBag.CanReview is true;
     var canChat = ViewBag.CanChat is true;
 }
-<div id="request-detail-results">
-<a asp-action="Requests">Back to purchase requests</a>
-<h1 class="mt-3">@Model.Title</h1>
-<partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "PurchaseRequest", Model.RequestNumber)' />
-<p>@Model.RequestNumber · @Model.Department.Name · <span class="status">@Model.Status</span></p>
-<p>Requested by <strong>@Model.RequestedByUser.FullName</strong>.</p>
-<div class="actions mb-4">
+<link rel="stylesheet" href="~/css/officer-workspace.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/officer-request.css" asp-append-version="true" />
+<div id="request-detail-results" class="ow or-request">
+<header class="ow-head">
+<div><h1>@Model.Title</h1><p class="or-reference">@Model.RequestNumber <span class="status">@Model.Status</span></p></div>
+<a class="btn btn-outline-secondary" asp-action="Requests">Back to purchase requests</a>
+</header>
+<p class="or-owner">@Model.Department.Name · Requested by <strong>@Model.RequestedByUser.FullName</strong></p>
+@if (canReview || canChat) {
+<section class="or-decisions" aria-labelledby="request-actions-title"><h2 id="request-actions-title">Request actions</h2>
+<div class="actions">
 @if (canReview) {
     <a class="btn btn-primary" asp-action="AcceptRequest" asp-route-id="@Model.Id">Accept and create tender</a>
+    <a class="btn btn-outline-primary" href="#request-return">Return for changes</a>
+    <a class="btn btn-outline-danger" href="#request-reject" data-open-officer-section>Reject permanently</a>
     @if (Model.Status == ProcurementRequestStatus.Submitted) {
         <form asp-action="StartReview" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-primary" type="submit">Start review</button></form>
     }
@@ -22,19 +28,31 @@
     <a class="btn btn-outline-primary" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{Model.Id}")">Chat with requesting department</a>
 }
 </div>
+</section>
+}
+<partial name="_SourcingCycle" model="@(Model.Status == ProcurementRequestStatus.ConvertedToTender ? 1 : 0)" />
+@if (canReview) {
+<section class="so-next" aria-labelledby="request-next-heading">
+    <h2 id="request-next-heading">Review before deciding</h2>
+    <p>Check the items and specifications. Accept creates a draft tender. Return requests an update; permanent rejection closes the request. Both require a reason sent to the department.</p>
+</section>
+}
+
 @if (Model.Status == ProcurementRequestStatus.Returned) {
     <p class="alert alert-info">Returned to the department for changes. The department can edit and resubmit this request. Use the linked conversation for clarification.</p>
 } else if (Model.Status == ProcurementRequestStatus.Rejected) {
     <p class="alert alert-info">This request was rejected. Its decision and message remain available in the history.</p>
 }
-<dl class="row"><dt class="col-sm-3">Reason</dt><dd class="col-sm-9 preserve-lines">@Model.Reason</dd><dt class="col-sm-3">Description</dt><dd class="col-sm-9 preserve-lines">@Model.Description</dd><dt class="col-sm-3">Required by</dt><dd class="col-sm-9">@(Model.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</dd><dt class="col-sm-3">Estimated budget</dt><dd class="col-sm-9">@Model.EstimatedBudget.ToString("N2")</dd></dl>
+<section class="or-summary" aria-labelledby="request-summary-title"><h2 id="request-summary-title">Request details</h2><dl class="row"><dt class="col-sm-3">Reason</dt><dd class="col-sm-9 preserve-lines">@(string.IsNullOrWhiteSpace(Model.Reason) ? "Not specified" : Model.Reason)</dd><dt class="col-sm-3">Description</dt><dd class="col-sm-9 preserve-lines">@(string.IsNullOrWhiteSpace(Model.Description) ? "Not specified" : Model.Description)</dd><dt class="col-sm-3">Required by</dt><dd class="col-sm-9">@(Model.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</dd><dt class="col-sm-3">Estimated budget</dt><dd class="col-sm-9">@Model.EstimatedBudget.ToString("N2")</dd></dl></section>
+<details class="or-sharing"><summary>Record QR code and sharing link</summary><partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "PurchaseRequest", Model.RequestNumber)' /></details>
+
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "request-detail-search", ResultsId = "request-detail-results", Label = "Search requested items, reviews and conversations" })" />
 <h2>Requested items</h2>
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit</th><th scope="col">Specifications</th></tr></thead><tbody>
 @foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3")</td><td>@item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
 </tbody></table></div>
 @if (canReview) {
-    <section class="form-panel my-4" aria-labelledby="return-heading">
+    <section id="request-return" class="form-panel my-4" aria-labelledby="return-heading">
         <h2 id="return-heading" class="mt-0">Return for changes</h2>
         <p>Send a reason to the department so they can update this request and resubmit it.</p>
         <form asp-action="ReturnRequest" method="post">
@@ -44,7 +62,7 @@
             <button type="submit" class="btn btn-outline-primary">Return to department with message</button>
         </form>
     </section>
-    <details class="mb-4">
+    <details id="request-reject" class="mb-4">
         <summary class="text-danger">Reject request permanently</summary>
         <p class="mt-3">The department will see your reason. Rejected requests cannot be edited or resubmitted.</p>
         <form asp-action="RejectRequest" method="post">
@@ -77,6 +95,7 @@
 @if ((bool)ViewBag.CanCreateTender) {
     <a class="btn btn-primary" asp-action="Create" asp-route-requestId="@Model.Id">Create tender draft</a>
 } else if (Model.Status == ProcurementRequestStatus.ConvertedToTender) {
+    @if (ViewBag.LinkedTenderId is int linkedTenderId) { <a class="btn btn-primary" asp-action="Details" asp-route-id="@linkedTenderId">Open linked tender</a> }
     <p class="text-secondary">This request has already been converted to a tender. Its department conversation remains available while sourcing is active.</p>
 }
 

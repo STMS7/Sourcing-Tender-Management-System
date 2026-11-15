@@ -1,5 +1,12 @@
 # Sourcing Officer delivery and team integration dependencies
 
+Latest officer usability update: see [the sourcing cycle guide](sourcing-cycle-guide.md).
+Publication now exposes separate officer tasks and team dependencies, the five-step
+journey and next action follow actual state, category changes after supplier selection
+are rejected, and the officer committee composer excludes preparation drafts.
+Current verification: 124 officer SQL + 77 committee SQL + 31 browser checks.
+The external preparation blocker described below remains unresolved.
+
 Current correction changes only Sourcing Officer production files, supporting
 officer tests and documentation. Admin, Supplier, Department, committee and
 shared policy production files are not modified by this correction.
@@ -53,7 +60,9 @@ The officer cycle is not independently publishable end to end while the committe
 producer is missing. Publication guards have not been bypassed and the brief's
 preapproved evaluation rules have not been silently removed.
 
-The current SQL officer suite passes 120 checks, including committee message fanout
+## Previous delivery verification (historical)
+
+The previous delivery's SQL officer suite passed 120 checks, including committee message fanout
 and per-officer ownership. Some preparation checks invoke retained legacy methods
 directly as fixture setup; these methods are not public HTTP actions. This is not
 proof of an implemented committee preparation lifecycle.
