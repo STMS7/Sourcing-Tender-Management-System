@@ -54,20 +54,76 @@
     // message and in the console to make the real cause visible.
     function friendly(error) {
         console.error('Biometric error:', error);
-        var detail = error && error.name
-            ? ' [' + error.name + (error.message ? ': ' + error.message : '') + ']'
-            : '';
+        var detail = '';   // the technical name stays in the console, not on the page
         if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
-            return new Error('The request was cancelled or timed out. If you did not cancel it, make sure Windows Hello ' +
-                '(fingerprint, face or PIN) is set up on this device.' + detail);
+            return new Error('The fingerprint step was cancelled or timed out. Press the button and try again. ' +
+                'On the phone, tap Continue and confirm with its fingerprint. You can always sign in with your password.' + detail);
+        }
+        if (error && error.name === 'SecurityError') {
+            return new Error('This web address cannot be used for fingerprint sign-in. Open the site from the same address you ' +
+                'registered on (for example https://localhost:7288) and try again.' + detail);
         }
         if (error && error.name === 'InvalidStateError') {
             return new Error('This device is already registered.' + detail);
         }
         if (error && error.name === 'NotSupportedError') {
-            return new Error('This device or browser does not support this kind of sign-in.' + detail);
+            return new Error('This device or browser does not support this kind of sign-in. Use your password, or try your phone with the QR code.' + detail);
         }
         return error instanceof Error ? error : new Error(String(error));
+    }
+
+    // ---------- What this device can do (used for clear messages instead of a vague failure) ----------
+
+    async function capabilities() {
+        var c = {
+            secure: window.isSecureContext === true,
+            webauthn: !!(window.PublicKeyCredential && navigator.credentials),
+            platform: false,
+            conditional: false,
+            address: window.location.origin,
+            browser: navigator.userAgent
+        };
+        if (c.webauthn) {
+            try {
+                if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+                    c.platform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+                }
+            } catch (e) { /* treated as not available */ }
+            try {
+                if (typeof PublicKeyCredential.isConditionalMediationAvailable === 'function') {
+                    c.conditional = await PublicKeyCredential.isConditionalMediationAvailable();
+                }
+            } catch (e) { /* treated as not available */ }
+        }
+        return c;
+    }
+
+    // One plain sentence about the biggest problem, or null when everything needed is there.
+    function problemOf(c) {
+        if (!c.secure) {
+            return 'Fingerprint needs a secure address. Open the site as https://localhost (not an IP address or plain http).';
+        }
+        if (!c.webauthn) {
+            return 'This browser cannot use fingerprint sign-in. Use a current Chrome, Edge, Safari or Firefox.';
+        }
+        if (!c.platform) {
+            return 'This computer has no fingerprint reader or Windows Hello set up. You can sign in with your face (camera), ' +
+                'with your phone (choose "Use a phone or tablet" and scan the QR code), or add a fingerprint, face or PIN in ' +
+                'Windows Settings > Accounts > Sign-in options. Your password always works.';
+        }
+        return null;
+    }
+
+    function diagnosticsText(c) {
+        function yn(v) { return v ? 'yes' : 'no'; }
+        return [
+            'Secure address (https or localhost): ' + yn(c.secure),
+            'Browser supports passkeys: ' + yn(c.webauthn),
+            'Fingerprint / Windows Hello / PIN available: ' + yn(c.platform),
+            'Sign-in suggestion in the email box: ' + yn(c.conditional),
+            'Address: ' + c.address,
+            'Browser: ' + c.browser
+        ].join('\n');
     }
 
     // ---------- Fingerprint / device passkey (WebAuthn) ----------
@@ -78,16 +134,25 @@
         }
     }
 
-    async function passkeyLogin(returnUrl) {
+    // opts.mediation = 'conditional' lets the browser offer the passkey inside the email box (autofill); opts.signal
+    // cancels that waiting request. A cancelled waiting request throws the raw AbortError so the caller can tell.
+    async function passkeyLogin(returnUrl, opts) {
+        opts = opts || {};
         ensureWebAuthn();
         var start = await post('/Biometric/PasskeyLoginOptions');
         var options = start.options;
         options.challenge = dec(options.challenge);
 
+        if (opts.hints) { options.hints = opts.hints; }   // for example ['hybrid'] = go straight to the phone QR code
+        var request = { publicKey: options };
+        if (opts.mediation) { request.mediation = opts.mediation; }
+        if (opts.signal) { request.signal = opts.signal; }
+
         var credential;
         try {
-            credential = await navigator.credentials.get({ publicKey: options });
+            credential = await navigator.credentials.get(request);
         } catch (e) {
+            if (opts.signal && e && e.name === 'AbortError') { throw e; }
             throw friendly(e);
         }
 
@@ -103,13 +168,24 @@
         });
     }
 
-    async function passkeyRegister(label) {
+    // opts.phone = save the fingerprint on the person's phone: the browser shows a QR code to scan with the phone
+    // camera, and the phone asks for its own fingerprint or face. Without it the browser offers this computer first.
+    async function passkeyRegister(label, opts) {
+        opts = opts || {};
         ensureWebAuthn();
         var start = await post('/Biometric/PasskeyRegisterOptions');
         var options = start.options;
         options.challenge = dec(options.challenge);
         options.user.id = dec(options.user.id);
         (options.excludeCredentials || []).forEach(function (c) { c.id = dec(c.id); });
+        if (opts.phone) {
+            options.authenticatorSelection = Object.assign({}, options.authenticatorSelection, { authenticatorAttachment: 'cross-platform' });
+            options.hints = ['hybrid'];
+        }
+        if (opts.device) {
+            options.authenticatorSelection = Object.assign({}, options.authenticatorSelection, { authenticatorAttachment: 'platform' });
+            options.hints = ['client-device'];
+        }
 
         var credential;
         try {
@@ -410,12 +486,37 @@
         function setStatus(message, kind) {
             statusBox.className = 'alert alert-' + (kind || 'info');
             statusBox.textContent = message;
+            if (kind === 'danger' && typeof statusBox.scrollIntoView === 'function') {
+                statusBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
         }
 
         function setHint(text) { hint.textContent = text; }
 
+        // What to do on the phone: the part people stall on ("Device connected! Continue on your device").
+        var PHONE_STEPS = 'A QR code will appear. 1) Scan it with your phone camera. 2) On the phone tap Continue. ' +
+            '3) Confirm with the phone fingerprint or face. Keep Bluetooth on, on both the computer and the phone, and keep the phone close.';
+
+        function rememberVia(kind) {
+            try { window.localStorage.setItem('stms.passkeyVia', kind); } catch (e) { /* ignore */ }
+        }
+        function viaPhone() {
+            try { return window.localStorage.getItem('stms.passkeyVia') === 'phone'; } catch (e) { return false; }
+        }
+
         function busy(buttons, isBusy) {
             buttons.forEach(function (b) { if (b) { b.disabled = isBusy; } });
+        }
+
+        try {
+            var flash = window.sessionStorage.getItem('stms.flash');
+            if (flash) { window.sessionStorage.removeItem('stms.flash'); setStatus(flash, 'success'); }
+        } catch (e) { /* ignore */ }
+
+        function deviceName() {
+            var ua = navigator.userAgent;
+            var browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+            return ('This computer (' + browser + ')').slice(0, 150);
         }
 
         var faceOptions = { video: video, setStatus: setStatus, setHint: setHint };
@@ -440,11 +541,167 @@
             }
         }
 
+        // ----- device check: a clear sentence and a details box instead of a vague failure -----
+        var hintBox = $('bioHint');
+        var diagBox = $('bioDiagText');
+        var caps = null;
+        var conditional = { controller: null, stopped: false, failures: 0 };
+
+        capabilities().then(function (c) {
+            caps = c;
+            var problem = problemOf(c);
+            if (hintBox && problem) {
+                hintBox.textContent = problem;
+                hintBox.classList.remove('d-none');
+            }
+            if (diagBox) { diagBox.textContent = diagnosticsText(c); }
+            // Without any WebAuthn support the buttons cannot work; say so instead of failing on click.
+            if (!c.webauthn || !c.secure) {
+                ['btnPasskeyLogin', 'btnPasskeyRegister', 'btnPasskeyRegisterDevice'].forEach(function (id) {
+                    var b = $(id);
+                    if (b) { b.disabled = true; }
+                });
+            }
+            startConditionalLogin();
+            showWelcomeBack();
+            startFaceSetupIfAsked();
+        }).catch(function () { /* the buttons still work and report their own errors */ });
+
+        // ----- "Welcome back": one big button, like a banking app -----
+        // The tip script remembers who signed in on this device. If that person has a fingerprint or a face registered,
+        // the sign-in page greets them and offers a single button; no e-mail to type, no menu to find.
+        function rememberedUser() {
+            try {
+                var u = JSON.parse(window.localStorage.getItem('stms.lastUser') || 'null');
+                return u && u.name && (u.hasPasskey || u.hasFace) ? u : null;
+            } catch (e) { return null; }
+        }
+
+        function chooseQuickMethod(u) {
+            var fingerprintUsable = caps && caps.webauthn && caps.secure;
+            if (u.hasPasskey && fingerprintUsable && (caps.platform || !u.hasFace)) { return 'fingerprint'; }
+            if (u.hasFace && u.email) { return 'face'; }
+            if (u.hasPasskey && fingerprintUsable) { return 'fingerprint'; }
+            return null;
+        }
+
+        function showWelcomeBack() {
+            if (!$('btnPasskeyLogin') || $('welcomeBack')) { return; }   // only on the sign-in page
+            var user = rememberedUser();
+            var method = user ? chooseQuickMethod(user) : null;
+            var form = document.querySelector('form[method="post"]') || document.querySelector('form');
+            if (!method || !form || !form.parentNode) { return; }
+
+            var card = document.createElement('div');
+            card.id = 'welcomeBack';
+            card.className = 'card card-body text-center mb-4 col-md-5';
+
+            var small = document.createElement('div');
+            small.className = 'text-muted small';
+            small.textContent = 'Welcome back';
+            var name = document.createElement('h2');
+            name.className = 'h4 mb-3';
+            name.textContent = user.name;
+
+            var go = document.createElement('button');
+            go.type = 'button';
+            go.className = 'btn btn-primary btn-lg';
+            var usePhone = method === 'fingerprint' && viaPhone();
+            go.textContent = method === 'face' ? 'Continue with face' : (usePhone ? 'Continue with my phone' : 'Continue with fingerprint');
+
+            var notYou = document.createElement('button');
+            notYou.type = 'button';
+            notYou.className = 'btn btn-link btn-sm mt-2';
+            notYou.textContent = 'Not you? Use another account';
+
+            card.appendChild(small);
+            card.appendChild(name);
+            card.appendChild(go);
+            card.appendChild(notYou);
+            form.parentNode.insertBefore(card, form);
+
+            go.addEventListener('click', function () {
+                pauseConditionalLogin();
+                if (method === 'fingerprint') {
+                    setStatus(usePhone ? PHONE_STEPS : 'Use your fingerprint, face or PIN when your device asks.');
+                    guarded(function () { return passkeyLogin(returnUrl, usePhone ? { hints: ['hybrid'] } : {}); }, 'Signed in.')
+                        .then(function () { startConditionalLogin(); });
+                } else {
+                    panel.classList.remove('d-none');
+                    guarded(function () { return faceLogin(faceOptions, user.email, returnUrl); }, 'Signed in.');
+                }
+            });
+
+            notYou.addEventListener('click', function () {
+                try { window.localStorage.removeItem('stms.lastUser'); } catch (e) { /* ignore */ }
+                card.remove();
+            });
+        }
+
+        // The tip sends people with only a camera to Profile > Biometrics?start=face: begin the face setup right away.
+        function startFaceSetupIfAsked() {
+            var button = $('btnFaceEnroll');
+            if (!button || new URLSearchParams(window.location.search).get('start') !== 'face') { return; }
+            setTimeout(function () { button.click(); }, 400);
+        }
+
+        var copyButton = $('bioDiagCopy');
+        if (copyButton) {
+            copyButton.addEventListener('click', function () {
+                var text = diagBox ? diagBox.textContent : '';
+                if (navigator.clipboard && text) {
+                    navigator.clipboard.writeText(text).then(function () { copyButton.textContent = 'Copied'; });
+                }
+            });
+        }
+
+        // ----- sign-in suggestion inside the email box (like Google, GitHub and Microsoft) -----
+        // The browser shows the saved fingerprint sign-in as a suggestion; choosing it signs the person in with no
+        // button and no password. It waits quietly in the background and is paused while a button is used.
+        function startConditionalLogin() {
+            var emailBox = $('Email') || $('Input_Email');
+            if (!caps || !caps.conditional || !caps.secure || !emailBox || !$('btnPasskeyLogin') || conditional.stopped) { return; }
+            if (conditional.controller) { return; }
+
+            emailBox.setAttribute('autocomplete', 'username webauthn');
+            conditional.controller = new AbortController();
+            var signal = conditional.controller.signal;
+
+            passkeyLogin(returnUrl, { mediation: 'conditional', signal: signal }).then(function (result) {
+                conditional.controller = null;
+                if (result && result.redirect) {
+                    setStatus('Signed in. Redirecting...', 'success');
+                    window.location.href = result.redirect;
+                }
+            }).catch(function (e) {
+                conditional.controller = null;
+                if (e && e.name === 'AbortError') { return; }   // paused on purpose
+                conditional.failures += 1;
+                console.warn('Fingerprint suggestion stopped:', e);
+                // The waiting request can expire; start a fresh one a few times, then leave the button as the way in.
+                if (conditional.failures <= 3) { setTimeout(startConditionalLogin, 4000); }
+            });
+        }
+
+        function pauseConditionalLogin() {
+            if (conditional.controller) {
+                conditional.controller.abort();
+                conditional.controller = null;
+            }
+        }
+
         var passkeyLoginButton = $('btnPasskeyLogin');
         if (passkeyLoginButton) {
             passkeyLoginButton.addEventListener('click', function () {
-                setStatus('Use your fingerprint, face or PIN when your device asks.');
-                guarded(function () { return passkeyLogin(returnUrl); }, 'Signed in.');
+                pauseConditionalLogin();
+                // One button for everything. If the fingerprint is saved only on the phone, go straight to the QR code;
+                // otherwise this computer answers (PIN, fingerprint or Touch ID) with no phone and no QR code.
+                var phoneOnly = viaPhone();
+                setStatus(phoneOnly ? PHONE_STEPS : 'Confirm with your fingerprint or PIN when your device asks.');
+                guarded(function () { return passkeyLogin(returnUrl, phoneOnly ? { hints: ['hybrid'] } : {}); }, 'Signed in.').then(function () {
+                    // If it did not sign in, bring the email-box suggestion back.
+                    startConditionalLogin();
+                });
             });
         }
 
@@ -460,13 +717,38 @@
             });
         }
 
+        // ONE way to register, with the real fingerprint: scan the QR code with the phone and confirm with the phone's
+        // fingerprint. Nothing else is stored on this computer (no PIN). Signing in later goes straight to the QR code.
         var passkeyRegisterButton = $('btnPasskeyRegister');
         if (passkeyRegisterButton) {
             passkeyRegisterButton.addEventListener('click', function () {
-                var label = ($('passkeyLabel').value || '').trim() || 'My device';
-                setStatus('Use your fingerprint, face or PIN when your device asks.');
-                guarded(function () { return passkeyRegister(label); }, 'Device registered.').then(function (ok) {
+                guarded(async function () {
+                    setStatus(PHONE_STEPS);
+                    await passkeyRegister('My phone', { phone: true });
+                    try {
+                        window.sessionStorage.setItem('stms.flash',
+                            'Fingerprint registered. Next time press Sign in with fingerprint and scan the QR code with your phone.');
+                    } catch (e) { /* ignore */ }
+                    rememberVia('phone');
+                    return { succeeded: true };
+                }, 'Fingerprint registered.').then(function (ok) {
                     if (ok) { window.location.reload(); }
+                });
+            });
+        }
+
+        // For a computer that has its own fingerprint reader: register just this computer, no phone.
+        var passkeyRegisterDeviceButton = $('btnPasskeyRegisterDevice');
+        if (passkeyRegisterDeviceButton) {
+            passkeyRegisterDeviceButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                setStatus('Use your fingerprint, face or PIN when your device asks.');
+                guarded(function () { return passkeyRegister(deviceName(), { device: true }); }, 'Device registered.').then(function (ok) {
+                    if (ok) {
+                        rememberVia('device');
+                        try { window.sessionStorage.setItem('stms.flash', 'Fingerprint registered on this computer.'); } catch (e) { /* ignore */ }
+                        window.location.reload();
+                    }
                 });
             });
         }
