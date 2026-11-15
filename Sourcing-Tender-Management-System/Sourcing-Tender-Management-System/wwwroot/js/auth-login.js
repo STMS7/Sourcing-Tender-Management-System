@@ -12,7 +12,7 @@
     let signingIn = false, celebrating = false;
 
     // ── Olive tree ────────────────────────────────────────────────────────
-    // One life cycle, driven by the sign-in itself: seed → sprout → trunk →
+    // One life cycle, driven by the sign-in itself: roots → sprout → trunk →
     // limbs → leaves → blossom → fruit. The tree is drawn from a fixed seed so
     // it is the same tree on every visit. It is decoration only: it reads the
     // length of the fields, never their content, and stores nothing.
@@ -24,7 +24,7 @@
         const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
         const f = n => Math.round(n * 10) / 10;
         const LEAF = 'M0 0C4.2-6 4.6-17 0-27C-4.6-17-4.2-6 0 0Z';
-        const STAGES = [[.06, 'seed'], [.16, 'sprout'], [.34, 'trunk'], [.56, 'limbs'], [.8, 'leaves'], [.9, 'blossom'], [2, 'fruit']];
+        const STAGES = [[.06, 'roots'], [.16, 'sprout'], [.34, 'trunk'], [.56, 'limbs'], [.8, 'leaves'], [.9, 'blossom'], [2, 'fruit']];
 
         function random(seed) {
             return () => {
@@ -94,18 +94,15 @@
             };
             const tint = () => { const r = rnd(); return r < .5 ? 't-leaf-a' : r < .86 ? 't-leaf-b' : 't-leaf-c'; };
 
-            // Seed, first roots and the shoot with its two seed-leaves.
-            [[-24, 34], [-9, 42], [10, 40], [27, 30]].forEach(([dx, dy], i) =>
-                draw(bezier([CX, G + 2], [CX + dx * .2, G + dy * .4], [CX + dx * .9, G + dy * .6], [CX + dx, G + dy]), 2.4, 't-root', .06 + i * .012, .17 + i * .012, roots));
-            const halves = [make('path', { class: 't-seed', d: `M${CX} ${G + 6}C${CX - 11} ${G + 3} ${CX - 11} ${G - 13} ${CX} ${G - 17}Z` }, sprout),
-                make('path', { class: 't-seed t-seed--b', d: `M${CX} ${G + 6}C${CX + 11} ${G + 3} ${CX + 11} ${G - 13} ${CX} ${G - 17}Z` }, sprout)];
-            halves.forEach((el, i) => parts.push({ el, kind: 'seed', s: .05, e: .12, turn: i ? 30 : -30 }));
+            // Roots first, spreading under the ground line, then the shoot with its two seed-leaves.
+            [[-58, 30], [-30, 44], [-8, 50], [14, 48], [36, 40], [62, 28]].forEach(([dx, dy], i) =>
+                draw(bezier([CX, G + 2], [CX + dx * .25, G + dy * .45], [CX + dx * .8, G + dy * .7], [CX + dx, G + dy]), 3.2, 't-root', .004 * i, .05 + .004 * i, roots));
             draw(bezier([CX, G - 4], [CX - 5, G - 20], [CX + 6, G - 34], [CX, G - 50]), 4, 't-shoot', .07, .15, sprout);
             [-.95, .95].forEach(side => {
                 const holder = make('g', { transform: `translate(${CX} ${G - 49}) rotate(${f(side * 57.2958)}) scale(1.25)` }, sprout);
                 parts.push({ el: make('path', { class: 't-leaf t-leaf-c', d: LEAF }, holder), kind: 'leaf', s: .12, e: .2 });
             });
-            parts.push({ el: sprout, kind: 'fade', s: .17, e: .25 }, { el: roots, kind: 'fade', s: .24, e: .36 });
+            parts.push({ el: sprout, kind: 'fade', s: .17, e: .25 });
 
             // Trunk: three strands that cross, the way an old olive trunk twists.
             const trunk = [
@@ -241,7 +238,7 @@
             scene.quiet(quiet);
             scene.progress(progress);
         }
-        let progress = 0, target = .05, frame = 0, last = 0, tween = null, quiet = false, stage = '';
+        let progress = 0, target = .05, wish = .05, frame = 0, last = 0, tween = null, quiet = false, stage = '';
 
         function render() {
             for (const model of models) paint(model, progress);
@@ -261,7 +258,7 @@
             if (tween) {
                 const k = clamp01((now - tween.from) / tween.ms);
                 progress = tween.p0 + (tween.p1 - tween.p0) * easeInOut(k);
-                if (k >= 1) { const done = tween.done; tween = null; target = progress; done?.(); }
+                if (k >= 1) { const done = tween.done, hold = tween.hold; tween = null; target = hold ? progress : wish; done?.(); }
             } else {
                 progress += (target - progress) * (1 - Math.exp(-dt / 430));
                 if (Math.abs(target - progress) < .0008) progress = target;
@@ -285,20 +282,19 @@
             look(x, y) { scene?.look(x, y); },
             // Raising or lowering the target grows or recedes the tree toward it.
             aim(value) {
+                wish = clamp01(value);
                 if (tween) return;
-                target = clamp01(value);
+                target = wish;
                 if (quiet) settle(); else run();
             },
             still(value) { quiet = value; mark('is-still', value); scene?.quiet(value); if (value) settle(); },
             waiting(value) { mark('is-waiting', value && !quiet); scene?.waiting(value && !quiet); },
-            // A refused sign-in: the crown shivers, nothing else is lost.
-            shiver() {
-                if (quiet) return;
-                scene?.shiver();
-                mark('is-shiver', false);
-                void models[0]?.svg.getBoundingClientRect();
-                mark('is-shiver', true);
-                setTimeout(() => mark('is-shiver', false), 700);
+            // A refused sign-in: the tree draws back a little, then returns to where the
+            // form stands. No shake and no alarm; the message carries the reason.
+            retreat() {
+                if (quiet || tween) return;
+                tween = { p0: progress, p1: Math.max(0, progress - .07), from: performance.now(), ms: 340 };
+                run();
             },
             // Confirmed sign-in: finish the tree, ripen the fruit, let a few olives fall.
             // Always resolves, and quickly, so it can never hold the workspace back.
@@ -308,16 +304,16 @@
                     const finish = () => { if (!settled) { settled = true; resolve(); } };
                     mark('is-waiting', false);
                     if (quiet || (!models.length && !scene)) { target = 1; settle(); mark('is-ripe', true); scene?.ripen(); finish(); return; }
-                    setTimeout(finish, 2600);
+                    setTimeout(finish, 1300);
                     tween = {
-                        p0: progress, p1: 1, from: performance.now(), ms: 520 + (1 - progress) * 900,
+                        p0: progress, p1: 1, hold: true, from: performance.now(), ms: 320 + (1 - progress) * 380,
                         done() {
                             mark('is-ripe', true);
                             scene?.ripen();
                             for (const model of models)
                                 for (const part of model.parts)
                                     if (part.fruit !== undefined && part.fruit % 3 === 0) part.el.classList.add('is-falling');
-                            setTimeout(finish, 760);
+                            setTimeout(finish, 280);
                         }
                     };
                     run();
@@ -333,8 +329,11 @@
         let value = touched ? .11 : .05;
         if (name) value = Math.max(value, .16 + Math.min(name.length, 14) / 14 * .2);
         if (/^\S+@\S+\.\S+$/.test(name)) value = Math.max(value, .42);
-        if (secret) value = Math.max(value, .46 + Math.min(secret, 10) / 10 * .34);
-        if (name && secret >= 6 && email.validity.valid) value = Math.max(value, .88);
+        // The password moves the tree one fixed step however long it is, so the
+        // scene never tells an onlooker how many characters were typed.
+        if (secret) value = Math.max(value, .86);
+        // A complete form is a full tree: leaves, then blossom, then green olives on the twigs.
+        if (name && secret && email.validity.valid) value = Math.max(value, .97);
         return value;
     }
     function syncTree() { if (!signingIn && !celebrating) tree.aim(treeTarget()); }
@@ -440,7 +439,7 @@
         summary.append(list);
         summary.classList.remove('validation-summary-valid');
         summary.classList.add('validation-summary-errors');
-        tree.shiver();
+        tree.retreat();
     }
     async function completeSignIn(destination) {
         if (typeof destination !== 'string' || !destination.trim()) throw new Error('Missing workspace destination.');
@@ -448,7 +447,7 @@
         if (target.origin !== location.origin || !['http:', 'https:'].includes(target.protocol)) throw new Error('Invalid workspace destination.');
         if (celebrating) return;
         celebrating = true;
-        // The tree finishes its harvest in about a second, then the workspace opens.
+        // The tree finishes its harvest in under a second, then the workspace opens.
         // harvest() always resolves (instantly when motion is paused or reduced),
         // and finally guarantees navigation even if the decoration throws. The
         // destination page consumes a one-use flag and lets the olives land.
@@ -471,8 +470,9 @@
         submit.disabled = true;
         submit.textContent = 'Signing in…';
         form.setAttribute('aria-busy', 'true');
-        // While the server decides, sap climbs the trunk and the first fruit sets.
-        tree.aim(Math.max(tree.progress, .93));
+        // While the server decides, sap climbs the trunk. The olives are already on the
+        // tree as its last stage of growth; only ripening and falling mean success.
+        tree.aim(Math.max(tree.progress, .97));
         tree.waiting(true);
         const controller = new AbortController();
         const deadline = setTimeout(() => controller.abort(), 20000);
