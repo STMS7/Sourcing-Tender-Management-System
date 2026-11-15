@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
+using Sourcing_Tender_Management_System.Services;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
@@ -11,7 +12,10 @@ public class AuthController(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
     ApplicationDbContext db,
-    IWebHostEnvironment environment) : Controller
+    IWebHostEnvironment environment,
+
+    StaffNetworkPolicy network) : Controller
+
 {
     [AllowAnonymous, HttpGet]
     public IActionResult Login(string? returnUrl = null) => View(new LoginViewModel { ReturnUrl = returnUrl });
@@ -21,6 +25,15 @@ public class AuthController(
     {
         if (!ModelState.IsValid) return View(model);
         var user = await userManager.FindByEmailAsync(model.Email.Trim());
+
+        Console.WriteLine($"LOGIN IP = {HttpContext.Connection.RemoteIpAddress} | HOST = {Request.Host}");
+        // Staff users must sign in from the company network (VPN)
+        if (user is { SupplierId: null } && !network.IsAllowed(HttpContext.Connection.RemoteIpAddress))
+        {
+            ModelState.AddModelError(string.Empty, "Staff must sign in from the company network (VPN).");
+            return View(model);
+        }
+
         if (user is null || !await CanSignInAsync(user))
         {
             ModelState.AddModelError(string.Empty, "Invalid credentials or account awaiting approval.");
@@ -49,7 +62,8 @@ public class AuthController(
     }
 
     [AllowAnonymous, HttpGet]
-    public IActionResult RegisterSupplier() => View(new SupplierRegistrationViewModel());
+    // Supplier sign-up now lives on one page (Suppliers/Register). Old links and bookmarks land there.
+    public IActionResult RegisterSupplier() => RedirectToAction("Register", "Suppliers");
 
     [AllowAnonymous, HttpPost, ValidateAntiForgeryToken, RequestSizeLimit(12_000_000)]
     public async Task<IActionResult> RegisterSupplier(SupplierRegistrationViewModel model)

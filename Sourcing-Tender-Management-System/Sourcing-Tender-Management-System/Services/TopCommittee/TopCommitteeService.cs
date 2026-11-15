@@ -139,6 +139,15 @@ public class TopCommitteeService(ApplicationDbContext db) : ITopCommitteeService
             .First();
 
         var topVotes = report.Votes.Where(v => v.CommitteeType == Top).ToList();
+
+        // Each member's seat on the committee (CEO, CFO...), shown next to their vote.
+        var memberIds = topVotes.Select(v => v.MemberUserId).Distinct().ToList();
+        var positionNames = (await db.CommitteePositions.AsNoTracking()
+                .Where(p => p.CommitteeType == Top && p.IsActive && memberIds.Contains(p.UserId))
+                .Select(p => new { p.UserId, p.PositionName })
+                .ToListAsync())
+            .GroupBy(p => p.UserId)
+            .ToDictionary(g => g.Key, g => g.First().PositionName);
         var reportBids = report.Bids.ToDictionary(b => b.BidId);
 
         var latestCompliance = (await db.BidComplianceReviews.AsNoTracking()
@@ -261,6 +270,7 @@ public class TopCommitteeService(ApplicationDbContext db) : ITopCommitteeService
                 .Select(v => new ReviewVote
                 {
                     MemberName = DisplayName(v.MemberUser),
+                    Position = positionNames.GetValueOrDefault(v.MemberUserId),
                     Decision = v.Decision,
                     Reason = v.Reason,
                     DecidedAt = v.DecidedAt

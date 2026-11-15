@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Department Dashboard";
 }
+<div id="department-dashboard-search-results">
 <h2>Department Dashboard</h2>
 <p><a asp-action="Index">My Requests</a> | <a asp-action="Create">Create Request</a> | <a asp-controller="CycleChat" asp-action="Index">Clarifications</a></p>
 <table class="table table-bordered">
@@ -11,17 +12,20 @@
 <tr><th>Returned</th><td>@ViewBag.Returned</td><th>Rejected</th><td>@ViewBag.Rejected</td></tr>
 <tr><th>Approved</th><td>@ViewBag.Approved</td><th>Converted</th><td>@ViewBag.Converted</td></tr>
 </table>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-dashboard-search", ResultsId = "department-dashboard-search-results", Label = "Search recent requests and notifications" })" />
 <h3>Recent requests</h3>
 <ul>
 @foreach (var r in Model)
 {
-    <li><a asp-action="Details" asp-route-id="@r.Id">@r.RequestNumber – @r.Title</a> (@r.Status)</li>
+    <li data-search-item><a asp-action="Details" asp-route-id="@r.Id">@r.RequestNumber – @r.Title</a> (@r.Status)</li>
 }
 </ul>
 <h3>My latest notifications</h3>
 <ul>
 @foreach (var n in ((IEnumerable<Notification>)ViewBag.Notifications))
 {
-    <li>@n.CreatedAt.ToLocalTime(): @n.Title – @n.Message</li>
+    <li data-search-item>@n.CreatedAt.ToLocalTime(): @n.Title – @n.Message</li>
 }
 </ul>
+
+</div>

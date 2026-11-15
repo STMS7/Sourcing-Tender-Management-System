@@ -3,6 +3,7 @@
     <li class="nav-item"><a class="nav-link @(Model == "Index" ? "active" : "")" asp-action="Index">Awaiting decision</a></li>
     <li class="nav-item"><a class="nav-link @(Model == "History" ? "active" : "")" asp-action="History">History</a></li>
     <li class="nav-item"><a class="nav-link @(Model == "Statistics" ? "active" : "")" asp-action="Statistics">Statistics</a></li>
+    <li class="nav-item"><a class="nav-link" asp-controller="Reports" asp-action="Index">Reports</a></li>
 </ul>
 @if (TempData["Message"] is string message)
 {

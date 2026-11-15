@@ -19,7 +19,7 @@
     <tbody>
     @foreach (var item in Model.Items.OrderBy(x => x.Id))
     {
-        <tr><td>@item.TenderItem.ItemName<br /><small>@item.BrandOrModel</small></td><td>@item.TenderItem.Quantity.ToString("0.###") @item.TenderItem.Unit</td><td>@item.UnitPrice.ToString("N2")</td><td>@item.TotalPrice.ToString("N2")</td><td class="text-break">@item.TechnicalResponse</td></tr>
+        <tr data-search-item><td>@item.TenderItem.ItemName<br /><small>@item.BrandOrModel</small></td><td>@item.TenderItem.Quantity.ToString("0.###") @item.TenderItem.Unit</td><td>@item.UnitPrice.ToString("N2")</td><td>@item.TotalPrice.ToString("N2")</td><td class="text-break">@item.TechnicalResponse</td></tr>
     }
     </tbody>
 </table></div>

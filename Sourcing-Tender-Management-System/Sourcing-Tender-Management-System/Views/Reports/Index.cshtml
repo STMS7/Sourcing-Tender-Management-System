@@ -1,0 +1,23 @@
+@using Sourcing_Tender_Management_System.Models.Reports
+@model IReadOnlyList<ReportCatalogEntry>
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<h1 class="h3 mb-1">Reports</h1>
+<p class="text-muted">Built from live system data. Every report can be filtered and downloaded as Excel or PDF.</p>
+
+<div class="row g-3">
+    @foreach (var report in Model)
+    {
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <h2 class="h5">@report.Title</h2>
+                    <p class="text-muted flex-grow-1">@report.Description</p>
+                    <a class="btn btn-primary align-self-start" asp-action="Show" asp-route-kind="@report.Kind">Open report</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>

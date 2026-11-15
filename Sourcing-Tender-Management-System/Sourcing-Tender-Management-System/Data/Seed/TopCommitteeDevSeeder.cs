@@ -20,6 +20,26 @@ public static class TopCommitteeDevSeeder
     private const string DemoRequestPrefix = "DEMO-PR";
     private const string ManagerApprovalLevel = "SourcingManager";
 
+    /// <summary>The Top Committee is four people from senior management: the CEO and three Chiefs.</summary>
+    private static readonly string[] SeatTitles =
+        ["CEO", "Chief Financial Officer (CFO)", "Chief Operating Officer (COO)", "Chief Technology Officer (CTO)"];
+
+    private static async Task RefreshSeatTitlesAsync(ApplicationDbContext db)
+    {
+        for (var i = 1; i <= SeatTitles.Length; i++)
+        {
+            var email = $"topcommittee{i}@stms.local";
+            var seat = await db.CommitteePositions.FirstOrDefaultAsync(p =>
+                p.CommitteeType == CommitteeType.Top && p.User.Email == email);
+            if (seat is not null && seat.PositionName != SeatTitles[i - 1])
+            {
+                seat.PositionName = SeatTitles[i - 1];
+            }
+        }
+
+        await db.SaveChangesAsync();
+    }
+
     public static async Task SeedAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
@@ -31,6 +51,9 @@ public static class TopCommitteeDevSeeder
         }
 
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        // A database seeded earlier keeps its demo data, but its committee seats get the current titles.
+        await RefreshSeatTitlesAsync(db);
 
         // DevSeed:Reseed = true rebuilds the demo tenders from scratch (for example after testing votes).
         var reseed = config.GetValue<bool>("DevSeed:Reseed");
@@ -57,14 +80,15 @@ public static class TopCommitteeDevSeeder
             ?? db.Categories.Add(new Category { Name = "IT Equipment (Demo)" }).Entity;
         await db.SaveChangesAsync();
 
-        var positionNames = new[] { "Chairperson", "Finance Member", "Technical Member", "Legal Member" };
+        var positionNames = SeatTitles;
         var members = new List<ApplicationUser>();
         for (var i = 1; i <= TopCommitteeConstants.CommitteeSize; i++)
         {
             var member = await GetOrCreateUserAsync(users, $"topcommittee{i}@stms.local", $"Committee Member {i}", password, null, TopCommitteeConstants.RoleName);
             members.Add(member);
 
-            if (!await db.CommitteePositions.AnyAsync(p => p.UserId == member.Id && p.CommitteeType == CommitteeType.Top))
+            var position = await db.CommitteePositions.FirstOrDefaultAsync(p => p.UserId == member.Id && p.CommitteeType == CommitteeType.Top);
+            if (position is null)
             {
                 db.CommitteePositions.Add(new CommitteePosition
                 {
@@ -72,6 +96,11 @@ public static class TopCommitteeDevSeeder
                     PositionName = positionNames[i - 1],
                     UserId = member.Id
                 });
+            }
+            else if (position.PositionName != positionNames[i - 1])
+            {
+                // Databases created earlier got the old titles; bring these demo accounts in line.
+                position.PositionName = positionNames[i - 1];
             }
         }
 

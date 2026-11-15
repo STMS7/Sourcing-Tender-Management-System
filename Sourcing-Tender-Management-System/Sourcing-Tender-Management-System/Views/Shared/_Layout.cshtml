@@ -37,6 +37,9 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Admin</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="AdminCommittee" asp-action="Index">Committees</a>
+                            </li>
                         }
                         @if (User.IsInRole("SourcingManager"))
                         {
@@ -49,8 +52,11 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="SourcingOfficer" asp-action="Index">Sourcing</a>
                             </li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Requests">Requests</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Tenders">Tenders</a></li>
                         }
-                        @if (User.IsInRole("TechnicalRepresentative") || User.IsInRole("FinancialRepresentative"))
+                        @if (User.IsInRole("TechnicalRepresentative") || User.IsInRole("FinancialRepresentative") ||
+                            User.IsInRole("SourcingManager") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="EvaluationCommittee" asp-action="Index">Evaluation</a>
@@ -59,6 +65,14 @@
                         @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("ProcurementOfficer") && !User.IsInRole("SourcingOfficer"))
                         {
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Messages" asp-action="Index">Messages</a></li>
+                        }
+                        @if (User.IsInRole("TopCommittee"))
+                        {
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="TopCommittee" asp-action="Index">Top committee</a></li>
+                        }
+                        @if (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
+                        {
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Department" asp-action="Dashboard">Department</a></li>
                         }
                     </ul>
                     <partial name="_LoginPartial" />
@@ -80,6 +94,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/sourcing-search.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

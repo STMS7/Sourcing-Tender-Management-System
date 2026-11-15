@@ -1,0 +1,22 @@
+@model BidAnalysisButtonViewModel
+@* Floating "AI assistant" button (bottom-right) and its popup. The result is advisory only. *@
+<div id="bid-analysis" data-url="@Model.Url">
+    @Html.AntiForgeryToken()
+    <button type="button" class="btn btn-primary shadow rounded-pill px-4 py-2 bid-analysis-open"
+            style="position:fixed;right:1.5rem;bottom:1.5rem;z-index:1030"
+            data-bs-toggle="modal" data-bs-target="#bid-analysis-modal">
+        AI assistant
+    </button>
+    <div class="modal fade" id="bid-analysis-modal" tabindex="-1" aria-labelledby="bid-analysis-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="bid-analysis-title">AI assistant - @Model.TenderNumber</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="bid-analysis-body" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="~/js/bid-analysis.js" asp-append-version="true"></script>

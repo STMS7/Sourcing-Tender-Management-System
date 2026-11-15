@@ -1,10 +1,12 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Data.Seed;
-using Sourcing_Tender_Management_System.Services.TopCommittee;
 using Sourcing_Tender_Management_System.Models;
+using Sourcing_Tender_Management_System.Services;
+using Sourcing_Tender_Management_System.Services.AiAssistant;
+using Sourcing_Tender_Management_System.Services.TopCommittee;
 
 namespace Sourcing_Tender_Management_System
 {
@@ -52,6 +54,9 @@ namespace Sourcing_Tender_Management_System
             builder.Services.AddControllersWithViews();
             builder.Services.AddTopCommittee();
             builder.Services.AddBiometrics(builder.Configuration);
+            builder.Services.AddBidAnalysisAssistant(builder.Configuration);
+            builder.Services.Configure<StaffNetworkOptions>(builder.Configuration.GetSection("StaffNetwork"));
+            builder.Services.AddSingleton<StaffNetworkPolicy>();
 
             var app = builder.Build();
 

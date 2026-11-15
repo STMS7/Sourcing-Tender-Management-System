@@ -1,0 +1,75 @@
+@using Sourcing_Tender_Management_System.Models.Reports
+@using Sourcing_Tender_Management_System.Services.Reports
+@model ReportPageViewModel
+@{
+    var doc = Model.Document;
+    var filter = Model.Filter;
+    ViewData["Title"] = doc.Title;
+
+    string? FromText = filter.From?.ToString("yyyy-MM-dd");
+    string? ToText = filter.To?.ToString("yyyy-MM-dd");
+    int? DepartmentForLinks = Model.Options.CanChooseDepartment ? filter.DepartmentId : null;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <a asp-action="Index" class="small">&larr; All reports</a>
+        <h1 class="h3 mb-1">@doc.Title</h1>
+        <div class="text-muted">@doc.Description</div>
+        <div class="text-muted small">Generated @doc.GeneratedAt.ToString("yyyy-MM-dd HH:mm") UTC</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-success" asp-action="Excel" asp-route-kind="@doc.Kind" asp-route-From="@FromText" asp-route-To="@ToText"
+           asp-route-DepartmentId="@DepartmentForLinks" asp-route-Status="@filter.Status" asp-route-Search="@filter.Search">Download Excel</a>
+        <a class="btn btn-danger" asp-action="Pdf" asp-route-kind="@doc.Kind" asp-route-From="@FromText" asp-route-To="@ToText"
+           asp-route-DepartmentId="@DepartmentForLinks" asp-route-Status="@filter.Status" asp-route-Search="@filter.Search">Download PDF</a>
+    </div>
+</div>
+
+<form method="get" asp-action="Show" class="card card-body mb-4">
+    <input type="hidden" name="kind" value="@doc.Kind" />
+    <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-2">
+            <label class="form-label small mb-1" for="From">From</label>
+            <input class="form-control form-control-sm" type="date" id="From" name="From" value="@FromText" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small mb-1" for="To">To</label>
+            <input class="form-control form-control-sm" type="date" id="To" name="To" value="@ToText" />
+        </div>
+        @if (Model.Options.CanChooseDepartment)
+        {
+            <div class="col-12 col-md-2">
+                <label class="form-label small mb-1" for="DepartmentId">Department</label>
+                <select class="form-select form-select-sm" id="DepartmentId" name="DepartmentId">
+                    <option value="">All departments</option>
+                    @foreach (var d in Model.Options.Departments)
+                    {
+                        <option value="@d.Id" selected="@(filter.DepartmentId == d.Id)">@d.Name</option>
+                    }
+                </select>
+            </div>
+        }
+        <div class="col-12 col-md-2">
+            <label class="form-label small mb-1" for="Status">@Model.StatusLabel</label>
+            <select class="form-select form-select-sm" id="Status" name="Status">
+                <option value="">All</option>
+                @foreach (var s in Model.Options.Statuses)
+                {
+                    <option value="@s" selected="@string.Equals(filter.Status, s, StringComparison.OrdinalIgnoreCase)">@System.Text.RegularExpressions.Regex.Replace(s, "(?<!^)([A-Z])", " $1")</option>
+                }
+            </select>
+        </div>
+        <div class="col-12 col-md-2">
+            <label class="form-label small mb-1" for="Search">Search</label>
+            <input class="form-control form-control-sm" id="Search" name="Search" maxlength="100" value="@filter.Search" placeholder="Number, title, name" />
+        </div>
+        <div class="col-12 col-md-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm" type="submit">Apply</button>
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Show" asp-route-kind="@doc.Kind">Reset</a>
+        </div>
+    </div>
+    <div class="small text-muted mt-2">Showing: @doc.FilterSummary</div>
+</form>
+
+<partial name="_ReportBody" model="doc" />

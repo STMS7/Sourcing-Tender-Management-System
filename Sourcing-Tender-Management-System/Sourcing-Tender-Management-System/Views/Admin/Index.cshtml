@@ -2,24 +2,49 @@
     ViewData["Title"] = "Admin";
 }
 
+<div id="admin-overview-search-results">
 <div class="py-4">
     <h1>Admin Dashboard</h1>
     <p>Welcome, @User.Identity?.Name. Your Admin role is active.</p>
-    <div class="row g-3 mb-4">
-        <div class="col-md-4"><div class="card card-body">Users: @ViewBag.UserCount (@ViewBag.ActiveUserCount active)</div></div>
-        <div class="col-md-4"><div class="card card-body">Departments: @ViewBag.DepartmentCount</div></div>
-        <div class="col-md-4"><div class="card card-body">Categories: @ViewBag.CategoryCount</div></div>
-        <div class="col-md-4"><div class="card card-body">Suppliers: @ViewBag.SupplierCount</div></div>
-        <div class="col-md-4"><div class="card card-body">Pending suppliers: @ViewBag.PendingSupplierCount</div></div>
-        <div class="col-md-4"><div class="card card-body">Purchase requests: @ViewBag.ProcurementRequestCount</div></div>
-        <div class="col-md-4"><div class="card card-body">Tenders: @ViewBag.TenderCount</div></div>
+    @if (TempData["Message"] is string message)
+    {
+        <div class="alert alert-success" role="status">@message</div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "admin-overview-search", ResultsId = "admin-overview-search-results", Label = "Search administration summaries and links" })" />
+<div class="row g-3 mb-4">
+        <div data-search-item class="col-md-4"><div class="card card-body">Users: @ViewBag.UserCount (@ViewBag.ActiveUserCount active)</div></div>
+        <div data-search-item class="col-md-4"><div class="card card-body">Departments: @ViewBag.DepartmentCount</div></div>
+        <div data-search-item class="col-md-4"><div class="card card-body">Categories: @ViewBag.CategoryCount</div></div>
+        <div data-search-item class="col-md-4"><div class="card card-body">Suppliers: @ViewBag.SupplierCount</div></div>
+        <div data-search-item class="col-md-4"><div class="card card-body">Pending suppliers: @ViewBag.PendingSupplierCount</div></div>
+        <div data-search-item class="col-md-4"><div class="card card-body">Purchase requests: @ViewBag.ProcurementRequestCount</div></div>
+        <div data-search-item class="col-md-4"><div class="card card-body">Tenders: @ViewBag.TenderCount</div></div>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-primary" asp-controller="Admin" asp-action="Users">Users</a>
-        <a class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Departments">Departments</a>
-        <a class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Categories">Categories</a>
-        <a class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Suppliers">Suppliers</a>
-        <a class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Roles">Roles</a>
-        <a class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="AuditLogs">Audit log</a>
+        <a data-search-item class="btn btn-primary" asp-controller="Admin" asp-action="Users">Users</a>
+        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Departments">Departments</a>
+        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Categories">Categories</a>
+        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Suppliers">Suppliers</a>
+        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Roles">Roles</a>
+        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="AuditLogs">Audit log</a>
+        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCommittee" asp-action="Index">Evaluation committees</a>
     </div>
+    @if (ViewBag.IsDevelopment == true)
+    {
+        <section class="card border-info mt-4">
+            <div class="card-body">
+                <h2 class="h5">Sourcing Manager demo data</h2>
+                <p class="text-secondary">Create four sample evaluation reports for direct approval, Top Committee forwarding, return, and rejection. This is available only in Development and does not delete existing data.</p>
+                <form asp-action="CreateSourcingManagerDemoData" method="post">
+                    <button class="btn btn-outline-info" type="submit">Create demo reports</button>
+                </form>
+            </div>
+        </section>
+    }
+</div>
+
 </div>

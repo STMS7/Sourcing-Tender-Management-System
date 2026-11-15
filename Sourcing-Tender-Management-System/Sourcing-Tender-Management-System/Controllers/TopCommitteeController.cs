@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Models.TopCommittee;
+using Sourcing_Tender_Management_System.Services.AiAssistant;
 using Sourcing_Tender_Management_System.Services.TopCommittee;
 
 namespace Sourcing_Tender_Management_System.Controllers;
@@ -13,6 +14,7 @@ public class TopCommitteeController(
     ITopCommitteeService topCommittee,
     ITopCommitteeVotingService voting,
     ITopCommitteeStatisticsService statistics,
+    ITopCommitteeMeetingService meetings,
     UserManager<ApplicationUser> userManager) : Controller
 {
     // GET /TopCommittee — tenders awaiting the committee's final decision.
@@ -27,6 +29,20 @@ public class TopCommitteeController(
     {
         var model = await topCommittee.GetReviewAsync(id, userManager.GetUserId(User));
         return model is null ? NotFound() : View(model);
+    }
+
+    // POST /TopCommittee/AnalyzeBids/5 — AI assistant popup: compares the recommended bid with the others.
+    // Advisory only: the member still votes with the Vote form.
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AnalyzeBids(int id, [FromServices] IBidAnalysisService bidAnalysis,
+        CancellationToken ct)
+    {
+        var userId = userManager.GetUserId(User)!;
+        var review = await topCommittee.GetReviewAsync(id, userId);   // only tenders sent to the top committee
+        if (review is null) return NotFound();
+        var model = await bidAnalysis.AnalyzeAsync(new BidAnalysisRequest(id, BidAnalysisAudience.TopCommittee, userId,
+            IncludePendingCompliance: false, review.Report.RecommendedBidId), ct);
+        return model is null ? NotFound() : PartialView("_BidAnalysis", model);
     }
 
     // GET /TopCommittee/History?search=... — past tenders and their decisions.
@@ -63,6 +79,27 @@ public class TopCommitteeController(
         return result.TenderId > 0
             ? RedirectToAction(nameof(Details), new { id = result.TenderId })
             : RedirectToAction(nameof(Index));
+    }
+
+    // GET /TopCommittee/Meeting/5 — the committee's video meeting page for one tender (members of that tender only).
+    public async Task<IActionResult> Meeting(int id)
+    {
+        var model = await meetings.GetPageAsync(id, userManager.GetUserId(User)!);
+        return model is null ? NotFound() : View(model);
+    }
+
+    // POST /TopCommittee/StartMeeting/5 — checks again that the caller is a member, then returns the private room
+    // for the browser to open. The room name is never written into a page, only returned to an allowed member.
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartMeeting(int id)
+    {
+        var result = await meetings.StartAsync(id, userManager.GetUserId(User)!, HttpContext.Connection.RemoteIpAddress?.ToString());
+        if (!result.Succeeded)
+        {
+            return StatusCode(result.StatusCode, new { ok = false, error = result.Error });
+        }
+
+        return Json(new { ok = true, domain = result.Domain, room = result.RoomName, displayName = result.DisplayName, subject = result.Subject });
     }
 
     // GET /TopCommittee/Statistics — site-wide numbers: suppliers, requests, tenders, decisions, dealings per supplier.

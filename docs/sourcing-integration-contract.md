@@ -1,3 +1,5 @@
+> Current delivery: see [Sourcing Officer delivery and team dependencies](sourcing-team-delivery.md). Preparation approval/reopening are no longer public officer HTTP actions; historical verification sections below describe earlier stages.
+
 # Sourcing integration contract
 
 This document describes the existing integration points that teammates' pages
@@ -7,16 +9,12 @@ ApplicationDbContext. No database migration is introduced by this review.
 
 ## Verified repository boundary
 
-The reviewed origin/main commit a624828 includes the officer module, authentication,
-top committee, sourcing manager and the technical/financial EvaluationCommitteeController.
-Handoff is now tested against the real evaluation controller and its authenticated
-technical and financial pages. Requesting department and supplier workflow
-controllers are still not present in that reviewed main tree.
-
-Tests verify migrated SQL schema compatibility, producer/consumer data contracts
-and actual evaluation-page receipt. They do not establish compatibility with
-teammates' unpushed request/supplier pages. Repeat the complete purchasing journey
-when those pages are available.
+This checkout integrates Raghad's DepartmentController and CycleChatController
+with the officer module. Department submission, sourcing review, formal return,
+chat reply, department edit/resubmission and acceptance into a tender are tested
+through the real controllers and authenticated browser pages. Existing evaluation
+handoff tests remain applicable. Supplier pages are present in this checkout,
+but their complete end-to-end workflow is not covered by this verification.
 
 ## Shared names and routes
 
@@ -26,11 +24,13 @@ when those pages are available.
 | Staff user | ApplicationUser, with DepartmentId and IsActive |
 | Supplier user | ApplicationUser, with SupplierId and IsActive |
 | Officer roles | SourcingOfficer or legacy ProcurementOfficer |
-| Requesting department role | DepartmentRepresentative; RequestingDepartment is also recognized if the team creates that role |
+| Requesting department role | DepartmentRepresentative, DepartmentRequester or RequestingDepartment |
 | Supplier role | Supplier |
 | Evaluation roles | EvaluationCommittee, SourcingManager, DepartmentRepresentative, FinancialRepresentative, TechnicalRepresentative |
 | Officer entry | /SourcingOfficer |
-| Approved request detail | /SourcingOfficer/RequestDetails/{requestId} |
+| Purchase request detail | /SourcingOfficer/RequestDetails/{requestId} |
+| Accept and create draft | GET/POST /SourcingOfficer/AcceptRequest |
+| Return for changes / reject | POST /SourcingOfficer/ReturnRequest or /SourcingOfficer/RejectRequest |
 | Tender entry | /SourcingOfficer/Details/{tenderId} |
 | Officer messages | /SourcingOfficer/Messages |
 | Recipient inbox | /Messages?conversationId={clarificationId} |
@@ -50,10 +50,16 @@ Each item needs ItemName, positive Quantity, Unit and Specifications as
 appropriate. CategoryId is optional on request items, but creating a tender
 requires choosing an existing Category.
 
-An authorized upstream review must set Status to
-ProcurementRequestStatus.Approved. The officer cannot approve a request.
-Submitted, UnderReview, Rejected and Returned requests do not enter the sourcing
-queue.
+DepartmentController creates Draft requests and submits them as Submitted,
+notifying available officers. The default officer queue includes Submitted,
+UnderReview, Returned and legacy Approved requests within its assignment scope.
+Rejected and ConvertedToTender history can be selected by status.
+StartReview claims the request and sets UnderReview. ReturnRequest requires a
+reason, sets Returned, records a ProcurementRequestReview and creates a linked
+Clarification addressed to the request owner, plus a notification. The department
+can edit Returned requests and resubmit them to the same assigned officer.
+RejectRequest records a permanent Rejected decision and message; it cannot be
+edited or resubmitted. Sending ordinary chat alone does not return a request.
 
 An active request WorkAssignment must use:
 
@@ -62,15 +68,23 @@ An active request WorkAssignment must use:
 - AssignedToUserId = an officer user.
 - CompletedAt = null.
 
-Unassigned approved requests are currently available to all officers. A request
-assigned only to another officer is excluded. Creating a draft copies source
-items into TenderItems and changes the request to ConvertedToTender atomically.
-The requesting page must read this state back; it must not reset it to Approved
-or modify an already-published tender by editing the source request.
+Unassigned Submitted/UnderReview/Approved requests are available to officers.
+A request assigned only to another officer is excluded. AcceptRequest saves the
+approval review, copies the latest request items into a Draft tender, completes
+the request assignment and sets ConvertedToTender in one serializable transaction.
+The acceptance GET and invalid POST do not approve or convert anything. The
+legacy Create route still consumes already-Approved requests. A second acceptance
+cannot create another tender. Department edit/submit rejects converted requests.
+Department accounts need an active DepartmentId for DepartmentController.
+Request conversations in both CycleChat and the officer/shared inbox use the
+same request communication policy and the named request owner.
 
 ## Sourcing to supplier
 
-The officer reads approved, active Supplier records. Supplier accounts must
+The officer reads approved, active Supplier records with a SupplierCategory
+link matching Tender.CategoryId. Missing category links never imply eligibility.
+The picker and Invite/Publish actions enforce this; compliance and handoff
+recheck it. The supplier registration/profile module must persist those links. Supplier accounts must
 reference Supplier.Id through ApplicationUser.SupplierId. A user ID is not a
 supplier company ID.
 
@@ -81,7 +95,7 @@ suppliers as live invitations.
 For actionable participation, supplier pages must verify:
 
 - The signed-in account belongs to the invitation's SupplierId.
-- The supplier is approved and active.
+- The supplier is approved, active and linked to the tender category.
 - Tender.Status is Published and the UTC deadline has not elapsed.
 - The invitation is eligible and has not been declined/expired.
 
@@ -141,6 +155,17 @@ The officer download handler enforces transaction access independently.
 
 ## Evaluation and manager handoff
 
+Committee assignment is Admin-only, per the team's confirmed ownership.
+GET /AdminCommittee lists tenders; GET /AdminCommittee/Details/{id} shows the
+assignment form. POST /AdminCommittee/Assign accepts TenderId, ManagerUserId,
+DepartmentUserId, TechnicalUserId and FinancialUserId. It requires antiforgery,
+an active Admin database role and an unlocked, unpublished Draft without bids.
+The former /SourcingOfficer/AssignEvaluationCommittee route always denies access.
+The officer views assignments and requests approval; it cannot choose members.
+Admin changes are transactional and record an audit entry, workflow event and
+notification linked to the officer's tender. Invalid member selections preserve
+existing assignments. Locked preparation must be reopened by the officer before
+Admin can reassign; published committees cannot change through this endpoint.
 Committee assignment must create four active, distinct TenderCommitteeMembers
 with CommitteeType.Evaluation and the following RoleType values:
 
@@ -156,7 +181,7 @@ with Kind.Tender and TenderId.
 Each committee position also needs its matching Identity role. The handoff
 checks this so TechnicalRepresentative and FinancialRepresentative accounts can
 actually open the receiving evaluation pages. The department position also
-recognizes RequestingDepartment where the team uses that role alias.
+recognizes DepartmentRequester and RequestingDepartment role aliases.
 
 Successful officer handoff sets Tender.Status to UnderEvaluation and creates
 committee notifications/tasks. The evaluation page must select the tender's
@@ -174,22 +199,52 @@ Status.PendingManagerReview, SubmittedAt in UTC, and
 TenderStatus.AwaitingManagerReview. The officer tracking screen reads those
 fields directly. A manager's subsequent decisions belong to the manager module.
 
-Officer edits to scoring criteria lock at publication through
-EvaluationCriteriaLockedAt. Supplier pages must not change those criteria.
-The existing weighting convention is 100% within each criterion group.
-The overall TechnicalWeight/FinancialWeight split belongs to the technical and
-financial committee, and is not part of the officer's Create/Edit input contract.
-Officer pages display pending until both evaluators submit complete proposals,
-then show the averaged agreed split read-only. Existing numeric defaults in the entity are not
-evidence of an agreed evaluation decision.
+## Pre-publication approval contract
 
-The current committee implementation independently stores proposal metadata in
-__weight: EvaluationCriterion rows and writes agreed group weights during
-evaluation. That existing team behavior is not changed by the officer-cycle
-correction. Officer criterion input now rejects that reserved prefix. The team
-still needs to reconcile the committee proposal timing with the brief's
-pre-approved-weight requirement; it is not a policy the officer module can
-approve on its own.
+1. Populate items, terms, future dates, at least one technical and one financial
+   criterion and document requirements. The committee owns all criterion
+   names/types/maximum scores and weights; the officer only prepares tender
+   specifications and document requirements. Admin assigns the four committee
+   members through /AdminCommittee. Both officer criterion endpoints always
+   deny access. The committee's criterion-authoring producer remains a teammate
+   integration dependency: its current weight page consumes existing rows.
+   No other role's production files were changed by this officer-only correction.
+2. POST /SourcingOfficer/RequestWeightApproval locks the Draft using
+   EvaluationCriteriaLockedAt and notifies the technical/financial members.
+   Tender.Status stays Draft. This is preparation approval, not bid handoff.
+3. /EvaluationCommittee/Evaluate/{id} shows locked preparation to its assigned
+   active technical/financial user, with no supplier offers. Each submits
+   POST /EvaluationCommittee/SubmitWeights with tenderId, technicalWeight,
+   financialWeight and criterionWeights[index].CriterionId/Weight. The technical
+   member submits every real technical criterion; the financial member submits
+   every real financial criterion. IDs must belong exclusively to the caller's
+   assigned group, without omissions or duplicates. Each criterion weight is
+   0–100 with at most two decimal places; each group must total 100%.
+   Each overall pair must also total 100%; the existing averaging convention
+   is preserved. Submitting also approves the displayed locked criteria. Missing
+   criterion payloads from older clients are rejected without partial writes.
+4. The existing __weight: EvaluationCriterion rows hold proposals. Workflow
+   records bind each approval to the current member and preparation lock time.
+   A combined approval event is recorded when both have submitted. No migration
+   or new persisted field is required. These rows are excluded from criterion
+   totals. Neither proposals nor scoring criteria can be created/deleted by officers.
+5. Publish verifies the agreed pair matches stored tender weights, both current
+   members have approval evidence since the lock and before publication, all
+   four members retain their roles, and selected suppliers match the category.
+6. ReopenPreparation works only on unpublished drafts without bids. It removes
+   proposals, resets real criterion weights to zero, clears the lock and notifies
+   members. RequestWeightApproval also resets weights before a new approval round.
+   Old history remains for audit
+   but cannot approve the newer preparation. Committee assignment, criteria,
+   terms and dates must remain unchanged during approval; reopen first to edit.
+7. SubmitWeights refuses published tenders and any tender already containing
+   bids. Published/Closed committee pages show no offer contents. Only the later
+   compliance handoff exposes compliant offers for evaluation.
+
+Legacy numeric defaults and post-bid proposals are not evidence of approval
+before publication. Existing published tenders without valid evidence are
+flagged, not silently rewritten or backdated; follow the team's documented
+legacy-tender procedure. The officer cannot choose a winner by changing weights.
 
 ## Messages
 
@@ -206,15 +261,24 @@ Valid context shapes are:
 | Evaluation member | null | tender ID | null |
 
 The officer composer derives recipients through SourcingCommunicationPolicy.
+CycleChat may store a supplier thread with BidId alone and TenderId null.
+Both inboxes accept this shape by deriving the tender from the stored bid.
+An explicit TenderId must match that bid; ProcurementRequestId cannot accompany
+a bid context. Supplier and officer access, bid status and opening time are
+rechecked using the same policy before replying.
 Read access is limited to the named sender/recipient; replies recheck active
 roles, relationships and stage. No role can use the inbox as a user directory.
 
-Department messaging is available for approved requests or converted requests
-linked to tenders in Draft, Published, Closed or UnderEvaluation. Supplier
+Department messaging is available for Submitted/UnderReview/Approved requests,
+the reviewing officer's Returned requests, or converted requests linked to
+tenders in Draft, Published, Closed or UnderEvaluation. Supplier
 messaging is available after bidding closes/opens, while Closed or
 UnderEvaluation. Evaluation-member messaging is available while Closed,
-UnderEvaluation or AwaitingManagerReview. Historical threads stay readable to
+UnderEvaluation or AwaitingManagerReview, plus locked Draft preparation for
+committee clarification. Historical threads stay readable to
 their participants after the active window; new replies are blocked.
+CycleChat uses the same officer-to-committee policy, including the assigned
+manager and department-role aliases during the supported stages.
 
 Send recipient users to /Messages. Officer accounts are redirected to their
 workspace automatically. Read notifications using UserId = the signed-in user;
@@ -226,16 +290,18 @@ The SQL checks use the actual migration chain and migration-seeded role IDs.
 The fixture mirrors the application's Identity store options, including the
 128-character key setting supplied by AddDefaultIdentity.
 
-Verified contracts include approved request conversion, supplier invitation
+Verified contracts include department submission, formal return/message,
+department edit/resubmission, atomic acceptance and legacy approved conversion, supplier invitation
 responses, bid item joins, mandatory documents, compliance/eligibility gates,
 committee membership, report arrival, stage restrictions and two-party messages.
 
 Before final team acceptance, run the real pages through:
 
-department request → authorized approval → officer tender → supplier acceptance
+department request → officer review/return and resubmission → acceptance/tender → supplier acceptance
 and bid → compliance → committee report → manager review.
 
-The remaining prerequisite is implementation of the requesting-department and
-supplier workflow pages against these contracts and agreement on the policy items already listed in
-sourcing-officer.md. Current test coverage is not proof that unimplemented
-pages are conflict-free.
+Department pages are integrated and tested. Supplier workflow pages now exist
+in the repository; this preparation journey seeds supplier input and does not
+establish full supplier-portal coverage. Run those pages against these contracts,
+and agree on the policy items listed in sourcing-officer.md. Current contract
+coverage is not proof of complete end-to-end coverage across every module.

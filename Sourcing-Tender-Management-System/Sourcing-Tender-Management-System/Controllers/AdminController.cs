@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -12,7 +13,8 @@ namespace Sourcing_Tender_Management_System.Controllers;
 public class AdminController(
     UserManager<ApplicationUser> userManager,
     RoleManager<IdentityRole> roleManager,
-    ApplicationDbContext db) : Controller
+    ApplicationDbContext db,
+    IWebHostEnvironment environment) : Controller
 {
     public async Task<IActionResult> Index()
     {
@@ -24,7 +26,140 @@ public class AdminController(
         ViewBag.PendingSupplierCount = await db.Suppliers.CountAsync(x => x.RegistrationStatus == SupplierRegistrationStatus.Pending);
         ViewBag.ProcurementRequestCount = await db.ProcurementRequests.CountAsync();
         ViewBag.TenderCount = await db.Tenders.CountAsync();
+        ViewBag.IsDevelopment = environment.IsDevelopment();
         return View();
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateSourcingManagerDemoData()
+    {
+        if (!environment.IsDevelopment()) return NotFound();
+
+        const string tenderPrefix = "TEST-SM-";
+        if (await db.Tenders.AnyAsync(x => x.TenderNumber.StartsWith(tenderPrefix)))
+        {
+            TempData["Message"] = "Sourcing Manager demo reports already exist. Use the existing reports in Manager Review.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var adminUserId = userManager.GetUserId(User);
+        if (string.IsNullOrWhiteSpace(adminUserId)) return Forbid();
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        var category = new Category
+        {
+            Name = "Sourcing Manager Test Category",
+            Description = "Development-only sample data for testing the manager review workflow."
+        };
+        var supplierA = new Supplier
+        {
+            CompanyName = "Demo Supplier Alpha",
+            RegistrationNumber = "TEST-SM-SUP-A",
+            Email = "supplier.alpha@sourcing-demo.example.test",
+            RegistrationStatus = SupplierRegistrationStatus.Approved,
+            LegalVerificationStatus = DocumentVerificationStatus.Verified,
+            IsActive = true
+        };
+        var supplierB = new Supplier
+        {
+            CompanyName = "Demo Supplier Beta",
+            RegistrationNumber = "TEST-SM-SUP-B",
+            Email = "supplier.beta@sourcing-demo.example.test",
+            RegistrationStatus = SupplierRegistrationStatus.Approved,
+            LegalVerificationStatus = DocumentVerificationStatus.Verified,
+            IsActive = true
+        };
+
+        db.Categories.Add(category);
+        db.Suppliers.AddRange(supplierA, supplierB);
+        await db.SaveChangesAsync();
+
+        var now = DateTime.UtcNow;
+        var scenarios = new[]
+        {
+            new { Code = "APPROVE", Title = "Direct approval test", RequiresTopCommittee = false, EstimatedValue = 12500m },
+            new { Code = "TOP", Title = "Top Committee forwarding test", RequiresTopCommittee = true, EstimatedValue = 275000m },
+            new { Code = "RETURN", Title = "Return for revision test", RequiresTopCommittee = false, EstimatedValue = 18400m },
+            new { Code = "REJECT", Title = "Recommendation rejection test", RequiresTopCommittee = false, EstimatedValue = 22100m }
+        };
+
+        foreach (var scenario in scenarios)
+        {
+            var tender = new Tender
+            {
+                TenderNumber = $"{tenderPrefix}{scenario.Code}",
+                Title = $"{scenario.Title} — {scenario.Code}",
+                Description = "Sample tender generated locally for the Sourcing Manager demonstration.",
+                CategoryId = category.Id,
+                PublishedAt = now.AddDays(-14),
+                SubmissionDeadline = now.AddDays(-2),
+                OpeningDate = now.AddDays(-1),
+                EstimatedValue = scenario.EstimatedValue,
+                Status = TenderStatus.AwaitingManagerReview,
+                CreatedByUserId = adminUserId,
+                CreatedAt = now.AddDays(-14),
+                TechnicalWeight = 60,
+                FinancialWeight = 40,
+                EvaluationCriteriaLockedAt = now.AddDays(-14),
+                RequiresTopCommittee = scenario.RequiresTopCommittee
+            };
+            db.Tenders.Add(tender);
+            await db.SaveChangesAsync();
+
+            var bidA = new Bid
+            {
+                TenderId = tender.Id,
+                SupplierId = supplierA.Id,
+                BidNumber = $"{tenderPrefix}{scenario.Code}-A",
+                TotalAmount = scenario.EstimatedValue * 0.94m,
+                Currency = "JOD",
+                DeliveryDays = 18,
+                TechnicalSummary = "Meets the required technical specifications.",
+                Status = BidStatus.Compliant,
+                ComplianceStatus = ComplianceDecision.Compliant,
+                SubmittedAt = now.AddDays(-3),
+                ValidUntil = now.AddDays(30)
+            };
+            var bidB = new Bid
+            {
+                TenderId = tender.Id,
+                SupplierId = supplierB.Id,
+                BidNumber = $"{tenderPrefix}{scenario.Code}-B",
+                TotalAmount = scenario.EstimatedValue * 0.99m,
+                Currency = "JOD",
+                DeliveryDays = 24,
+                TechnicalSummary = "Meets the required technical specifications.",
+                Status = BidStatus.Compliant,
+                ComplianceStatus = ComplianceDecision.Compliant,
+                SubmittedAt = now.AddDays(-3),
+                ValidUntil = now.AddDays(30)
+            };
+            db.Bids.AddRange(bidA, bidB);
+            await db.SaveChangesAsync();
+
+            db.EvaluationReports.Add(new EvaluationReport
+            {
+                TenderId = tender.Id,
+                Round = 1,
+                PreparedByUserId = adminUserId,
+                Summary = "Demo committee summary: both offers meet the mandatory requirements. Supplier Alpha has the strongest overall weighted result and is recommended for this scenario.",
+                RecommendationReason = "Supplier Alpha offers the best combined technical and financial result for demonstration purposes.",
+                Status = RecommendationStatus.PendingManagerReview,
+                RecommendedBidId = bidA.Id,
+                CreatedAt = now.AddHours(-2),
+                SubmittedAt = now,
+                Bids = new List<EvaluationReportBid>
+                {
+                    new() { BidId = bidA.Id, TechnicalScore = 90, FinancialScore = 92, WeightedTotal = 90.8m, IsCompliant = true, Notes = "Recommended sample offer." },
+                    new() { BidId = bidB.Id, TechnicalScore = 86, FinancialScore = 88, WeightedTotal = 86.8m, IsCompliant = true, Notes = "Alternative compliant offer." }
+                }
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await transaction.CommitAsync();
+        TempData["Message"] = "Four demo evaluation reports were created. Sign in as SourcingManager and open Manager Review to test each decision.";
+        return RedirectToAction(nameof(Index));
     }
 
     public async Task<IActionResult> Users(string? search)
@@ -63,6 +198,8 @@ public class AdminController(
     public async Task<IActionResult> CreateUser(AdminCreateUserViewModel model)
     {
         await ValidateAssignmentsAsync(model.Role, model.DepartmentId, model.SupplierId);
+        if (model.Role == "TopCommittee" && await ActiveTopCommitteeCountAsync() >= 4)
+            ModelState.AddModelError(nameof(model.Role), "The Top Committee already has four active members.");
         if (model.Role == "Supplier" || model.SupplierId.HasValue)
             ModelState.AddModelError(nameof(model.Role), "Suppliers register their own accounts.");
         if (await userManager.FindByEmailAsync(model.Email) is not null)
@@ -79,7 +216,7 @@ public class AdminController(
             Email = model.Email.Trim(),
             EmailConfirmed = true,
             FullName = model.FullName.Trim(),
-            DepartmentId = model.Role == "Supplier" ? null : model.DepartmentId,
+            DepartmentId = BelongsToDepartment(model.Role) ? model.DepartmentId : null,
             SupplierId = model.Role == "Supplier" ? model.SupplierId : null,
             IsActive = true
         };
@@ -101,6 +238,7 @@ public class AdminController(
             return View(model);
         }
 
+        await SyncTopCommitteePositionAsync(user, model.Role, user.IsActive);
         await LogUserActionAsync("Create", user.Id);
         TempData["Message"] = "User created.";
         return RedirectToAction(nameof(Users));
@@ -119,7 +257,7 @@ public class AdminController(
             FullName = user.FullName,
             Email = user.Email ?? string.Empty,
             Role = roles.FirstOrDefault() ?? string.Empty,
-            DepartmentId = user.DepartmentId,
+            DepartmentId = BelongsToDepartment(roles.FirstOrDefault()) ? user.DepartmentId : null,
             SupplierId = user.SupplierId,
             IsActive = user.IsActive
         });
@@ -137,6 +275,8 @@ public class AdminController(
             ModelState.AddModelError(nameof(model.Email), "This email is already in use.");
 
         var currentRoles = await userManager.GetRolesAsync(user);
+        if (model.Role == "TopCommittee" && model.IsActive && await ActiveTopCommitteeCountAsync(user.Id) >= 4)
+            ModelState.AddModelError(nameof(model.Role), "The Top Committee already has four other active members.");
         if (user.SupplierId.HasValue)
         {
             if (model.Role != "Supplier" || model.SupplierId != user.SupplierId)
@@ -168,7 +308,7 @@ public class AdminController(
         user.UserName = model.Email.Trim();
         user.EmailConfirmed = user.SupplierId is null || await db.Suppliers.AnyAsync(x => x.Id == user.SupplierId &&
             x.RegistrationStatus == SupplierRegistrationStatus.Approved);
-        user.DepartmentId = model.Role == "Supplier" ? null : model.DepartmentId;
+        user.DepartmentId = BelongsToDepartment(model.Role) ? model.DepartmentId : null;
         user.SupplierId = model.Role == "Supplier" ? model.SupplierId : null;
         user.IsActive = model.IsActive;
 
@@ -192,6 +332,8 @@ public class AdminController(
             var added = await userManager.AddToRoleAsync(user, model.Role);
             if (!added.Succeeded) { AddErrors(added); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
         }
+
+        await SyncTopCommitteePositionAsync(user, model.Role, model.IsActive);
 
         if (!model.IsActive)
         {
@@ -234,12 +376,23 @@ public class AdminController(
         return RedirectToAction(nameof(Users));
     }
 
+    // Only department staff belong to a department. Everyone else (Top Committee, Sourcing Manager, Technical and
+    // Financial representatives, sourcing staff, Admin) works for the whole company, so no department is stored.
+    private static readonly string[] DepartmentRoles = { "DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment" };
+
+    private static bool BelongsToDepartment(string? role) => role is not null && DepartmentRoles.Contains(role);
+
     private async Task ValidateAssignmentsAsync(string role, int? departmentId, int? supplierId)
     {
         if (string.IsNullOrWhiteSpace(role) || !await roleManager.RoleExistsAsync(role))
             ModelState.AddModelError("Role", "Choose an existing role.");
-        if (departmentId.HasValue && !await db.Departments.AnyAsync(x => x.Id == departmentId.Value))
-            ModelState.AddModelError("DepartmentId", "Department not found.");
+        if (BelongsToDepartment(role))
+        {
+            if (!departmentId.HasValue)
+                ModelState.AddModelError("DepartmentId", "Choose the department of this department user.");
+            else if (!await db.Departments.AnyAsync(x => x.Id == departmentId.Value))
+                ModelState.AddModelError("DepartmentId", "Department not found.");
+        }
         if (supplierId.HasValue && !await db.Suppliers.AnyAsync(x => x.Id == supplierId.Value))
             ModelState.AddModelError("SupplierId", "Supplier not found.");
         if (role == "Supplier" && !supplierId.HasValue)
@@ -252,6 +405,47 @@ public class AdminController(
             .OrderBy(x => x.Name).Select(x => x.Name).ToListAsync());
         ViewBag.Departments = new SelectList(await db.Departments.OrderBy(x => x.Name).ToListAsync(), "Id", "Name");
         ViewBag.Suppliers = new SelectList(await db.Suppliers.OrderBy(x => x.CompanyName).ToListAsync(), "Id", "CompanyName");
+    }
+
+    private Task<int> ActiveTopCommitteeCountAsync(string? excludingUserId = null) =>
+        db.CommitteePositions.CountAsync(p => p.CommitteeType == CommitteeType.Top && p.IsActive &&
+            (excludingUserId == null || p.UserId != excludingUserId));
+
+    private async Task SyncTopCommitteePositionAsync(ApplicationUser user, string role, bool isActive)
+    {
+        var positions = await db.CommitteePositions
+            .Where(p => p.CommitteeType == CommitteeType.Top && p.UserId == user.Id).ToListAsync();
+        var shouldBeMember = role == "TopCommittee" && isActive;
+        if (!shouldBeMember)
+        {
+            foreach (var membership in positions.Where(p => p.IsActive))
+            {
+                membership.IsActive = false;
+                membership.EffectiveTo = DateTime.UtcNow;
+            }
+            return;
+        }
+
+        var existingPosition = positions.OrderByDescending(p => p.EffectiveFrom).FirstOrDefault();
+        if (existingPosition != null)
+        {
+            existingPosition.IsActive = true;
+            existingPosition.EffectiveFrom = DateTime.UtcNow;
+            existingPosition.EffectiveTo = null;
+            return;
+        }
+
+        var names = new[] { "Executive Director", "Chief Financial Officer", "Founder / Board Chair", "Legal & Compliance Director" };
+        var usedNames = await db.CommitteePositions.Where(p => p.CommitteeType == CommitteeType.Top && p.IsActive)
+            .Select(p => p.PositionName).ToListAsync();
+        db.CommitteePositions.Add(new CommitteePosition
+        {
+            CommitteeType = CommitteeType.Top,
+            PositionName = names.FirstOrDefault(name => !usedNames.Contains(name)) ?? "Top Committee Member",
+            UserId = user.Id,
+            IsActive = true,
+            EffectiveFrom = DateTime.UtcNow
+        });
     }
 
     private void AddErrors(IdentityResult result)

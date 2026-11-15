@@ -1,10 +1,14 @@
 @model IReadOnlyList<Sourcing_Tender_Management_System.Models.AuditLog>
 @{ ViewData["Title"] = "Audit log"; }
+<div id="audit-search-results">
 <h1>Audit log</h1>
 <p>Most recent 200 recorded actions.</p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "audit-search", ResultsId = "audit-search-results", Label = "Search the latest 200 recorded actions" })" />
 <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Time (UTC)</th><th>User ID</th><th>Action</th><th>Entity</th><th>Entity ID</th></tr></thead><tbody>
 @foreach (var entry in Model)
 {
-    <tr><td>@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td><td>@entry.UserId</td><td>@entry.Action</td><td>@entry.EntityName</td><td>@entry.EntityId</td></tr>
+    <tr data-search-item><td>@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td><td>@entry.UserId</td><td>@entry.Action</td><td>@entry.EntityName</td><td>@entry.EntityId</td></tr>
 }
 </tbody></table></div>
+
+</div>

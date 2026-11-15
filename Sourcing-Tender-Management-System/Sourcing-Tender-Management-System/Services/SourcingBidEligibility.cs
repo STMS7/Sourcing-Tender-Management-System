@@ -11,6 +11,8 @@ public static class SourcingBidEligibility
         if (!acceptedInvitation) return "A compliant offer must belong to a supplier with an accepted invitation to this tender.";
         if (!bid.Supplier.IsActive || bid.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved)
             return "The supplier must still be approved and active before its offer can proceed.";
+        if (!bid.Supplier.SupplierCategories.Any(c => c.CategoryId == tender.CategoryId))
+            return "The supplier must be registered in this tender's category.";
         var itemIds = tender.Items.Select(i => i.Id).ToHashSet();
         if (itemIds.Count == 0 || bid.Items.Count == 0 ||
             bid.Items.Select(i => i.TenderItemId).Distinct().Count() != bid.Items.Count ||

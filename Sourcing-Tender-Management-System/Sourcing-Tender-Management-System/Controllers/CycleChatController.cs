@@ -5,10 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
+using Sourcing_Tender_Management_System.Services;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
-// Separate from the existing SourcingOfficer and Messages controllers; no shared files changed.
+// Uses the shared sourcing policy for request conversations across both inboxes.
 [Authorize]
 [AutoValidateAntiforgeryToken]
 public class CycleChatController : Controller
@@ -28,8 +29,9 @@ public class CycleChatController : Controller
             _db.Roles.Any(r => r.Id == ur.RoleId && roles.Contains(r.Name!)));
     private bool IsActive(string id) => _db.Users.Any(u => u.Id == id && u.IsActive);
     private bool IsOfficer(string id) => HasRole(id, "SourcingOfficer", "ProcurementOfficer");
-    private bool IsDepartment(string id) => HasRole(id, "DepartmentRequester", "DepartmentRepresentative");
-    private bool IsCommittee(string id) => HasRole(id, "EvaluationCommittee", "TechnicalRepresentative", "FinancialRepresentative", "DepartmentRepresentative");
+    private bool IsDepartment(string id) => HasRole(id, "DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment");
+    private bool IsCommittee(string id) => HasRole(id, "EvaluationCommittee", "TechnicalRepresentative", "FinancialRepresentative",
+        "DepartmentRepresentative", "DepartmentRequester", "RequestingDepartment");
     private bool IsManager(string id) => HasRole(id, "SourcingManager");
     private bool IsTop(string id) => HasRole(id, "TopCommittee");
     private bool IsSupplier(string id) => HasRole(id, "Supplier");
@@ -38,38 +40,32 @@ public class CycleChatController : Controller
     private bool CanTalk(int? requestId, int? tenderId, int? bidId, string a, string b)
     {
         if (a == b || !IsActive(a) || !IsActive(b)) return false;
+        if (bidId.HasValue)
+        {
+            if (requestId.HasValue) return false;
+            string supplierId = IsSupplier(a) ? a : b;
+            string officerId = supplierId == a ? b : a;
+            if (!IsSupplier(supplierId) || !IsOfficer(officerId)) return false;
+            return SourcingCommunicationPolicy.SupplierOffersForCommunication(_db, officerId).Any(bid =>
+                bid.Id == bidId && (tenderId == null || bid.TenderId == tenderId) &&
+                _db.Users.Any(u => u.Id == supplierId && u.SupplierId == bid.SupplierId));
+        }
         if ((requestId.HasValue ? 1 : 0) + (tenderId.HasValue ? 1 : 0) + (bidId.HasValue ? 1 : 0) != 1)
             return false;
         if (requestId.HasValue)
         {
             var request = _db.ProcurementRequests.FirstOrDefault(r => r.Id == requestId);
-            if (request == null || request.Status is not (ProcurementRequestStatus.Submitted or
-                ProcurementRequestStatus.UnderReview or ProcurementRequestStatus.Returned or ProcurementRequestStatus.Approved)) return false;
+            if (request == null) return false;
             string dept = IsDepartment(a) ? a : b;
             string officer = dept == a ? b : a;
             if (!IsDepartment(dept) || !IsOfficer(officer)) return false;
-            if (!_db.Users.Any(u => u.Id == dept && u.DepartmentId == request.DepartmentId)) return false;
-            bool assigned = _db.WorkAssignments.Any(w => w.Kind == AssignmentKind.ProcurementRequest &&
-                w.ProcurementRequestId == request.Id && w.CompletedAt == null);
-            return !assigned || _db.WorkAssignments.Any(w => w.Kind == AssignmentKind.ProcurementRequest &&
-                w.ProcurementRequestId == request.Id && w.AssignedToUserId == officer && w.CompletedAt == null);
-        }
-        if (bidId.HasValue)
-        {
-            var bid = _db.Bids.Include(x => x.Tender).FirstOrDefault(x => x.Id == bidId);
-            if (bid == null || bid.Status is BidStatus.Draft or BidStatus.Withdrawn ||
-                bid.Tender.Status is not (TenderStatus.Closed or TenderStatus.UnderEvaluation)) return false;
-            string supplierId = IsSupplier(a) ? a : b;
-            string officerId = supplierId == a ? b : a;
-            if (!IsSupplier(supplierId) || !IsOfficer(officerId)) return false;
-            if (!_db.Users.Any(u => u.Id == supplierId && u.SupplierId == bid.SupplierId)) return false;
-            return bid.Tender.CreatedByUserId == officerId ||
-                _db.WorkAssignments.Any(w => w.TenderId == bid.TenderId && w.Kind == AssignmentKind.Tender &&
-                    w.AssignedToUserId == officerId && w.CompletedAt == null);
+            return request.RequestedByUserId == dept &&
+                SourcingCommunicationPolicy.RequestsForCommunication(_db, officer).Any(r => r.Id == request.Id);
         }
         var tender = _db.Tenders.FirstOrDefault(t => t.Id == tenderId);
-        if (tender == null || tender.Status is not (TenderStatus.Closed or TenderStatus.UnderEvaluation or
-            TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision)) return false;
+        if (tender == null || !(tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation or
+            TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision ||
+            (tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null))) return false;
         bool OfficerOfTender(string id) => IsOfficer(id) && (tender.CreatedByUserId == id ||
             _db.WorkAssignments.Any(w => w.TenderId == tender.Id && w.Kind == AssignmentKind.Tender &&
                 w.AssignedToUserId == id && w.CompletedAt == null));
@@ -80,9 +76,13 @@ public class CycleChatController : Controller
         bool Eval(string id) => IsCommittee(id) && EvaluationMember(id);
         bool Manager(string id) => IsManager(id) && EvaluationMember(id);
         bool Top(string id) => IsTop(id) && TopMember(id);
-        if (tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation)
+        if (OfficerOfTender(a) && SourcingCommunicationPolicy.CommitteeRecipientsForCommunication(_db, a, tender.Id).Any(u => u.Id == b))
+            return true;
+        if (OfficerOfTender(b) && SourcingCommunicationPolicy.CommitteeRecipientsForCommunication(_db, b, tender.Id).Any(u => u.Id == a))
+            return true;
+        if (tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation ||
+            (tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null))
         {
-            if ((OfficerOfTender(a) && Eval(b)) || (OfficerOfTender(b) && Eval(a))) return true;
             if ((Eval(a) && Manager(b)) || (Eval(b) && Manager(a))) return true;
         }
         if (tender.Status is TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision)

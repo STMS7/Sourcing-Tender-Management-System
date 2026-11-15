@@ -1,0 +1,21 @@
+<script>
+    // The Department field only applies to department users; for every other role it is hidden and cleared.
+    (function () {
+        var role = document.getElementById('Role');
+        var group = document.getElementById('department-group');
+        var department = document.getElementById('DepartmentId');
+        if (!role || !group || !department) return;
+
+        var departmentRoles = ['DepartmentRequester', 'DepartmentRepresentative', 'RequestingDepartment'];
+
+        function sync() {
+            var applies = departmentRoles.indexOf(role.value) !== -1;
+            group.hidden = !applies;
+            department.disabled = !applies;
+            if (!applies) department.value = '';
+        }
+
+        role.addEventListener('change', sync);
+        sync();
+    })();
+</script>

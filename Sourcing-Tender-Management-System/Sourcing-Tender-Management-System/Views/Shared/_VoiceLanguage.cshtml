@@ -1,0 +1,6 @@
+@{ var languageId = ViewData["VoiceLanguageId"] as string ?? "voice-language"; }
+<label for="@languageId" class="form-label">Voice language</label>
+<select id="@languageId" class="form-select" data-voice-language>
+    <option value="en-US" lang="en">English</option>
+    <option value="ar-JO" lang="ar">العربية</option>
+</select>

@@ -1,14 +1,17 @@
 @model IReadOnlyList<Sourcing_Tender_Management_System.Models.Supplier>
 @using Sourcing_Tender_Management_System.Models
 @{ ViewData["Title"] = "Suppliers"; }
+<div id="supplier-catalog-search-results">
 <h1>Suppliers</h1>
 @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
 @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
 <p>Suppliers register their own accounts. Review registrations here.</p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-catalog-search", ResultsId = "supplier-catalog-search-results", Label = "Search supplier registrations" })" />
+
 @foreach (var item in Model)
 {
     var isNew = item.Id == 0;
-    <details class="card mb-2" open="@isNew">
+    <details data-search-item class="card mb-2" open="@isNew">
         <summary class="card-header">@(isNew ? "Add supplier" : item.CompanyName)</summary>
         <form asp-action="SaveSupplier" method="post" class="card-body row g-3">
             @Html.AntiForgeryToken()
@@ -81,3 +84,5 @@
         }
     </details>
 }
+
+</div>
