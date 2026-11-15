@@ -49,7 +49,13 @@
         const results = document.getElementById(form.dataset.results);
         const status = document.getElementById(form.dataset.searchStatus);
         const button = form.querySelector('[data-voice-search]');
+        const buttonLabel = button?.querySelector('[data-voice-label]');
         const language = form.querySelector('[data-voice-language]');
+        const languagePicker = form.querySelector('[data-language-picker]');
+        const languageToggle = form.querySelector('[data-language-toggle]');
+        const languageMenu = form.querySelector('[data-language-menu]');
+        const languageSymbol = form.querySelector('[data-language-symbol]');
+        const languageOptions = [...form.querySelectorAll('[data-language-option]')];
         if (!input || !results || !status || !button || !language) return;
         form.dataset.searchInitialized = 'true';
         form.hidden = false;
@@ -65,6 +71,20 @@
             if (messages[saved]) language.value = saved;
         } catch { /* Search remains available when storage is blocked. */ }
         const copy = () => messages[language.value] || messages['en-US'];
+        const syncLanguagePicker = () => {
+            if (languageSymbol) languageSymbol.textContent = language.value === 'ar-JO' ? 'ع' : 'A';
+            languageOptions.forEach(option => option.setAttribute('aria-selected', option.dataset.languageOption === language.value ? 'true' : 'false'));
+        };
+        const closeLanguageMenu = () => {
+            if (languageMenu) languageMenu.hidden = true;
+            languageToggle?.setAttribute('aria-expanded', 'false');
+        };
+        const setButtonText = text => {
+            if (buttonLabel) buttonLabel.textContent = text;
+            else button.textContent = text;
+            button.setAttribute('aria-label', text);
+            button.title = text;
+        };
         const unavailable = () => !Recognition ? copy().unsupported : !window.isSecureContext ? copy().insecure : '';
         const announce = message => {
             status.textContent = message + unavailable();
@@ -141,9 +161,10 @@
             voice = null;
             if (activeVoice === cancelVoice) activeVoice = null;
             try { session.abort(); } catch { /* Session may already have ended. */ }
-            button.textContent = copy().start;
+            setButtonText(copy().start);
             button.setAttribute('aria-pressed', 'false');
             language.disabled = false;
+            if (languageToggle) languageToggle.disabled = false;
             announce(lastMessage || copy().ready);
         };
         input.addEventListener('input', () => { cancelVoice(); search(); });
@@ -156,13 +177,31 @@
         });
         language.addEventListener('change', () => {
             cancelVoice();
+            syncLanguagePicker();
             try { localStorage.setItem(preferenceKey, language.value); } catch { /* Optional preference. */ }
-            button.textContent = copy().start;
+            setButtonText(copy().start);
             if (local) filterLocal();
             else feedback(latestCount !== undefined ? resultMessage(latestCount) : copy().ready);
         });
         button.disabled = !Recognition || !window.isSecureContext;
-        button.textContent = copy().start;
+        languageToggle?.addEventListener('click', event => {
+            event.stopPropagation();
+            if (!languageMenu) return;
+            languageMenu.hidden = !languageMenu.hidden;
+            languageToggle.setAttribute('aria-expanded', languageMenu.hidden ? 'false' : 'true');
+        });
+        languageOptions.forEach(option => option.addEventListener('click', event => {
+            event.stopPropagation();
+            language.value = option.dataset.languageOption;
+            language.dispatchEvent(new Event('change', { bubbles: true }));
+            closeLanguageMenu();
+            languageToggle?.focus();
+        }));
+        document.addEventListener('click', event => {
+            if (languagePicker && !languagePicker.contains(event.target)) closeLanguageMenu();
+        });
+        syncLanguagePicker();
+        setButtonText(copy().start);
         button.addEventListener('click', () => {
             if (voice) { cancelVoice(); feedback(lastMessage || copy().ready); return; }
             activeVoice?.();
@@ -172,8 +211,9 @@
             let failed = false;
             session.lang = language.value;
             session.interimResults = true; session.continuous = false;
-            button.textContent = copy().stop;
+            setButtonText(copy().stop);
             button.setAttribute('aria-pressed', 'true'); language.disabled = true;
+            if (languageToggle) { languageToggle.disabled = true; closeLanguageMenu(); }
             session.onstart = () => { if (voice === session) announce(copy().listening); };
             session.onresult = event => {
                 if (voice !== session) return;
@@ -188,8 +228,9 @@
                 if (voice !== session) return;
                 voice = null;
                 if (activeVoice === cancelVoice) activeVoice = null;
-                button.textContent = copy().start;
+                setButtonText(copy().start);
                 button.setAttribute('aria-pressed', 'false'); language.disabled = false;
+                if (languageToggle) languageToggle.disabled = false;
                 if (!failed) announce(lastMessage || copy().ready);
             };
             try { session.start(); }

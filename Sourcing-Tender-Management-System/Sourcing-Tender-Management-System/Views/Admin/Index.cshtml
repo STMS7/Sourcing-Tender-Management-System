@@ -24,27 +24,6 @@
         <li data-search-item><div class="zt-tile"><span class="zt-tile-label">Purchase requests</span><span class="zt-tile-value">@ViewBag.ProcurementRequestCount</span></div></li>
         <li data-search-item><a class="zt-tile" asp-controller="AdminCommittee" asp-action="Index"><span class="zt-tile-label">Tenders</span><span class="zt-tile-value">@ViewBag.TenderCount</span><span class="zt-tile-note">Assign committees</span></a></li>
     </ul>
-    <div class="d-flex flex-wrap gap-2">
-        <a data-search-item class="btn btn-primary" asp-controller="Admin" asp-action="Users">Users</a>
-        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Departments">Departments</a>
-        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Categories">Categories</a>
-        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Suppliers">Suppliers</a>
-        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="Roles">Roles</a>
-        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCatalog" asp-action="AuditLogs">Audit log</a>
-        <a data-search-item class="btn btn-outline-primary" asp-controller="AdminCommittee" asp-action="Index">Evaluation committees</a>
-    </div>
-    @if (ViewBag.IsDevelopment == true)
-    {
-        <section class="card border-info mt-4">
-            <div class="card-body">
-                <h2 class="h5">Sourcing Manager demo data</h2>
-                <p class="text-secondary">Create four sample evaluation reports for direct approval, Top Committee forwarding, return, and rejection. This is available only in Development and does not delete existing data.</p>
-                <form asp-action="CreateSourcingManagerDemoData" method="post">
-                    <button class="btn btn-outline-info" type="submit">Create demo reports</button>
-                </form>
-            </div>
-        </section>
-    }
 </div>
 
 </div>

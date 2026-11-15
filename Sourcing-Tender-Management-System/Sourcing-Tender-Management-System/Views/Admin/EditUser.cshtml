@@ -5,43 +5,7 @@
 
 <div class="py-4" style="max-width: 640px">
     <h1>Edit user</h1>
-    <form asp-action="EditUser" method="post">
-        @Html.AntiForgeryToken()
-        <input asp-for="Id" type="hidden" />
-        <div asp-validation-summary="All" class="text-danger"></div>
-        <div class="mb-3">
-            <label asp-for="FullName" class="form-label"></label>
-            <input asp-for="FullName" class="form-control" />
-        </div>
-        <div class="mb-3">
-            <label asp-for="Email" class="form-label"></label>
-            <input asp-for="Email" class="form-control" />
-        </div>
-        <div class="mb-3">
-            <label asp-for="Role" class="form-label"></label>
-            <select asp-for="Role" asp-items="ViewBag.Roles" class="form-select"></select>
-            <div class="form-text">Choosing TopCommittee automatically activates this user as a voting member; changing the role or disabling the account removes the active membership.</div>
-        </div>
-        <div class="mb-3" id="department-group">
-            <label asp-for="DepartmentId" class="form-label">Department</label>
-            <select asp-for="DepartmentId" asp-items="ViewBag.Departments" class="form-select">
-                <option value="">Choose a department</option>
-            </select>
-            <div class="form-text">Only department users belong to a department. Top Committee, Sourcing Manager, Technical and Financial representatives work for the whole company.</div>
-        </div>
-        <div class="mb-3">
-            <label asp-for="SupplierId" class="form-label">Supplier (Supplier role)</label>
-            <select asp-for="SupplierId" asp-items="ViewBag.Suppliers" class="form-select">
-                <option value="">None</option>
-            </select>
-        </div>
-        <div class="form-check mb-3">
-            <input asp-for="IsActive" class="form-check-input" />
-            <label asp-for="IsActive" class="form-check-label">Active account</label>
-        </div>
-        <button class="btn btn-primary" type="submit">Save</button>
-        <a class="btn btn-link" asp-action="Users">Cancel</a>
-    </form>
+    <partial name="_EditUserForm" model="Model" />
 </div>
 
 @section Scripts {

@@ -6,4 +6,7 @@ public class WorkspaceSearchViewModel
     public string ResultsId { get; set; } = "workspace-results";
     public string Label { get; set; } = "Search this list";
     public string Placeholder { get; set; } = "Results update as you type";
+    public string? Action { get; set; }
+    public string? SearchValue { get; set; }
+    public bool Local { get; set; } = true;
 }

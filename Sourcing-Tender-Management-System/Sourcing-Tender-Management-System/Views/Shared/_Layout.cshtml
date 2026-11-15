@@ -12,6 +12,8 @@
     var initial = string.IsNullOrWhiteSpace(displayName) ? "?" : displayName.Trim()[..1].ToUpperInvariant();
     bool InRole(params string[] roles) => roles.Any(User.IsInRole);
     var isOfficer = InRole("ProcurementOfficer", "SourcingOfficer");
+    var isAdmin = InRole("Admin");
+    var isAdminArea = isAdmin && (controller is "Admin" or "AdminCatalog" or "AdminCommittee");
 
     const string IconGrid = "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z";
     const string IconList = "M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01";
@@ -24,6 +26,8 @@
     const string IconShield = "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z";
     const string IconBuilding = "M4 21V5l8-3 8 3v16M9 21v-5h6v5M8 9h.01M12 9h.01M16 9h.01M8 13h.01M12 13h.01M16 13h.01";
     const string IconTruck = "M3 7h11v9H3zM14 10h4l3 3v3h-7M7 20a2 2 0 100-4 2 2 0 000 4zM17 20a2 2 0 100-4 2 2 0 000 4z";
+    const string IconHistory = "M3 12a9 9 0 109-9 9 9 0 00-8.5 6M3 4v5h5M12 7v5l3 2";
+    const string IconMail = "M3 5h18v14H3zM3 6l9 7 9-7";
     const string IconLogout = "M10 4H5v16h5M15 8l4 4-4 4M19 12H9";
     const string IconUser = "M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c1-4 4-6 8-6s7 2 8 6";
     const string IconMenu = "M4 7h16M4 12h16M4 17h16";
@@ -33,8 +37,16 @@
         links.Add(("Supplier Dashboard", Url.Action("Index", "Suppliers")!, IconTruck, controller == "Suppliers"));
     if (InRole("Admin"))
     {
-        links.Add(("Admin", Url.Action("Index", "Admin")!, IconShield, controller is "Admin" or "AdminCatalog"));
-        links.Add(("Committees", Url.Action("Index", "AdminCommittee")!, IconPeople, controller == "AdminCommittee"));
+        links.Add(("Dashboard", Url.Action("Index", "Admin")!, IconShield,
+            controller == "Admin" && currentAction == "Index"));
+        links.Add(("Users", Url.Action("Users", "Admin")!, IconPeople,
+            (controller == "Admin" && currentAction is "Users" or "CreateUser" or "EditUser" or "ResetPassword") ||
+            (controller == "AdminCatalog" && currentAction is "Roles" or "CreateRole" or "DeleteRole" or "Categories") ||
+            controller == "AdminCommittee"));
+        links.Add(("Departments", Url.Action("Departments", "AdminCatalog")!, IconBuilding,
+            controller == "AdminCatalog" && currentAction == "Departments"));
+        links.Add(("Suppliers", Url.Action("Suppliers", "AdminCatalog")!, IconTruck,
+            controller == "AdminCatalog" && currentAction is "Suppliers" or "DownloadSupplierDocument" or "ReviewSupplierDocument" or "AddSupplierCategory" or "RemoveSupplierCategory"));
     }
     if (InRole("SourcingManager"))
         links.Add(("Manager Review", Url.Action("Index", "SourcingManager")!, IconCheck, controller == "SourcingManager"));
@@ -47,8 +59,15 @@
     if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative", "RequestingDepartment"))
         links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee"));
     var tools = new List<(string Label, string Href, string Icon, bool Active)>();
-    if (signedIn && !isOfficer)
+    if (signedIn && !isOfficer && !isAdmin)
         tools.Add(("Messages", Url.Action("Index", "Messages")!, IconChat, controller == "Messages"));
+    if (InRole("Admin"))
+    {
+        tools.Add(("Contact Us", Url.Action("ContactMessages", "Admin")!, IconMail,
+            controller == "Admin" && currentAction == "ContactMessages"));
+        tools.Add(("Audit log", Url.Action("AuditLogs", "AdminCatalog")!, IconHistory,
+            controller == "AdminCatalog" && currentAction == "AuditLogs"));
+    }
     if (InRole("TopCommittee"))
         links.Add(("Top committee", Url.Action("Index", "TopCommittee")!, IconStar, controller == "TopCommittee"));
     if (InRole("DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment"))
@@ -70,7 +89,7 @@
     <link rel="stylesheet" href="~/css/content.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
 </head>
-<body class="zt-app">
+<body class="zt-app @(isAdminArea ? "zt-admin" : null)">
 <div class="zt-shell">
     <aside class="zt-sidebar" id="zt-sidebar" aria-label="Main navigation">
         <div class="zt-sidebar-head">
@@ -133,13 +152,13 @@
                 <span></span>
             }
             <div class="zt-topbar-actions">
-                @if (signedIn && !isOfficer)
+                @if (signedIn && !isOfficer && !isAdmin)
                 {
                     <a class="zt-round" asp-controller="Messages" asp-action="Index" aria-label="Messages" title="Messages">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@IconChat"></path></svg>
                     </a>
                 }
-                else if (isOfficer)
+                else if (isOfficer && !isAdmin)
                 {
                     <a class="zt-round" asp-controller="SourcingOfficer" asp-action="Messages" aria-label="Messages" title="Messages">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@IconChat"></path></svg>
