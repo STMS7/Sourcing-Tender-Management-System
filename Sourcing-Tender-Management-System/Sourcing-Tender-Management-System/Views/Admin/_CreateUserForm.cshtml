@@ -1,0 +1,41 @@
+@model Sourcing_Tender_Management_System.Models.AdminCreateUserViewModel
+
+<form asp-action="CreateUser" method="post" data-user-modal-form>
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+    <div class="mb-3">
+        <label asp-for="FullName" class="form-label"></label>
+        <input asp-for="FullName" class="form-control" autocomplete="name" />
+        <span asp-validation-for="FullName" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" autocomplete="email" />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Password" class="form-label"></label>
+        <input asp-for="Password" class="form-control" autocomplete="new-password" />
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Role" class="form-label"></label>
+        <select asp-for="Role" asp-items="ViewBag.Roles" class="form-select">
+            <option value="">Choose a role</option>
+        </select>
+        <span asp-validation-for="Role" class="text-danger"></span>
+        <div class="form-text">Choosing TopCommittee automatically activates this user as a voting member.</div>
+    </div>
+    <div class="mb-3" id="department-group">
+        <label asp-for="DepartmentId" class="form-label">Department</label>
+        <select asp-for="DepartmentId" asp-items="ViewBag.Departments" class="form-select">
+            <option value="">Choose a department</option>
+        </select>
+        <span asp-validation-for="DepartmentId" class="text-danger"></span>
+        <div class="form-text">A department is required only for department users.</div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 pt-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit" data-user-modal-submit>Create user</button>
+    </div>
+</form>

@@ -16,7 +16,22 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
       "SourcingOfficer", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative",
       "DepartmentRepresentative", "DepartmentRequester" };
 
-    public async Task<IActionResult> Departments() => View(await db.Departments.OrderBy(x => x.Name).ToListAsync());
+    public async Task<IActionResult> Departments(string? search, int page = 1)
+    {
+        const int pageSize = 4;
+        search = search?.Trim();
+        var query = db.Departments.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(x => x.Name.Contains(search) || (x.Code != null && x.Code.Contains(search)));
+        var totalCount = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        ViewBag.Search = search;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
+        return View(await query.OrderBy(x => x.Name).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync());
+    }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveDepartment(int id, string name, string? code, bool isActive)
@@ -42,7 +57,22 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
         return RedirectToAction(nameof(Departments));
     }
 
-    public async Task<IActionResult> Categories() => View(await db.Categories.OrderBy(x => x.Name).ToListAsync());
+    public async Task<IActionResult> Categories(string? search, int page = 1)
+    {
+        const int pageSize = 4;
+        search = search?.Trim();
+        var query = db.Categories.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(x => x.Name.Contains(search) || (x.Description != null && x.Description.Contains(search)));
+        var totalCount = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        ViewBag.Search = search;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
+        return View(await query.OrderBy(x => x.Name).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync());
+    }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveCategory(int id, string name, string? description, int? parentCategoryId)
@@ -74,19 +104,34 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
         return RedirectToAction(nameof(Categories));
     }
 
-    public async Task<IActionResult> Suppliers()
+    public async Task<IActionResult> Suppliers(string? search, int page = 1)
     {
+        const int pageSize = 3;
+        search = search?.Trim();
+        var query = db.Suppliers.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(x => x.CompanyName.Contains(search) || x.RegistrationNumber.Contains(search) ||
+                x.Email.Contains(search) || (x.PhoneNumber != null && x.PhoneNumber.Contains(search)));
+        var totalCount = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        var suppliers = await query.OrderBy(x => x.CompanyName).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        var supplierIds = suppliers.Select(x => x.Id).ToList();
+        ViewBag.Search = search;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
         ViewBag.Categories = await db.Categories.OrderBy(x => x.Name).ToListAsync();
-        ViewBag.SupplierCategories = await db.SupplierCategories.AsNoTracking().ToListAsync();
-        ViewBag.SupplierDocuments = await db.SupplierDocuments.AsNoTracking().OrderByDescending(x => x.UploadedAt).ToListAsync();
-        return View(await db.Suppliers.OrderBy(x => x.CompanyName).ToListAsync());
+        ViewBag.SupplierCategories = await db.SupplierCategories.AsNoTracking().Where(x => supplierIds.Contains(x.SupplierId)).ToListAsync();
+        ViewBag.SupplierDocuments = await db.SupplierDocuments.AsNoTracking().Where(x => supplierIds.Contains(x.SupplierId)).OrderByDescending(x => x.UploadedAt).ToListAsync();
+        return View(suppliers);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveSupplier(int id, string companyName, string registrationNumber,
         string email, string? taxNumber, string? licenseNumber, DateTime? licenseExpiresAt,
         DocumentVerificationStatus legalVerificationStatus, string? phoneNumber, string? address,
-        SupplierRegistrationStatus registrationStatus, string? reviewReason, bool isActive)
+        SupplierRegistrationStatus registrationStatus, string? reviewReason, bool isActive, int page = 1, string? search = null)
     {
         if (id <= 0) return BadRequest("Suppliers must register their own accounts.");
         companyName = companyName?.Trim() ?? string.Empty;
@@ -100,7 +145,7 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
             await db.Suppliers.AnyAsync(x => x.Id != id && (x.RegistrationNumber == registrationNumber || x.Email == email)))
         {
             TempData["Error"] = "Check the supplier details. Registration number and email must be unique.";
-            return RedirectToAction(nameof(Suppliers));
+            return RedirectToAction(nameof(Suppliers), new { page, search });
         }
 
         var item = await db.Suppliers.FindAsync(id);
@@ -111,13 +156,13 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
                 x.VerificationStatus != DocumentVerificationStatus.Verified)))
         {
             TempData["Error"] = "Verify the business license before approving this supplier.";
-            return RedirectToAction(nameof(Suppliers));
+            return RedirectToAction(nameof(Suppliers), new { page, search });
         }
         if (!string.Equals(item.Email, email, StringComparison.OrdinalIgnoreCase) &&
             await db.Users.AnyAsync(x => x.SupplierId == id))
         {
             TempData["Error"] = "Change the linked supplier login email through account management first.";
-            return RedirectToAction(nameof(Suppliers));
+            return RedirectToAction(nameof(Suppliers), new { page, search });
         }
         await using var transaction = await db.Database.BeginTransactionAsync();
         item.CompanyName = companyName;
@@ -164,7 +209,7 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
             if (!updated.Succeeded)
             {
                 TempData["Error"] = string.Join("; ", updated.Errors.Select(x => x.Description));
-                return RedirectToAction(nameof(Suppliers));
+                return RedirectToAction(nameof(Suppliers), new { page, search });
             }
             if (wasActive && !shouldBeActive)
             {
@@ -172,14 +217,14 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
                 if (!stamped.Succeeded)
                 {
                     TempData["Error"] = string.Join("; ", stamped.Errors.Select(x => x.Description));
-                    return RedirectToAction(nameof(Suppliers));
+                    return RedirectToAction(nameof(Suppliers), new { page, search });
                 }
             }
         }
         await LogAsync("Update", "Supplier", item.Id);
         await transaction.CommitAsync();
         TempData["Message"] = "Supplier saved.";
-        return RedirectToAction(nameof(Suppliers));
+        return RedirectToAction(nameof(Suppliers), new { page, search });
     }
 
     [HttpGet]
@@ -194,17 +239,21 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> ReviewSupplierDocument(int id, DocumentVerificationStatus status, string? notes)
+    public async Task<IActionResult> ReviewSupplierDocument(int id, DocumentVerificationStatus status, string? notes, int page = 1, string? search = null)
     {
+        var ajaxRequest = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
         var document = await db.SupplierDocuments.FindAsync(id);
-        if (document is null) return NotFound();
+        if (document is null)
+            return ajaxRequest ? NotFound(new { success = false, message = "Document not found." }) : NotFound();
         if (status is not (DocumentVerificationStatus.Verified or DocumentVerificationStatus.Rejected) || notes?.Length > 1000)
-            return BadRequest();
+            return ajaxRequest ? BadRequest(new { success = false, message = "Check the review status and notes." }) : BadRequest();
         if (status == DocumentVerificationStatus.Rejected && document.DocumentType == "BusinessLicense" &&
             await db.Suppliers.AnyAsync(x => x.Id == document.SupplierId && x.RegistrationStatus == SupplierRegistrationStatus.Approved))
         {
+            if (ajaxRequest)
+                return Conflict(new { success = false, message = "Suspend the approved supplier before rejecting its business license." });
             TempData["Error"] = "Suspend the approved supplier before rejecting its business license.";
-            return RedirectToAction(nameof(Suppliers));
+            return RedirectToAction(nameof(Suppliers), new { page, search });
         }
         document.VerificationStatus = status;
         document.VerificationNotes = notes?.Trim();
@@ -217,36 +266,63 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
         }
         await db.SaveChangesAsync();
         await LogAsync(status == DocumentVerificationStatus.Verified ? "Verify" : "Reject", "SupplierDocument", id);
+        if (ajaxRequest)
+            return Json(new { success = true, message = "Document review saved.", documentId = id, status = status.ToString() });
         TempData["Message"] = "Supplier document reviewed.";
-        return RedirectToAction(nameof(Suppliers));
+        return RedirectToAction(nameof(Suppliers), new { page, search });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddSupplierCategory(int supplierId, int categoryId)
+    public async Task<IActionResult> AddSupplierCategory(int supplierId, int categoryId, int page = 1, string? search = null)
     {
-        if (!await db.Suppliers.AnyAsync(x => x.Id == supplierId) ||
-            !await db.Categories.AnyAsync(x => x.Id == categoryId)) return NotFound();
+        var ajaxRequest = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+        var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(x => x.Id == categoryId);
+        if (!await db.Suppliers.AnyAsync(x => x.Id == supplierId) || category is null)
+            return ajaxRequest ? NotFound(new { success = false, message = "Supplier or category not found." }) : NotFound();
         if (!await db.SupplierCategories.AnyAsync(x => x.SupplierId == supplierId && x.CategoryId == categoryId))
         {
             db.SupplierCategories.Add(new SupplierCategory { SupplierId = supplierId, CategoryId = categoryId });
             await db.SaveChangesAsync();
             await LogAsync("AddCategory", "Supplier", supplierId);
         }
-        return RedirectToAction(nameof(Suppliers));
+        if (ajaxRequest)
+            return Json(new { success = true, message = "Category added.", supplierId, categoryId, categoryName = category.Name });
+        return RedirectToAction(nameof(Suppliers), new { page, search });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> RemoveSupplierCategory(int supplierId, int categoryId)
+    public async Task<IActionResult> RemoveSupplierCategory(int supplierId, int categoryId, int page = 1, string? search = null)
     {
+        var ajaxRequest = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
         var link = await db.SupplierCategories.FindAsync(supplierId, categoryId);
-        if (link is null) return NotFound();
+        if (link is null)
+            return ajaxRequest ? NotFound(new { success = false, message = "Supplier category not found." }) : NotFound();
+        var categoryName = await db.Categories.Where(x => x.Id == categoryId).Select(x => x.Name).FirstOrDefaultAsync() ?? "Category";
         db.SupplierCategories.Remove(link);
         await db.SaveChangesAsync();
         await LogAsync("RemoveCategory", "Supplier", supplierId);
-        return RedirectToAction(nameof(Suppliers));
+        if (ajaxRequest)
+            return Json(new { success = true, message = "Category removed.", supplierId, categoryId, categoryName });
+        return RedirectToAction(nameof(Suppliers), new { page, search });
     }
 
-    public async Task<IActionResult> Roles() => View(await db.Roles.OrderBy(x => x.Name).ToListAsync());
+    public async Task<IActionResult> Roles(string? search, int page = 1)
+    {
+        const int pageSize = 4;
+        search = search?.Trim();
+        var query = db.Roles.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(x => x.Name != null && x.Name.Contains(search));
+        var totalCount = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        ViewBag.Search = search;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
+        ViewBag.CoreRoles = CoreRoles;
+        return View(await query.OrderBy(x => x.Name).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync());
+    }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateRole(string name)
@@ -287,8 +363,25 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
         return RedirectToAction(nameof(Roles));
     }
 
-    public async Task<IActionResult> AuditLogs() => View(await db.AuditLogs.AsNoTracking()
-        .OrderByDescending(x => x.CreatedAt).Take(200).ToListAsync());
+    public async Task<IActionResult> AuditLogs(string? search, int page = 1)
+    {
+        const int pageSize = 4;
+        search = search?.Trim();
+        var query = db.AuditLogs.AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt).Take(200).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(x => (x.UserId != null && x.UserId.Contains(search)) ||
+                x.Action.Contains(search) || x.EntityName.Contains(search) ||
+                (x.EntityId != null && x.EntityId.Contains(search)));
+        var totalCount = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        ViewBag.Search = search;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
+        return View(await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync());
+    }
 
     private async Task<bool> IsDescendantAsync(int candidateId, int categoryId)
     {

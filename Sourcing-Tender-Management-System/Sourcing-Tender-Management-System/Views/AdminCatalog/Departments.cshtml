@@ -1,30 +1,127 @@
 @model IReadOnlyList<Sourcing_Tender_Management_System.Models.Department>
-@{ ViewData["Title"] = "Departments"; }
-<div id="department-catalog-search-results">
-<h1>Departments</h1>
+@{
+    ViewData["Title"] = "Departments";
+    var currentPage = ViewBag.CurrentPage is int page ? page : 1;
+    var totalPages = ViewBag.TotalPages is int pages ? pages : 1;
+    var totalCount = ViewBag.TotalCount is int count ? count : Model.Count;
+    const int pageSize = 4;
+    var firstResult = totalCount == 0 ? 0 : ((currentPage - 1) * pageSize) + 1;
+    var lastResult = Math.Min(currentPage * pageSize, totalCount);
+}
+<div class="py-4">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+    <div>
+        <h1 class="mb-1">Departments</h1>
+        <p class="text-secondary mb-0">Manage department names, codes and availability.</p>
+    </div>
+    <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#add-department-modal">Add department</button>
+</div>
 @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
 @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
-<h2 class="h5 mt-4">Add department</h2>
-<form asp-action="SaveDepartment" method="post" class="row g-2 mb-4">
-    @Html.AntiForgeryToken()
-    <input type="hidden" name="id" value="0" />
-    <div class="col-md-4"><input name="name" class="form-control" placeholder="Name" required maxlength="150" /></div>
-    <div class="col-md-3"><input name="code" class="form-control" placeholder="Code" maxlength="30" /></div>
-    <div class="col-md-2 form-check"><input type="checkbox" name="isActive" value="true" checked class="form-check-input" id="newDepartmentActive" /><label for="newDepartmentActive">Active</label></div>
-    <div class="col-md-2"><button class="btn btn-primary" type="submit">Add</button></div>
-</form>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-catalog-search", ResultsId = "department-catalog-search-results", Label = "Search existing departments" })" />
-<h2 class="h5">Existing departments</h2>
-@foreach (var item in Model)
-{
-    <form data-search-item asp-action="SaveDepartment" method="post" class="row g-2 mb-2">
-        @Html.AntiForgeryToken()
-        <input type="hidden" name="id" value="@item.Id" />
-        <div class="col-md-4"><input name="name" value="@item.Name" class="form-control" required maxlength="150" /></div>
-        <div class="col-md-3"><input name="code" value="@item.Code" class="form-control" maxlength="30" /></div>
-        <div class="col-md-2 form-check"><input type="checkbox" name="isActive" value="true" checked="@item.IsActive" class="form-check-input" id="activeDepartment-@item.Id" /><label for="activeDepartment-@item.Id">Active</label></div>
-        <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Save</button></div>
-    </form>
-}
 
+<div class="modal fade" id="add-department-modal" tabindex="-1" aria-labelledby="add-department-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h4 mb-1" id="add-department-title">Add department</h2>
+                    <p class="small text-secondary mb-0">Create a department for requesting and representative users.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="SaveDepartment" method="post">
+                <div class="modal-body">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="0" />
+                    <div class="mb-3">
+                        <label class="form-label" for="new-department-name">Name</label>
+                        <input id="new-department-name" name="name" class="form-control" required maxlength="150" autofocus />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="new-department-code">Code</label>
+                        <input id="new-department-code" name="code" class="form-control" maxlength="30" />
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="isActive" value="true" checked class="form-check-input" id="newDepartmentActive" />
+                        <label class="form-check-label" for="newDepartmentActive">Active department</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Add department</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-search", ResultsId = "department-results", Label = "Search departments", Placeholder = "Search name or code", Action = Url.Action("Departments", "AdminCatalog"), SearchValue = ViewBag.Search, Local = false })" />
+
+<div id="department-results" aria-busy="false">
+<span hidden data-result-count="@totalCount"></span>
+<div class="d-flex justify-content-between px-1 mb-2 small text-secondary"><span>Showing @firstResult–@lastResult of @totalCount departments</span><span>Page @currentPage of @totalPages</span></div>
+<div class="table-responsive shadow-sm rounded-4 zt-admin-table">
+    <table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Department</th><th>Code</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td><strong>@item.Name</strong></td>
+                <td>@(string.IsNullOrWhiteSpace(item.Code) ? "—" : item.Code)</td>
+                <td><span class="badge rounded-pill @(item.IsActive ? "text-bg-success" : "text-bg-secondary")">@(item.IsActive ? "Active" : "Inactive")</span></td>
+                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" data-edit-department data-id="@item.Id" data-name="@item.Name" data-code="@item.Code" data-active="@item.IsActive.ToString().ToLowerInvariant()">Edit</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+@if (Model.Count == 0) { <div class="alert alert-light border mt-3">No departments found.</div> }
+
+@if (totalPages > 1)
+{
+    <nav class="mt-4" aria-label="Department pages"><ul class="pagination justify-content-center flex-wrap">
+        <li class="page-item @(currentPage == 1 ? "disabled" : null)"><a class="page-link" asp-action="Departments" asp-route-search="@ViewBag.Search" asp-route-page="@(currentPage - 1)">Previous</a></li>
+        @for (var number = 1; number <= totalPages; number++) { <li class="page-item @(number == currentPage ? "active" : null)"><a class="page-link" asp-action="Departments" asp-route-search="@ViewBag.Search" asp-route-page="@number">@number</a></li> }
+        <li class="page-item @(currentPage == totalPages ? "disabled" : null)"><a class="page-link" asp-action="Departments" asp-route-search="@ViewBag.Search" asp-route-page="@(currentPage + 1)">Next</a></li>
+    </ul></nav>
+}
+</div>
+
+<div class="modal fade" id="edit-department-modal" tabindex="-1" aria-labelledby="edit-department-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title h4" id="edit-department-title">Edit department</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <form asp-action="SaveDepartment" method="post">
+                <div class="modal-body">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" data-edit-department-id />
+                    <div class="mb-3"><label class="form-label" for="edit-department-name">Name</label><input id="edit-department-name" name="name" class="form-control" required maxlength="150" data-edit-department-name /></div>
+                    <div class="mb-3"><label class="form-label" for="edit-department-code">Code</label><input id="edit-department-code" name="code" class="form-control" maxlength="30" data-edit-department-code /></div>
+                    <div class="form-check"><input id="edit-department-active" type="checkbox" name="isActive" value="true" class="form-check-input" data-edit-department-active /><label class="form-check-label" for="edit-department-active">Active department</label></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Save changes</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        var modalElement = document.getElementById('edit-department-modal');
+        if (!modalElement) return;
+        var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        document.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-edit-department]');
+            if (!button) return;
+            modalElement.querySelector('[data-edit-department-id]').value = button.dataset.id || '';
+            modalElement.querySelector('[data-edit-department-name]').value = button.dataset.name || '';
+            modalElement.querySelector('[data-edit-department-code]').value = button.dataset.code || '';
+            modalElement.querySelector('[data-edit-department-active]').checked = button.dataset.active === 'true';
+            modal.show();
+        });
+    })();
+</script>
+}

@@ -1,0 +1,20 @@
+@{ var languageId = ViewData["VoiceLanguageId"] as string ?? "voice-language"; }
+<span class="zt-language-picker" data-language-picker>
+    <select id="@languageId" class="visually-hidden" data-voice-language aria-label="Choose voice language" tabindex="-1">
+        <option value="en-US" lang="en">English</option>
+        <option value="ar-JO" lang="ar">العربية</option>
+    </select>
+    <button class="zt-language-button" type="button" data-language-toggle aria-expanded="false" aria-haspopup="listbox" title="Choose language" aria-label="Choose language">
+        <span data-language-symbol aria-hidden="true">A</span>
+    </button>
+    <span class="zt-language-menu" data-language-menu role="listbox" aria-label="Voice language" hidden>
+        <button type="button" role="option" data-language-option="en-US"><strong>A</strong><span>English</span></button>
+        <button type="button" role="option" data-language-option="ar-JO"><strong>ع</strong><span>العربية</span></button>
+    </span>
+</span>
+<button class="btn zt-voice-button" type="button" data-voice-search aria-pressed="false" title="Search by voice" aria-label="Search by voice">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"></path>
+    </svg>
+    <span class="visually-hidden" data-voice-label>Search by voice</span>
+</button>

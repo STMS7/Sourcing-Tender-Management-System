@@ -30,6 +30,32 @@ public class AdminController(
         return View();
     }
 
+    public async Task<IActionResult> ContactMessages()
+    {
+        var messages = await db.ContactMessages.AsNoTracking()
+            .Where(message => !message.IsRead)
+            .OrderByDescending(message => message.CreatedAt)
+            .ToListAsync();
+        return View(messages);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResolveContactMessage(long id)
+    {
+        var message = await db.ContactMessages.FirstOrDefaultAsync(item => item.Id == id);
+        if (message == null) return NotFound();
+
+        if (!message.IsRead)
+        {
+            message.IsRead = true;
+            message.ReadAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        TempData["Message"] = "Contact message resolved.";
+        return RedirectToAction(nameof(ContactMessages));
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateSourcingManagerDemoData()
     {
@@ -162,13 +188,19 @@ public class AdminController(
         return RedirectToAction(nameof(Index));
     }
 
-    public async Task<IActionResult> Users(string? search)
+    public async Task<IActionResult> Users(string? search, int page = 1)
     {
+        const int pageSize = 4;
+        search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         var query = userManager.Users.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(search))
+        if (search != null)
             query = query.Where(x => x.FullName.Contains(search) || (x.Email != null && x.Email.Contains(search)));
 
-        var users = await query.OrderBy(x => x.FullName).ToListAsync();
+        var totalCount = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        var users = await query.OrderBy(x => x.FullName).ThenBy(x => x.Email)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var rows = new List<AdminUserListItemViewModel>(users.Count);
         foreach (var user in users)
         {
@@ -184,6 +216,9 @@ public class AdminController(
         }
 
         ViewBag.Search = search;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
         return View(rows);
     }
 
@@ -194,9 +229,17 @@ public class AdminController(
         return View(new AdminCreateUserViewModel());
     }
 
+    [HttpGet]
+    public async Task<IActionResult> CreateUserModal()
+    {
+        await LoadOptionsAsync();
+        return PartialView("_CreateUserForm", new AdminCreateUserViewModel());
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateUser(AdminCreateUserViewModel model)
     {
+        var modalRequest = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
         await ValidateAssignmentsAsync(model.Role, model.DepartmentId, model.SupplierId);
         if (model.Role == "TopCommittee" && await ActiveTopCommitteeCountAsync() >= 4)
             ModelState.AddModelError(nameof(model.Role), "The Top Committee already has four active members.");
@@ -207,7 +250,7 @@ public class AdminController(
         if (!ModelState.IsValid)
         {
             await LoadOptionsAsync();
-            return View(model);
+            return modalRequest ? PartialView("_CreateUserForm", model) : View(model);
         }
 
         var user = new ApplicationUser
@@ -226,7 +269,7 @@ public class AdminController(
         {
             AddErrors(created);
             await LoadOptionsAsync();
-            return View(model);
+            return modalRequest ? PartialView("_CreateUserForm", model) : View(model);
         }
 
         var assigned = await userManager.AddToRoleAsync(user, model.Role);
@@ -235,12 +278,14 @@ public class AdminController(
             await userManager.DeleteAsync(user);
             AddErrors(assigned);
             await LoadOptionsAsync();
-            return View(model);
+            return modalRequest ? PartialView("_CreateUserForm", model) : View(model);
         }
 
         await SyncTopCommitteePositionAsync(user, model.Role, user.IsActive);
         await LogUserActionAsync("Create", user.Id);
         TempData["Message"] = "User created.";
+        if (modalRequest)
+            return Json(new { success = true, redirect = Url.Action(nameof(Users)) });
         return RedirectToAction(nameof(Users));
     }
 
@@ -251,7 +296,7 @@ public class AdminController(
         if (user is null) return NotFound();
         var roles = await userManager.GetRolesAsync(user);
         await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue);
-        return View(new AdminEditUserViewModel
+        var model = new AdminEditUserViewModel
         {
             Id = user.Id,
             FullName = user.FullName,
@@ -260,12 +305,16 @@ public class AdminController(
             DepartmentId = BelongsToDepartment(roles.FirstOrDefault()) ? user.DepartmentId : null,
             SupplierId = user.SupplierId,
             IsActive = user.IsActive
-        });
+        };
+        return Request.Headers["X-Requested-With"] == "XMLHttpRequest"
+            ? PartialView("_EditUserForm", model)
+            : View(model);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> EditUser(AdminEditUserViewModel model)
     {
+        var modalRequest = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
         var user = await userManager.FindByIdAsync(model.Id);
         if (user is null) return NotFound();
         await ValidateAssignmentsAsync(model.Role, model.DepartmentId, model.SupplierId);
@@ -300,7 +349,7 @@ public class AdminController(
         if (!ModelState.IsValid)
         {
             await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue);
-            return View(model);
+            return modalRequest ? PartialView("_EditUserForm", model) : View(model);
         }
 
         user.FullName = model.FullName.Trim();
@@ -318,19 +367,19 @@ public class AdminController(
         {
             AddErrors(updated);
             await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue);
-            return View(model);
+            return modalRequest ? PartialView("_EditUserForm", model) : View(model);
         }
 
         var oldRoles = currentRoles.Where(x => x != model.Role).ToArray();
         if (oldRoles.Length > 0)
         {
             var removed = await userManager.RemoveFromRolesAsync(user, oldRoles);
-            if (!removed.Succeeded) { AddErrors(removed); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
+            if (!removed.Succeeded) { AddErrors(removed); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return modalRequest ? PartialView("_EditUserForm", model) : View(model); }
         }
         if (!currentRoles.Contains(model.Role))
         {
             var added = await userManager.AddToRoleAsync(user, model.Role);
-            if (!added.Succeeded) { AddErrors(added); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
+            if (!added.Succeeded) { AddErrors(added); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return modalRequest ? PartialView("_EditUserForm", model) : View(model); }
         }
 
         await SyncTopCommitteePositionAsync(user, model.Role, model.IsActive);
@@ -338,11 +387,13 @@ public class AdminController(
         if (!model.IsActive)
         {
             var stampUpdated = await userManager.UpdateSecurityStampAsync(user);
-            if (!stampUpdated.Succeeded) { AddErrors(stampUpdated); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return View(model); }
+            if (!stampUpdated.Succeeded) { AddErrors(stampUpdated); await LoadOptionsAsync(includeSupplier: user.SupplierId.HasValue); return modalRequest ? PartialView("_EditUserForm", model) : View(model); }
         }
         await LogUserActionAsync("Update", user.Id);
         await transaction.CommitAsync();
         TempData["Message"] = "User updated.";
+        if (modalRequest)
+            return Json(new { success = true, redirect = Url.Action(nameof(Users)) });
         return RedirectToAction(nameof(Users));
     }
 
@@ -352,15 +403,19 @@ public class AdminController(
         var user = await userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
         ViewBag.Email = user.Email;
-        return View(new AdminResetPasswordViewModel { Id = id });
+        var model = new AdminResetPasswordViewModel { Id = id };
+        return Request.Headers["X-Requested-With"] == "XMLHttpRequest"
+            ? PartialView("_ResetPasswordForm", model)
+            : View(model);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetPassword(AdminResetPasswordViewModel model)
     {
+        var modalRequest = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
         var user = await userManager.FindByIdAsync(model.Id);
         if (user is null) return NotFound();
-        if (!ModelState.IsValid) { ViewBag.Email = user.Email; return View(model); }
+        if (!ModelState.IsValid) { ViewBag.Email = user.Email; return modalRequest ? PartialView("_ResetPasswordForm", model) : View(model); }
 
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var result = await userManager.ResetPasswordAsync(user, token, model.NewPassword);
@@ -368,11 +423,13 @@ public class AdminController(
         {
             AddErrors(result);
             ViewBag.Email = user.Email;
-            return View(model);
+            return modalRequest ? PartialView("_ResetPasswordForm", model) : View(model);
         }
 
         await LogUserActionAsync("ResetPassword", user.Id);
         TempData["Message"] = "Password reset.";
+        if (modalRequest)
+            return Json(new { success = true, redirect = Url.Action(nameof(Users)) });
         return RedirectToAction(nameof(Users));
     }
 
