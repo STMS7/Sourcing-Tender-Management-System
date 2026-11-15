@@ -7,8 +7,9 @@
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     var razorPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
     var isAccount = razorPage.StartsWith("/Account/Manage");
-    var supplierEmail = me?.Email ?? "";
+    
     var me = await UserManager.GetUserAsync(User);
+    var supplierEmail = me?.Email ?? "";
     var supplierId = me?.SupplierId;
     var companyName = supplierId is int sid1 ? await Db.Suppliers.AsNoTracking().Where(s => s.Id == sid1).Select(s => s.CompanyName).FirstOrDefaultAsync() : null;
     var unread = me is null ? 0 : await Db.Notifications.CountAsync(n => n.UserId == me.Id && !n.IsRead);

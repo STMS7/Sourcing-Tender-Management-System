@@ -3,11 +3,14 @@
 @{
     ViewData["Title"] = "Evaluation committee";
 }
-<div id="evaluation-search-results">
-<link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
-<div class="sourcing-workspace py-4">
-<h1>Tender preparation and evaluation</h1>
-<p class="text-secondary">Technical and financial members approve criteria and weights while the tender is a draft. After bidding and compliance, all four members evaluate the compliant offers.</p>
+<div id="evaluation-search-results" class="manager-page">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Tender preparation and evaluation</h1>
+        <p class="manager-intro mb-0">Technical and financial members approve criteria and weights while the tender is a draft. After bidding and compliance, all four members evaluate the compliant offers.</p>
+    </div>
+    <div class="text-end"><span class="badge fs-6">@Model.Count(r => r.ActionNeeded) need your action</span></div>
+</div>
 <ul class="zt-bento" aria-label="Committee summary">
     <li><div class="zt-tile"><span class="zt-tile-label">Assigned tenders</span><span class="zt-tile-value">@Model.Count</span></div></li>
     <li><div class="zt-tile @(Model.Any(r => r.ActionNeeded) ? "is-alert" : "")"><span class="zt-tile-label">Your action needed</span><span class="zt-tile-value">@Model.Count(r => r.ActionNeeded)</span></div></li>
@@ -15,19 +18,22 @@
 </ul>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "evaluation-search", ResultsId = "evaluation-search-results", Label = "Search assigned preparation and evaluation tenders" })" />
+<section class="manager-search-panel mb-4" aria-label="Search assigned tenders">
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "evaluation-search", ResultsId = "evaluation-search-results", Label = "Search tenders", Placeholder = "Tender, role, or stage" })" />
+</section>
+<section class="card manager-card mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Assigned tenders</h2></div>
 @if (Model.Count == 0) { <p class="empty-state">No tenders are assigned to you for evaluation.</p> }
 else {
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Tender</th><th scope="col">Your role</th><th scope="col">Status</th><th scope="col">Stage</th><th scope="col">Agreed weights</th></tr></thead><tbody>
+<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th scope="col">Tender</th><th scope="col">Your role</th><th scope="col">Status</th><th scope="col">Stage</th><th scope="col">Agreed weights</th></tr></thead><tbody>
 @foreach (var row in Model) {
 <tr data-search-item><td><a asp-action="Evaluate" asp-route-id="@row.Tender.Id">@row.Tender.Title</a><br /><small>@row.Tender.TenderNumber</small></td>
 <td>@CommitteeWeighting.RoleLabel(row.Role)</td>
-<td><span class="status">@row.Tender.Status</span></td>
+<td><span class="badge">@row.Tender.Status</span></td>
 <td>@row.Stage @if (row.ActionNeeded) { <strong class="text-danger">· your action needed</strong> }</td>
 <td>@(CommitteeWeighting.Agree(CommitteeWeighting.ReadProposals(row.Tender.EvaluationCriteria)) is { } w ? $"{w.Technical}% / {w.Financial}%" : "Not yet")</td></tr>
 }
 </tbody></table></div>
 }
-</div>
-
+</section>
 </div>

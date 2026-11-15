@@ -151,3 +151,13 @@
   .manager-page .manager-search-panel .zt-search-submit,
   .manager-page .manager-search-panel .zt-search-clear { min-width: 0; }
 }
+/* Shared helpers for the evaluation committee (technical and financial) pages */
+.manager-page .preserve-lines { white-space: pre-wrap; overflow-wrap: anywhere; }
+.manager-page .actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.manager-page .empty-state { margin: 0; padding: 2rem 1rem; color: var(--sm-muted); text-align: center; }
+.manager-page .alert-warning, .manager-page .alert-info { color: var(--sm-dark); background: var(--sm-cream); border-color: var(--sm-gold); }
+.manager-page table caption { color: var(--sm-muted); }
+.manager-page .manager-bid { padding: 1.1rem 1.35rem; border-bottom: 1px dotted var(--sm-sand); }
+.manager-page .manager-bid:last-child { border-bottom: 0; }
+.manager-page .manager-bid h3 { font-size: 1.05rem; }
+.manager-page .manager-bid .table-responsive { border-radius: 0; }
