@@ -30,7 +30,20 @@ namespace Sourcing_Tender_Management_System.Controllers
             return View();
         }
 
-        // Contact form on the landing page.
+        // About us page.
+        public IActionResult About()
+        {
+            return View();
+        }
+
+        // Contact us page.
+        [HttpGet]
+        public IActionResult Contact()
+        {
+            return View();
+        }
+
+        // Contact form (posted from the Contact us page).
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Contact(string name, string email, string? subject, string message)
         {
@@ -42,7 +55,7 @@ namespace Sourcing_Tender_Management_System.Controllers
                 !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email))
             {
                 TempData["ContactStatus"] = "Please fill in your name, a valid email and a message.";
-                return Redirect(Url.Action(nameof(Index)) + "#contact");
+                return Redirect(Url.Action(nameof(Contact)) + "#contact");
             }
 
             var body = string.IsNullOrWhiteSpace(subject) ? message : $"[{subject.Trim()}] {message}";
@@ -55,7 +68,7 @@ namespace Sourcing_Tender_Management_System.Controllers
             await _db.SaveChangesAsync();
 
             TempData["ContactStatus"] = "Thank you. Your message has been sent.";
-            return Redirect(Url.Action(nameof(Index)) + "#contact");
+            return Redirect(Url.Action(nameof(Contact)) + "#contact");
         }
 
         public IActionResult Privacy()

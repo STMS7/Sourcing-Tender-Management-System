@@ -1,0 +1,119 @@
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject UserManager<ApplicationUser> UserManager
+@inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
+@{
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var razorPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    var isAccount = razorPage.StartsWith("/Account/Manage");
+    
+    var me = await UserManager.GetUserAsync(User);
+    var supplierEmail = me?.Email ?? "";
+    var supplierId = me?.SupplierId;
+    var companyName = supplierId is int sid1 ? await Db.Suppliers.AsNoTracking().Where(s => s.Id == sid1).Select(s => s.CompanyName).FirstOrDefaultAsync() : null;
+    var unread = me is null ? 0 : await Db.Notifications.CountAsync(n => n.UserId == me.Id && !n.IsRead);
+    var openInvites = supplierId is int sid2 ? await Db.TenderInvitations.CountAsync(i => i.SupplierId == sid2 && i.Status == InvitationStatus.Invited && i.Tender.Status != TenderStatus.Draft) : 0;
+    var pendingQuestions = me is null || supplierId is null ? 0 : await Db.Clarifications.CountAsync(c => c.RecipientUserId == me.Id && c.Status == ClarificationStatus.Pending && (c.BidId == null || c.Bid!.SupplierId == supplierId));
+    var displayName = me?.FullName ?? User.Identity?.Name ?? "Supplier";
+    var initial = string.IsNullOrWhiteSpace(displayName) ? "S" : displayName.Trim()[0].ToString().ToUpperInvariant();
+    string On(params string[] names) => controller == "Suppliers" && names.Contains(action) ? "on" : "";
+    var pageTitle = ViewData["Title"]?.ToString() ?? "Supplier portal";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@pageTitle · Zaytouna Supplier Portal</title>
+    <link rel="icon" type="image/svg+xml" href="~/landing/logo/zaytouna-emblem.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@@12..96,500;12..96,600;12..96,700&family=DM+Mono:wght@@400;500&family=DM+Sans:opsz,wght@@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/supplier-portal.css" asp-append-version="true" />
+</head>
+<body class="sp">
+<div class="sp-shell" id="sp-shell">
+    <aside class="sp-side" aria-label="Supplier navigation">
+        <a class="sp-brand" asp-area="" asp-controller="Suppliers" asp-action="Index">
+            <img src="~/landing/logo/zaytouna-emblem-white-transparent.svg" alt="" />
+            <span><b>Zaytouna<i>.</i></b><small>Supplier portal</small></span>
+        </a>
+
+        <div class="sp-group">General</div>
+        <ul class="sp-nav">
+            <li><a class="@On("Index")" asp-area="" asp-controller="Suppliers" asp-action="Index">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>Dashboard</a></li>
+            <li><a class="@On("Invitations", "Invitation", "Offer")" asp-area="" asp-controller="Suppliers" asp-action="Invitations">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Invitations
+                @if (openInvites > 0) { <span class="sp-badge">@openInvites</span> }</a></li>
+            <li><a class="@On("Offers", "OfferDetails", "Report")" asp-area="" asp-controller="Suppliers" asp-action="Offers">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>My offers</a></li>
+            <li><a class="@(controller == "Messages" || action == "Questions" ? "on" : "")" asp-area="" asp-controller="Messages" asp-action="Index">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>Messages
+                @if (pendingQuestions > 0) { <span class="sp-badge">@pendingQuestions</span> }</a></li>
+            <li><a class="@On("Notifications")" asp-area="" asp-controller="Suppliers" asp-action="Notifications">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Notifications
+                @if (unread > 0) { <span class="sp-badge">@unread</span> }</a></li>
+        </ul>
+
+
+        <div class="sp-side-foot">
+            <ul class="sp-nav">
+                <li><a class="@(isAccount ? "on" : "")" asp-area="Identity" asp-page="/Account/Manage/Index">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Profile</a></li>
+                <li><form asp-area="" asp-controller="Auth" asp-action="Logout" method="post"><button type="submit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Log out</button></form></li>
+            </ul>
+        </div>
+    </aside>
+
+    <div class="sp-main">
+        <header class="sp-top">
+            <div style="display:flex;align-items:center;gap:10px">
+                <button type="button" class="sp-iconbtn sp-burger" id="sp-burger" aria-label="Open menu" aria-controls="sp-shell" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+                <span class="sp-crumb">@(companyName ?? "Supplier portal")</span>
+            </div>
+            <div class="sp-top-r">
+                <a class="sp-iconbtn" asp-area="" asp-controller="Suppliers" asp-action="Notifications" aria-label="Notifications (@unread unread)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                    @if (unread > 0) { <span class="dot"></span> }
+                </a>
+                <a class="sp-avatar" asp-area="Identity" asp-page="/Account/Manage/Index" title="@displayName">@initial</a>
+            </div>
+        </header>
+
+        @if (TempData["Success"] is string ok) { <div class="sp-alert ok" role="status">@ok</div> }
+        @if (TempData["Message"] is string msg) { <div class="sp-alert ok" role="status">@msg</div> }
+        @if (TempData["Error"] is string err) { <div class="sp-alert bad" role="alert">@err</div> }
+
+        <main role="main" class="@(isAccount ? "sp-acc" : "")">
+            @if (isAccount)
+            {
+                <section class="sp-acc-hero" aria-label="Your account">
+                    <span class="sp-acc-av">@initial</span>
+                    <div>
+                        <span class="sp-eyebrow">Account settings</span>
+                        <h1 class="sp-h1">@displayName</h1>
+                        <p class="sp-sub">@supplierEmail@(companyName is null ? "" : " · " + companyName)</p>
+                    </div>
+                </section>
+            }
+            @RenderBody()
+        </main>
+    </div>
+</div>
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+<script src="~/js/sourcing-search.js" asp-append-version="true"></script>
+<script src="~/biometric/biometric-nudge.js" asp-append-version="true" defer></script>
+<script>
+(function(){var s=document.getElementById('sp-shell'),b=document.getElementById('sp-burger');if(!b)return;
+b.addEventListener('click',function(){var o=s.classList.toggle('open');b.setAttribute('aria-expanded',o)});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){s.classList.remove('open');b.setAttribute('aria-expanded','false')}})})();
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
