@@ -147,6 +147,7 @@
         var options = start.options;
         options.challenge = dec(options.challenge);
 
+        if (opts.hints) { options.hints = opts.hints; }   // for example ['hybrid'] = go straight to the phone QR code
         var request = { publicKey: options };
         if (opts.mediation) { request.mediation = opts.mediation; }
         if (opts.signal) { request.signal = opts.signal; }
@@ -171,13 +172,20 @@
         });
     }
 
-    async function passkeyRegister(label) {
+    // opts.phone = save the fingerprint on the person's phone: the browser shows a QR code to scan with the phone
+    // camera, and the phone asks for its own fingerprint or face. Without it the browser offers this computer first.
+    async function passkeyRegister(label, opts) {
+        opts = opts || {};
         ensureWebAuthn();
         var start = await post('/Biometric/PasskeyRegisterOptions');
         var options = start.options;
         options.challenge = dec(options.challenge);
         options.user.id = dec(options.user.id);
         (options.excludeCredentials || []).forEach(function (c) { c.id = dec(c.id); });
+        if (opts.phone) {
+            options.authenticatorSelection = Object.assign({}, options.authenticatorSelection, { authenticatorAttachment: 'cross-platform' });
+            options.hints = ['hybrid'];
+        }
 
         var credential;
         try {
@@ -485,6 +493,17 @@
 
         function setHint(text) { hint.textContent = text; }
 
+        // What to do on the phone: the part people stall on ("Device connected! Continue on your device").
+        var PHONE_STEPS = 'A QR code will appear. 1) Scan it with your phone camera. 2) On the phone tap Continue. ' +
+            '3) Confirm with the phone fingerprint or face. Keep Bluetooth on, on both the computer and the phone, and keep the phone close.';
+
+        function rememberVia(kind) {
+            try { window.localStorage.setItem('stms.passkeyVia', kind); } catch (e) { /* ignore */ }
+        }
+        function viaPhone() {
+            try { return window.localStorage.getItem('stms.passkeyVia') === 'phone'; } catch (e) { return false; }
+        }
+
         function busy(buttons, isBusy) {
             buttons.forEach(function (b) { if (b) { b.disabled = isBusy; } });
         }
@@ -527,7 +546,7 @@
             if (diagBox) { diagBox.textContent = diagnosticsText(c); }
             // Without any WebAuthn support the buttons cannot work; say so instead of failing on click.
             if (!c.webauthn || !c.secure) {
-                ['btnPasskeyLogin', 'btnPasskeyRegister'].forEach(function (id) {
+                ['btnPasskeyLogin', 'btnPasskeyLoginPhone', 'btnPasskeyRegister', 'btnPasskeyRegisterPhone'].forEach(function (id) {
                     var b = $(id);
                     if (b) { b.disabled = true; }
                 });
@@ -576,7 +595,8 @@
             var go = document.createElement('button');
             go.type = 'button';
             go.className = 'btn btn-primary btn-lg';
-            go.textContent = method === 'fingerprint' ? 'Continue with fingerprint' : 'Continue with face';
+            var usePhone = method === 'fingerprint' && viaPhone();
+            go.textContent = method === 'face' ? 'Continue with face' : (usePhone ? 'Continue with my phone' : 'Continue with fingerprint');
 
             var notYou = document.createElement('button');
             notYou.type = 'button';
@@ -592,8 +612,9 @@
             go.addEventListener('click', function () {
                 pauseConditionalLogin();
                 if (method === 'fingerprint') {
-                    setStatus('Use your fingerprint, face or PIN when your device asks.');
-                    guarded(function () { return passkeyLogin(returnUrl); }, 'Signed in.').then(function () { startConditionalLogin(); });
+                    setStatus(usePhone ? PHONE_STEPS : 'Use your fingerprint, face or PIN when your device asks.');
+                    guarded(function () { return passkeyLogin(returnUrl, usePhone ? { hints: ['hybrid'] } : {}); }, 'Signed in.')
+                        .then(function () { startConditionalLogin(); });
                 } else {
                     panel.classList.remove('d-none');
                     guarded(function () { return faceLogin(faceOptions, user.email, returnUrl); }, 'Signed in.');
@@ -688,8 +709,31 @@
                 var label = ($('passkeyLabel').value || '').trim() || 'My device';
                 setStatus('Use your fingerprint, face or PIN when your device asks.');
                 guarded(function () { return passkeyRegister(label); }, 'Device registered.').then(function (ok) {
-                    if (ok) { window.location.reload(); }
+                    if (ok) { rememberVia('device'); window.location.reload(); }
                 });
+            });
+        }
+
+        // Register the fingerprint on the phone (QR code).
+        var passkeyRegisterPhoneButton = $('btnPasskeyRegisterPhone');
+        if (passkeyRegisterPhoneButton) {
+            passkeyRegisterPhoneButton.addEventListener('click', function () {
+                var label = ($('passkeyLabel').value || '').trim() || 'My phone';
+                setStatus(PHONE_STEPS);
+                guarded(function () { return passkeyRegister(label, { phone: true }); }, 'Phone registered.').then(function (ok) {
+                    if (ok) { rememberVia('phone'); window.location.reload(); }
+                });
+            });
+        }
+
+        // Sign in with the fingerprint saved on the phone (QR code).
+        var passkeyLoginPhoneButton = $('btnPasskeyLoginPhone');
+        if (passkeyLoginPhoneButton) {
+            passkeyLoginPhoneButton.addEventListener('click', function () {
+                pauseConditionalLogin();
+                setStatus(PHONE_STEPS);
+                guarded(function () { return passkeyLogin(returnUrl, { hints: ['hybrid'] }); }, 'Signed in.')
+                    .then(function () { startConditionalLogin(); });
             });
         }
 

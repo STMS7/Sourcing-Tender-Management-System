@@ -243,3 +243,9 @@
 - **`GET /Biometric/Status`** صار يرجّع الاسم والإيميل وهل في بصمة/وجه وتوكن، والمتصفح بيحفظ الاسم بـ localStorage (مش كلمة سر ولا توكن دخول).
 - الملفات: `wwwroot/biometric/biometric.js` و`biometric-nudge.js` و`BiometricController.Status`.
 - **فُحص (بمتصفح، بمحاكاة لأنه ما في بصمة على جهازي):** البطاقة (بصمة، وجه، Not you)، زر Continue بيستدعي الدخول وبيرجّع رسالة واضحة، الشريط (يسجّل بصمة بضغطة، رسالة عند الإلغاء، يتذكر المستخدم)، شريط الوجه، وإخفاؤه بدون عتاد، و`Status`. **ما انفحص:** بصمة ووجه حقيقيين بنفس الخطوات.
+
+### بصمة التلفون بالـ QR (طلب التيم والكوتش)
+- **Register with my phone (scan QR)** بتبويب Biometrics، و**Fingerprint with my phone (scan QR)** بصفحة الدخول: بيفتحوا نافذة الـ QR مباشرة (تسجيل `authenticatorAttachment: cross-platform` + `hints: ['hybrid']`، ودخول `hints: ['hybrid']`) بدل ما يطلع Windows Hello/PIN. الزر العادي Fingerprint ما تغيّر (بيعرض جهاز الكمبيوتر أولاً).
+- الخطوات بتظهر على الشاشة قبل الطلب: امسح الـ QR، اضغط Continue بالتلفون، أكّد ببصمة التلفون أو وجهه، البلوتوث شغّال على الجهازين والتلفون قريب. (التوقف عند "Device connected! Continue on your device" معناه إنه الدور على التلفون.)
+- بطاقة Welcome back بتتذكر إذا انسجّلت البصمة بالتلفون وبتعرض "Continue with my phone".
+- **فُحص بمتصفح (بحجب طلبات الجهاز عشان ما تطلع نوافذ):** زر الدخول بالتلفون بيرسل `hints: hybrid` والعادي لا، وتسجيل التلفون بيرسل `cross-platform` + `hybrid` والعادي لا. **ما انفحص:** مسح QR حقيقي مع تلفون.
