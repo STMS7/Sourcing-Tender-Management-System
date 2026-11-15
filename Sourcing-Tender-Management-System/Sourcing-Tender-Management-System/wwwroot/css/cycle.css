@@ -1,0 +1,3 @@
+/* The sourcing officer tab bar (Views/Shared/_SourcingLayout.cshtml) is replaced by the sidebar links.
+   The Messages page keeps its own group switch (.message-groups), so only the layout bar is hidden. */
+main .sourcing-nav[aria-label="Sourcing officer"] { display: none !important; }
