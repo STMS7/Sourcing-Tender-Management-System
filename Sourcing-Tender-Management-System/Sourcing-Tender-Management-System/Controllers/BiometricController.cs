@@ -40,16 +40,39 @@ public class BiometricController(
     [Authorize]
     public IActionResult Manage() => RedirectToPage("/Account/Manage/Biometrics", new { area = "Identity" });
 
-    // Small status for the "set up fingerprint" tip shown after sign-in: does this account have a fingerprint device yet?
+    // What the "quick sign-in" tip and the "Welcome back" card need to know about the signed-in person: their name,
+    // whether a fingerprint device and a face are already registered, and a request token so the tip can turn
+    // fingerprint on with one click from any page. The e-mail is only used by the browser to remember the account.
     [Authorize, HttpGet]
-    public async Task<IActionResult> Status()
+    public async Task<IActionResult> Status([FromServices] Microsoft.AspNetCore.Antiforgery.IAntiforgery antiforgery)
     {
         var user = await users.GetUserAsync(User);
         if (user is null) return Unauthorized();
 
         Response.Headers.CacheControl = "no-store";
         var hasPasskey = await db.UserPasskeyCredentials.AsNoTracking().AnyAsync(c => c.UserId == user.Id);
-        return Json(new { hasPasskey });
+
+        var hasFace = false;
+        try
+        {
+            var userId = user.Id;
+            hasFace = await db.Database
+                .SqlQuery<int>($"SELECT COUNT(*) AS [Value] FROM [biometric].[FaceTemplates] WHERE [UserId] = {userId}")
+                .FirstAsync() > 0;
+        }
+        catch (Exception)
+        {
+            // The face table is created at start-up; if it is not there yet, treat it as "no face registered".
+        }
+
+        return Json(new
+        {
+            name = string.IsNullOrWhiteSpace(user.FullName) ? user.UserName : user.FullName,
+            email = user.Email,
+            hasPasskey,
+            hasFace,
+            token = antiforgery.GetAndStoreTokens(HttpContext).RequestToken
+        });
     }
 
     // ---------- Fingerprint / device passkey ----------

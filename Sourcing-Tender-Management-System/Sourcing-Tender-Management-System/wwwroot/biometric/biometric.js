@@ -111,9 +111,9 @@
             return 'This browser cannot use fingerprint sign-in. Use a current Chrome, Edge, Safari or Firefox.';
         }
         if (!c.platform) {
-            return 'No fingerprint, face or PIN (Windows Hello) was found on this device. Set it up in Windows Settings > ' +
-                'Accounts > Sign-in options, or choose "Use a phone or tablet" in the prompt and scan the QR code with your phone. ' +
-                'Your password always works.';
+            return 'This computer has no fingerprint reader or Windows Hello set up. You can sign in with your face (camera), ' +
+                'with your phone (choose "Use a phone or tablet" and scan the QR code), or add a fingerprint, face or PIN in ' +
+                'Windows Settings > Accounts > Sign-in options. Your password always works.';
         }
         return null;
     }
@@ -478,6 +478,9 @@
         function setStatus(message, kind) {
             statusBox.className = 'alert alert-' + (kind || 'info');
             statusBox.textContent = message;
+            if (kind === 'danger' && typeof statusBox.scrollIntoView === 'function') {
+                statusBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
         }
 
         function setHint(text) { hint.textContent = text; }
@@ -530,7 +533,85 @@
                 });
             }
             startConditionalLogin();
+            showWelcomeBack();
+            startFaceSetupIfAsked();
         }).catch(function () { /* the buttons still work and report their own errors */ });
+
+        // ----- "Welcome back": one big button, like a banking app -----
+        // The tip script remembers who signed in on this device. If that person has a fingerprint or a face registered,
+        // the sign-in page greets them and offers a single button; no e-mail to type, no menu to find.
+        function rememberedUser() {
+            try {
+                var u = JSON.parse(window.localStorage.getItem('stms.lastUser') || 'null');
+                return u && u.name && (u.hasPasskey || u.hasFace) ? u : null;
+            } catch (e) { return null; }
+        }
+
+        function chooseQuickMethod(u) {
+            var fingerprintUsable = caps && caps.webauthn && caps.secure;
+            if (u.hasPasskey && fingerprintUsable && (caps.platform || !u.hasFace)) { return 'fingerprint'; }
+            if (u.hasFace && u.email) { return 'face'; }
+            if (u.hasPasskey && fingerprintUsable) { return 'fingerprint'; }
+            return null;
+        }
+
+        function showWelcomeBack() {
+            if (!$('btnPasskeyLogin') || $('welcomeBack')) { return; }   // only on the sign-in page
+            var user = rememberedUser();
+            var method = user ? chooseQuickMethod(user) : null;
+            var form = document.querySelector('form[method="post"]') || document.querySelector('form');
+            if (!method || !form || !form.parentNode) { return; }
+
+            var card = document.createElement('div');
+            card.id = 'welcomeBack';
+            card.className = 'card card-body text-center mb-4 col-md-5';
+
+            var small = document.createElement('div');
+            small.className = 'text-muted small';
+            small.textContent = 'Welcome back';
+            var name = document.createElement('h2');
+            name.className = 'h4 mb-3';
+            name.textContent = user.name;
+
+            var go = document.createElement('button');
+            go.type = 'button';
+            go.className = 'btn btn-primary btn-lg';
+            go.textContent = method === 'fingerprint' ? 'Continue with fingerprint' : 'Continue with face';
+
+            var notYou = document.createElement('button');
+            notYou.type = 'button';
+            notYou.className = 'btn btn-link btn-sm mt-2';
+            notYou.textContent = 'Not you? Use another account';
+
+            card.appendChild(small);
+            card.appendChild(name);
+            card.appendChild(go);
+            card.appendChild(notYou);
+            form.parentNode.insertBefore(card, form);
+
+            go.addEventListener('click', function () {
+                pauseConditionalLogin();
+                if (method === 'fingerprint') {
+                    setStatus('Use your fingerprint, face or PIN when your device asks.');
+                    guarded(function () { return passkeyLogin(returnUrl); }, 'Signed in.').then(function () { startConditionalLogin(); });
+                } else {
+                    panel.classList.remove('d-none');
+                    guarded(function () { return faceLogin(faceOptions, user.email, returnUrl); }, 'Signed in.');
+                }
+            });
+
+            notYou.addEventListener('click', function () {
+                try { window.localStorage.removeItem('stms.lastUser'); } catch (e) { /* ignore */ }
+                card.remove();
+            });
+        }
+
+        // The tip sends people with only a camera to Profile > Biometrics?start=face: begin the face setup right away.
+        function startFaceSetupIfAsked() {
+            var button = $('btnFaceEnroll');
+            if (!button || new URLSearchParams(window.location.search).get('start') !== 'face') { return; }
+            setTimeout(function () { button.click(); }, 400);
+        }
 
         var copyButton = $('bioDiagCopy');
         if (copyButton) {
