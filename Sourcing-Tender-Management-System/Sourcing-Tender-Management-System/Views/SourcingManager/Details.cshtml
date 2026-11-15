@@ -4,34 +4,34 @@
     var isPending = Model.Status == RecommendationStatus.PendingManagerReview && Model.Tender.Status == TenderStatus.AwaitingManagerReview;
 }
 
-<div id="manager-details-search-results">
+<div id="manager-details-search-results" class="manager-page">
 <p><a asp-action="Index" class="link-secondary text-decoration-none">&larr; Back to manager workspace</a></p>
 @if (TempData["Error"] is string error)
 {
     <div class="alert alert-danger" role="alert">@error</div>
 }
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 manager-detail-head">
     <div>
-        <p class="text-uppercase text-secondary small fw-semibold mb-1">Consolidated evaluation · Round @Model.Round</p>
-        <h1 class="h2 mb-1">@Model.Tender.TenderNumber — @Model.Tender.Title</h1>
-        <div class="text-secondary">@Model.Tender.Category.Name · Submitted @(Model.SubmittedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—") by @Model.PreparedByUser.FullName</div>
+        <p class="manager-kicker mb-1">Consolidated evaluation · Round @Model.Round</p>
+        <h1 class="manager-title mb-1">@Model.Tender.TenderNumber — @Model.Tender.Title</h1>
+        <div class="manager-intro">@Model.Tender.Category.Name · Submitted @(Model.SubmittedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—") by @Model.PreparedByUser.FullName</div>
     </div>
     <span class="badge text-bg-secondary fs-6">@Model.Status</span>
 </div>
 
 <div class="row g-3 mb-4">
-    <div class="col-md-4"><div class="card card-body h-100"><span class="small text-secondary">Estimated tender value</span><strong class="fs-5">@Model.Tender.EstimatedValue.ToString("N2")</strong></div></div>
-    <div class="col-md-4"><div class="card card-body h-100"><span class="small text-secondary">Evaluation weights</span><strong class="fs-5">Technical @Model.Tender.TechnicalWeight.ToString("0.#")% · Financial @Model.Tender.FinancialWeight.ToString("0.#")%</strong></div></div>
-    <div class="col-md-4"><div class="card card-body h-100"><span class="small text-secondary">Final authority</span><strong class="fs-5">Top Committee</strong></div></div>
+    <div class="col-md-4"><div class="card card-body manager-stat h-100"><span class="manager-label">Estimated tender value</span><strong class="fs-5">@Model.Tender.EstimatedValue.ToString("N2")</strong></div></div>
+    <div class="col-md-4"><div class="card card-body manager-stat h-100"><span class="manager-label">Evaluation weights</span><strong class="fs-5">Technical @Model.Tender.TechnicalWeight.ToString("0.#")% · Financial @Model.Tender.FinancialWeight.ToString("0.#")%</strong></div></div>
+    <div class="col-md-4"><div class="card card-body manager-stat h-100"><span class="manager-label">Final authority</span><strong class="fs-5">Top Committee</strong></div></div>
 </div>
 
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "manager-details-search", ResultsId = "manager-details-search-results", Label = "Search report comparisons and recorded votes" })" />
-<section class="card shadow-sm border-0 mb-4">
+<section class="card manager-card mb-4">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Committee summary</h2></div>
     <div class="card-body"><p class="mb-0" style="white-space: pre-line">@Model.Summary</p></div>
 </section>
 
-<section class="card shadow-sm border-0 mb-4">
+<section class="card manager-card mb-4">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Recommendation</h2></div>
     <div class="card-body">
         <div class="fw-semibold">@(Model.RecommendedBid?.Supplier.CompanyName ?? "No supplier recommended")</div>
@@ -46,7 +46,7 @@
     </div>
 </section>
 
-<section class="card shadow-sm border-0 mb-4">
+<section class="card manager-card mb-4">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Supplier comparison</h2></div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -76,7 +76,7 @@
 
 @if (Model.Votes.Count > 0)
 {
-    <section class="card shadow-sm border-0 mb-4">
+    <section class="card manager-card mb-4">
         <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Committee sign-off</h2></div>
         <div class="table-responsive">
             <table class="table align-middle mb-0">
@@ -94,7 +94,7 @@
 
 @if (isPending)
 {
-    <section class="card shadow-sm border-0 mb-5">
+    <section class="card manager-card mb-5">
         <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Record your decision</h2></div>
         <div class="card-body">
             <p class="text-secondary">Your decision, comments, and timestamp will be included in the tender's audit history.</p>
