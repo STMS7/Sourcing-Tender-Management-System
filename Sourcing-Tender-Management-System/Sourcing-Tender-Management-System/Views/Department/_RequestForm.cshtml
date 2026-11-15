@@ -1,14 +1,16 @@
 @model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @using Sourcing_Tender_Management_System.Models
 @{ var rows = Model.Items.ToList(); }
-<div asp-validation-summary="All" class="text-danger"></div>
+@if (ViewData.ModelState.ErrorCount > 0)
+{
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+}
 <input type="hidden" asp-for="Id" />
-<div class="mb-2"><label>Title</label><input asp-for="Title" class="form-control" maxlength="200" required /></div>
-<div class="mb-2"><label>Description / reason</label><textarea asp-for="Description" class="form-control" maxlength="2000" required></textarea></div>
-<div class="mb-2"><label>Priority</label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<RequestPriority>()"></select></div>
-<div class="mb-2"><label>Required by</label><input asp-for="RequiredByDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" required /></div>
-<h4>Items (at least one)</h4>
-<table class="table table-bordered" id="itemsTable">
+<section class="department-form-section"><div class="department-section-heading"><div><span class="department-eyebrow">Step 1</span><h2>Request information</h2></div></div>
+<div class="row g-3"><div class="col-md-7"><label asp-for="Title" class="form-label">Title</label><input asp-for="Title" class="form-control" maxlength="200" required /><span asp-validation-for="Title" class="text-danger"></span><label asp-for="Description" class="form-label mt-3">Description / reason</label><textarea asp-for="Description" class="form-control" maxlength="2000" rows="5" required></textarea><span asp-validation-for="Description" class="text-danger"></span></div>
+<div class="col-md-5"><label asp-for="Priority" class="form-label">Priority</label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<RequestPriority>()"></select><label asp-for="RequiredByDate" class="form-label mt-3">Required by</label><input asp-for="RequiredByDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" required /><span asp-validation-for="RequiredByDate" class="text-danger"></span></div></div></section>
+<section class="department-form-section"><div class="department-section-heading"><div><span class="department-eyebrow">Step 2</span><h2>Request Items (at least one)</h2><p>Add at least one item with its quantity and estimated price.</p></div><button type="button" id="addItem" class="btn btn-outline-primary department-add-item">Add another item</button></div>
+<div class="table-responsive"><table class="table department-table" id="itemsTable">
 <thead><tr><th>Item name</th><th>Specifications</th><th>Quantity</th><th>Unit</th><th>Estimated unit price</th></tr></thead>
 <tbody>
 @for (int i = 0; i < Model.Items.Count; i++)
@@ -22,9 +24,8 @@
     </tr>
 }
 </tbody>
-</table>
-<button type="button" id="addItem" class="btn btn-secondary">Add another item</button>
-<button type="submit" class="btn btn-primary">Save Draft</button>
+</table></div></section>
+<div class="department-form-actions"><a class="btn btn-light" asp-action="Index">Cancel</a><button type="submit" class="btn btn-primary">Save Draft</button></div>
 <template id="itemTemplate">
 <tr>
 <td><input name="Items[__INDEX__].ItemName" class="form-control" maxlength="250" /></td>

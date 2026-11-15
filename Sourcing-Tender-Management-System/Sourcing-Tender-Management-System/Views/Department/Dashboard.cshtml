@@ -1,35 +1,35 @@
 @model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
 @using Sourcing_Tender_Management_System.Models
 @{
-    ViewData["Title"] = "Department Dashboard";
+    ViewData["Title"] = "Dashboard";
+    var total = Convert.ToInt32(ViewBag.Total);
+    var draft = Convert.ToInt32(ViewBag.Draft);
+    var submitted = Convert.ToInt32(ViewBag.Submitted);
+    var underReview = Convert.ToInt32(ViewBag.UnderReview);
+    var returned = Convert.ToInt32(ViewBag.Returned);
+    var rejected = Convert.ToInt32(ViewBag.Rejected);
+    var approved = Convert.ToInt32(ViewBag.Approved);
+    var converted = Convert.ToInt32(ViewBag.Converted);
+    decimal Percent(int value) => total == 0 ? 0 : Math.Round(value * 100m / total, 1);
+    var chartStyle = $"--draft:{Percent(draft)};--submitted:{Percent(submitted)};--review:{Percent(underReview)};--returned:{Percent(returned)};--rejected:{Percent(rejected)};--approved:{Percent(approved)};--converted:{Percent(converted)};";
 }
-<div id="department-dashboard-search-results">
-<h2>Department Dashboard</h2>
-<p><a asp-action="Index">My Requests</a> | <a asp-action="Create">Create Request</a> | <a asp-controller="CycleChat" asp-action="Index">Clarifications</a></p>
-<ul class="zt-bento" aria-label="Request summary">
-    <li><a class="zt-tile" asp-action="Index"><span class="zt-tile-label">Total</span><span class="zt-tile-value">@ViewBag.Total</span></a></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Draft</span><span class="zt-tile-value">@ViewBag.Draft</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Submitted</span><span class="zt-tile-value">@ViewBag.Submitted</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Under Review</span><span class="zt-tile-value">@ViewBag.UnderReview</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Returned</span><span class="zt-tile-value">@ViewBag.Returned</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Rejected</span><span class="zt-tile-value">@ViewBag.Rejected</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Approved</span><span class="zt-tile-value">@ViewBag.Approved</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Converted</span><span class="zt-tile-value">@ViewBag.Converted</span></div></li>
-</ul>
+<div id="department-dashboard-search-results" class="department-workspace">
+<header class="department-page-header department-dashboard-header">
+    <div><span class="department-eyebrow">Department workspace</span><h1>Dashboard</h1><p>Your department's sourcing requests, status, and latest updates at a glance.</p></div>
+</header>
+<section class="department-panel department-overview"><div class="department-section-heading department-overview-heading"><div class="department-section-title"><span class="department-section-icon" aria-hidden="true">▮</span><div><h2>Request Overview</h2><p>A summary of all purchase requests and their current status.</p></div></div><a asp-action="Index">View all requests</a></div><div class="department-overview-body"><a class="department-donut" asp-action="Index" style="@chartStyle" aria-label="@total total requests"><span><strong>@total</strong><small>Total<br />requests</small></span></a><div class="department-overview-metrics"><div><span class="department-dot draft"></span><span>Draft</span><strong>@draft</strong></div><div><span class="department-dot submitted"></span><span>Submitted</span><strong>@submitted</strong></div><div><span class="department-dot review"></span><span>Under review</span><strong>@underReview</strong></div><div><span class="department-dot returned"></span><span>Returned</span><strong>@returned</strong></div><div><span class="department-dot rejected"></span><span>Rejected</span><strong>@rejected</strong></div><div><span class="department-dot approved"></span><span>Approved</span><strong>@approved</strong></div><div><span class="department-dot converted"></span><span>Converted</span><strong>@converted</strong></div></div></div><div class="department-progress" style="@chartStyle" aria-label="Request status distribution"><span class="draft"></span><span class="submitted"></span><span class="review"></span><span class="returned"></span><span class="rejected"></span><span class="approved"></span><span class="converted"></span></div></section>
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-dashboard-search", ResultsId = "department-dashboard-search-results", Label = "Search recent requests and notifications" })" />
-<h3>Recent requests</h3>
-<ul>
+<div class="department-dashboard-grid"><section class="department-panel department-dashboard-card"><div class="department-section-heading"><div class="department-section-title"><span class="department-section-icon" aria-hidden="true">▱</span><div><h2>Recent requests</h2><p>The latest purchase requests from your department.</p></div></div><a asp-action="Index">View all requests <span aria-hidden="true">→</span></a></div><ul class="department-activity-list">
 @foreach (var r in Model)
 {
-    <li data-search-item><a asp-action="Details" asp-route-id="@r.Id">@r.RequestNumber – @r.Title</a> (@r.Status)</li>
+    <li data-search-item><a asp-action="Details" asp-route-id="@r.Id"><span class="department-row-icon" aria-hidden="true">▣</span><span><strong>@r.Title</strong></span><span class="department-status">@r.Status</span></a></li>
 }
-</ul>
-<h3>My latest notifications</h3>
-<ul>
+</ul></section>
+<section class="department-panel department-dashboard-card"><div class="department-section-heading"><div class="department-section-title"><span class="department-section-icon" aria-hidden="true">♧</span><div><h2>Latest notifications</h2><p>Updates and responses related to your requests.</p></div></div></div><ul class="department-notification-list">
 @foreach (var n in ((IEnumerable<Notification>)ViewBag.Notifications))
 {
-    <li data-search-item>@n.CreatedAt.ToLocalTime(): @n.Title – @n.Message</li>
+    <li data-search-item class="@(!n.IsRead ? "is-unread" : null)"><span class="department-notification-icon" aria-hidden="true">●</span><time datetime="@n.CreatedAt.ToString("O")">@n.CreatedAt.ToLocalTime().ToString("MMM dd, HH:mm")</time><div><strong>@n.Title</strong><span>@n.Message</span></div></li>
 }
-</ul>
+</ul></section></div>
 
 </div>

@@ -1,0 +1,46 @@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var title = ViewData["Title"]?.ToString();
+    var displayName = User.Identity?.Name ?? "Profile";
+    var initial = string.IsNullOrWhiteSpace(displayName) ? "?" : displayName.Trim()[..1].ToUpperInvariant();
+    var dashboard = action == "Dashboard";
+    var create = action == "Create";
+    var requests = controller == "Department" && action is "Index" or "Details" or "Edit" or "Delete";
+    var conversations = controller is "CycleChat" or "Messages";
+    const string IconGrid = "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z";
+    const string IconDoc = "M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6";
+    const string IconList = "M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01";
+    const string IconChat = "M4 5h16v11H9l-5 4z";
+    const string IconUser = "M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c1-4 4-6 8-6s7 2 8 6";
+    const string IconLogout = "M10 4H5v16h5M15 8l4 4-4 4M19 12H9";
+    const string IconMenu = "M4 7h16M4 12h16M4 17h16";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title - Zaytouna Sourcing Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/layout.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/content.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/department.css" asp-append-version="true" />
+</head>
+<body class="zt-app department-app">
+<div class="zt-shell">
+    <aside class="zt-sidebar department-sidebar" id="zt-sidebar" aria-label="Department navigation">
+        <div class="zt-sidebar-head"><a class="zt-brand" asp-controller="Department" asp-action="Dashboard"><svg class="zt-mark" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12" fill="#17402A"></rect><path d="M12 29c0-9 6-15 16-16 0 9-5 15-16 16z" fill="#DCEB4B"></path><path d="M12 29c3-5 7-9 12-12" fill="none" stroke="#17402A" stroke-width="1.6" stroke-linecap="round"></path></svg><span><span class="zt-brand-name">Zaytouna<span>.</span></span><span class="zt-brand-sub">Sourcing portal</span></span></a><button type="button" class="zt-round zt-menu-toggle" aria-controls="zt-sidebar-body" aria-expanded="false" aria-label="Open menu" data-zt-menu><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="@IconMenu"></path></svg></button></div>
+        <div class="zt-sidebar-body" id="zt-sidebar-body"><nav class="zt-nav" aria-label="Department workspace"><div class="zt-nav-label">Workspace</div><a asp-controller="Department" asp-action="Dashboard" class="@(dashboard ? "is-active" : null)" aria-current="@(dashboard ? "page" : null)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="@IconGrid"></path></svg><span>Dashboard</span></a><a asp-controller="Department" asp-action="Create" class="@(create ? "is-active" : null)" aria-current="@(create ? "page" : null)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="@IconDoc"></path></svg><span>Create Request</span></a><a asp-controller="Department" asp-action="Index" class="@(requests ? "is-active" : null)" aria-current="@(requests ? "page" : null)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="@IconList"></path></svg><span>All Requests</span></a><a asp-controller="CycleChat" asp-action="Index" class="@(conversations ? "is-active" : null)" aria-current="@(conversations ? "page" : null)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="@IconChat"></path></svg><span>Clarifications &amp; Messages</span></a></nav><div class="zt-sidebar-spacer"></div><nav class="zt-nav zt-account" aria-label="Account"><a asp-area="Identity" asp-page="/Account/Manage/Index"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="@IconUser"></path></svg><span>Profile</span></a><form asp-area="" asp-controller="Auth" asp-action="Logout" method="post"><button type="submit"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="@IconLogout"></path></svg><span>Log out</span></button></form></nav></div>
+    </aside>
+    <div class="zt-main"><header class="zt-topbar"><span class="zt-pill">@title</span><div class="zt-topbar-actions"><a class="zt-round" asp-controller="Messages" asp-action="Index" aria-label="Messages" title="Messages"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="@IconChat"></path></svg></a><a class="zt-round" asp-area="Identity" asp-page="/Account/Manage/Index" aria-label="Profile: @displayName" title="@displayName"><span class="zt-avatar" aria-hidden="true">@initial</span></a></div></header><main role="main">@RenderBody()</main></div>
+</div>
+<script src="~/lib/jquery/dist/jquery.min.js"></script><script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script><script src="~/js/site.js" asp-append-version="true"></script><script src="~/js/sourcing-search.js" asp-append-version="true"></script>
+<script>(function(){var toggle=document.querySelector('[data-zt-menu]'),sidebar=document.getElementById('zt-sidebar');if(!toggle||!sidebar)return;toggle.addEventListener('click',function(){var open=sidebar.classList.toggle('is-open');toggle.setAttribute('aria-expanded',open?'true':'false');toggle.setAttribute('aria-label',open?'Close menu':'Open menu');});})();</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

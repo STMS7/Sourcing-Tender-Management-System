@@ -1,7 +1,7 @@
 @model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @{ ViewData["Title"] = "Create Purchase Request"; }
-<h2>Create Purchase Request</h2>
-<form asp-action="Create" method="post">
+<div class="department-workspace"><header class="department-page-header department-page-header-compact department-request-header"><div><span class="department-eyebrow">New request</span><h1>Create Purchase Request</h1><p>Add the request details and the items you need. You can save it as a draft before submitting it.</p></div><a class="btn btn-outline-primary" asp-action="Index">Back to requests</a></header>
+<form asp-action="Create" method="post" class="department-request-form">
     <partial name="_RequestForm" model="Model" />
 </form>
-<p><a asp-action="Index">Back to requests</a></p>
+</div>

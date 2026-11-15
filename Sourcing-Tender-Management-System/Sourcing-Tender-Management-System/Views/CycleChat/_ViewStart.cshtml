@@ -1,0 +1,6 @@
+@{
+    if (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
+    {
+        Layout = "_DepartmentLayout";
+    }
+}
