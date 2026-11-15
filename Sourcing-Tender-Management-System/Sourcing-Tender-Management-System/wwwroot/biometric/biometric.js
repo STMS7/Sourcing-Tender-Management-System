@@ -58,16 +58,76 @@
             ? ' [' + error.name + (error.message ? ': ' + error.message : '') + ']'
             : '';
         if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
-            return new Error('The request was cancelled or timed out. If you did not cancel it, make sure Windows Hello ' +
-                '(fingerprint, face or PIN) is set up on this device.' + detail);
+            return new Error('The fingerprint request was cancelled or timed out. Try again and choose your fingerprint, face or PIN. ' +
+                'If nothing appears, this device has no Windows Hello set up: open Windows Settings > Accounts > Sign-in options ' +
+                'and add a fingerprint, face or PIN, or choose "Use a phone or tablet" in the prompt and scan the QR code. ' +
+                'You can always sign in with your password.' + detail);
+        }
+        if (error && error.name === 'SecurityError') {
+            return new Error('This web address cannot be used for fingerprint sign-in. Open the site from the same address you ' +
+                'registered on (for example https://localhost:7288) and try again.' + detail);
         }
         if (error && error.name === 'InvalidStateError') {
             return new Error('This device is already registered.' + detail);
         }
         if (error && error.name === 'NotSupportedError') {
-            return new Error('This device or browser does not support this kind of sign-in.' + detail);
+            return new Error('This device or browser does not support this kind of sign-in. Use your password, or try your phone with the QR code.' + detail);
         }
         return error instanceof Error ? error : new Error(String(error));
+    }
+
+    // ---------- What this device can do (used for clear messages instead of a vague failure) ----------
+
+    async function capabilities() {
+        var c = {
+            secure: window.isSecureContext === true,
+            webauthn: !!(window.PublicKeyCredential && navigator.credentials),
+            platform: false,
+            conditional: false,
+            address: window.location.origin,
+            browser: navigator.userAgent
+        };
+        if (c.webauthn) {
+            try {
+                if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+                    c.platform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+                }
+            } catch (e) { /* treated as not available */ }
+            try {
+                if (typeof PublicKeyCredential.isConditionalMediationAvailable === 'function') {
+                    c.conditional = await PublicKeyCredential.isConditionalMediationAvailable();
+                }
+            } catch (e) { /* treated as not available */ }
+        }
+        return c;
+    }
+
+    // One plain sentence about the biggest problem, or null when everything needed is there.
+    function problemOf(c) {
+        if (!c.secure) {
+            return 'Fingerprint needs a secure address. Open the site as https://localhost (not an IP address or plain http).';
+        }
+        if (!c.webauthn) {
+            return 'This browser cannot use fingerprint sign-in. Use a current Chrome, Edge, Safari or Firefox.';
+        }
+        if (!c.platform) {
+            return 'No fingerprint, face or PIN (Windows Hello) was found on this device. Set it up in Windows Settings > ' +
+                'Accounts > Sign-in options, or choose "Use a phone or tablet" in the prompt and scan the QR code with your phone. ' +
+                'Your password always works.';
+        }
+        return null;
+    }
+
+    function diagnosticsText(c) {
+        function yn(v) { return v ? 'yes' : 'no'; }
+        return [
+            'Secure address (https or localhost): ' + yn(c.secure),
+            'Browser supports passkeys: ' + yn(c.webauthn),
+            'Fingerprint / Windows Hello / PIN available: ' + yn(c.platform),
+            'Sign-in suggestion in the email box: ' + yn(c.conditional),
+            'Address: ' + c.address,
+            'Browser: ' + c.browser
+        ].join('\n');
     }
 
     // ---------- Fingerprint / device passkey (WebAuthn) ----------
@@ -78,16 +138,24 @@
         }
     }
 
-    async function passkeyLogin(returnUrl) {
+    // opts.mediation = 'conditional' lets the browser offer the passkey inside the email box (autofill); opts.signal
+    // cancels that waiting request. A cancelled waiting request throws the raw AbortError so the caller can tell.
+    async function passkeyLogin(returnUrl, opts) {
+        opts = opts || {};
         ensureWebAuthn();
         var start = await post('/Biometric/PasskeyLoginOptions');
         var options = start.options;
         options.challenge = dec(options.challenge);
 
+        var request = { publicKey: options };
+        if (opts.mediation) { request.mediation = opts.mediation; }
+        if (opts.signal) { request.signal = opts.signal; }
+
         var credential;
         try {
-            credential = await navigator.credentials.get({ publicKey: options });
+            credential = await navigator.credentials.get(request);
         } catch (e) {
+            if (opts.signal && e && e.name === 'AbortError') { throw e; }
             throw friendly(e);
         }
 
@@ -440,11 +508,84 @@
             }
         }
 
+        // ----- device check: a clear sentence and a details box instead of a vague failure -----
+        var hintBox = $('bioHint');
+        var diagBox = $('bioDiagText');
+        var caps = null;
+        var conditional = { controller: null, stopped: false, failures: 0 };
+
+        capabilities().then(function (c) {
+            caps = c;
+            var problem = problemOf(c);
+            if (hintBox && problem) {
+                hintBox.textContent = problem;
+                hintBox.classList.remove('d-none');
+            }
+            if (diagBox) { diagBox.textContent = diagnosticsText(c); }
+            // Without any WebAuthn support the buttons cannot work; say so instead of failing on click.
+            if (!c.webauthn || !c.secure) {
+                ['btnPasskeyLogin', 'btnPasskeyRegister'].forEach(function (id) {
+                    var b = $(id);
+                    if (b) { b.disabled = true; }
+                });
+            }
+            startConditionalLogin();
+        }).catch(function () { /* the buttons still work and report their own errors */ });
+
+        var copyButton = $('bioDiagCopy');
+        if (copyButton) {
+            copyButton.addEventListener('click', function () {
+                var text = diagBox ? diagBox.textContent : '';
+                if (navigator.clipboard && text) {
+                    navigator.clipboard.writeText(text).then(function () { copyButton.textContent = 'Copied'; });
+                }
+            });
+        }
+
+        // ----- sign-in suggestion inside the email box (like Google, GitHub and Microsoft) -----
+        // The browser shows the saved fingerprint sign-in as a suggestion; choosing it signs the person in with no
+        // button and no password. It waits quietly in the background and is paused while a button is used.
+        function startConditionalLogin() {
+            var emailBox = $('Email') || $('Input_Email');
+            if (!caps || !caps.conditional || !caps.secure || !emailBox || !$('btnPasskeyLogin') || conditional.stopped) { return; }
+            if (conditional.controller) { return; }
+
+            emailBox.setAttribute('autocomplete', 'username webauthn');
+            conditional.controller = new AbortController();
+            var signal = conditional.controller.signal;
+
+            passkeyLogin(returnUrl, { mediation: 'conditional', signal: signal }).then(function (result) {
+                conditional.controller = null;
+                if (result && result.redirect) {
+                    setStatus('Signed in. Redirecting...', 'success');
+                    window.location.href = result.redirect;
+                }
+            }).catch(function (e) {
+                conditional.controller = null;
+                if (e && e.name === 'AbortError') { return; }   // paused on purpose
+                conditional.failures += 1;
+                console.warn('Fingerprint suggestion stopped:', e);
+                // The waiting request can expire; start a fresh one a few times, then leave the button as the way in.
+                if (conditional.failures <= 3) { setTimeout(startConditionalLogin, 4000); }
+            });
+        }
+
+        function pauseConditionalLogin() {
+            if (conditional.controller) {
+                conditional.controller.abort();
+                conditional.controller = null;
+            }
+        }
+
         var passkeyLoginButton = $('btnPasskeyLogin');
         if (passkeyLoginButton) {
             passkeyLoginButton.addEventListener('click', function () {
+                pauseConditionalLogin();
                 setStatus('Use your fingerprint, face or PIN when your device asks.');
-                guarded(function () { return passkeyLogin(returnUrl); }, 'Signed in.');
+                guarded(function () { return passkeyLogin(returnUrl); }, 'Signed in.').then(function () {
+                    // If it did not sign in, bring the email-box suggestion back.
+                    startConditionalLogin();
+                });
             });
         }
 

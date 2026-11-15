@@ -1,0 +1,14 @@
+@* Shown on the sign-in page and in the profile's Biometrics tab. biometric.js fills it in: one plain sentence
+   about the biggest problem on this device (if any), and a "Check this device" box with details that can be copied
+   and sent to someone who is helping. *@
+<div id="bioHint" class="alert alert-warning small mt-3 mb-0 d-none" role="status"></div>
+<details class="mt-2 small">
+    <summary class="text-muted">Fingerprint not working? Check this device</summary>
+    <pre id="bioDiagText" class="border rounded p-2 mt-2 mb-2 bg-light" style="white-space:pre-wrap">Checking...</pre>
+    <button id="bioDiagCopy" type="button" class="btn btn-sm btn-outline-secondary">Copy these details</button>
+    <ul class="mt-3 ps-3">
+        <li>Register your fingerprint first: sign in with your password, open <strong>Profile &gt; Biometrics</strong> and press <strong>Register fingerprint</strong>. It is saved on this device only, so each person and each computer registers its own.</li>
+        <li>Use the same address you registered on (for example <code>https://localhost:7288</code>).</li>
+        <li>Windows needs a fingerprint, face or PIN set up (Settings &gt; Accounts &gt; Sign-in options), or use your phone through the QR code.</li>
+    </ul>
+</details>

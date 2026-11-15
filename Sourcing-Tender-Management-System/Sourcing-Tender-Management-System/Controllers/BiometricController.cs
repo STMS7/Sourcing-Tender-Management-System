@@ -40,6 +40,18 @@ public class BiometricController(
     [Authorize]
     public IActionResult Manage() => RedirectToPage("/Account/Manage/Biometrics", new { area = "Identity" });
 
+    // Small status for the "set up fingerprint" tip shown after sign-in: does this account have a fingerprint device yet?
+    [Authorize, HttpGet]
+    public async Task<IActionResult> Status()
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return Unauthorized();
+
+        Response.Headers.CacheControl = "no-store";
+        var hasPasskey = await db.UserPasskeyCredentials.AsNoTracking().AnyAsync(c => c.UserId == user.Id);
+        return Json(new { hasPasskey });
+    }
+
     // ---------- Fingerprint / device passkey ----------
 
     [Authorize, HttpPost, ValidateAntiForgeryToken]
