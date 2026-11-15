@@ -14,20 +14,25 @@ async page => {
     await page.reload();
     await page.emulateMedia({ reducedMotion:'no-preference' });
     await page.setViewportSize({width:1440,height:900});
-    const initial = await growth();
+    // The tree eases toward a stage set by how far the sign-in has come, so wait for each stage.
+    const stage = name => page.waitForFunction(expected => document.body.dataset.treeStage === expected, name);
+    await stage('seed');
+    check(true, 'Tree starts as a seed');
     await page.locator('#Email').focus();
-    let last = await growth();
-    for (const char of 'officer@example.test') {
-        await page.locator('#Email').pressSequentially(char);
-        const current = await growth();
-        check(current > last, 'Each typed email character grows tree');
-        last = current;
-    }
-    const beforePassword = await growth();
+    await stage('sprout');
+    check(true, 'Focusing the form sprouts the seed');
+    await page.locator('#Email').pressSequentially('officer@example.test');
+    await stage('limbs');
+    check(true, 'A complete email address grows trunk and limbs');
     await page.locator('#Password').pressSequentially('Preview-Only!4729');
-    check(await growth() > beforePassword, 'Password typing grows the tree without retaining text');
-    check(await growth() > initial + .5, 'Tree visibly matures through interaction');
-    check(await page.locator('.auth-tree-fruit').first().evaluate(el => Number(el.style.getPropertyValue('--tree-bloom')) > 0), 'Fruit appears as tree matures');
+    await stage('blossom');
+    check(await growth() >= .8, 'Password typing matures the tree without retaining text');
+    check(await page.locator('.auth-botanical .t-olive').first().evaluate(el => getComputedStyle(el).visibility === 'hidden'), 'Fruit waits for the server');
+    await page.locator('#Password').fill('');
+    await stage('limbs');
+    check(true, 'Clearing a field lets the tree recede');
+    await page.locator('#Password').pressSequentially('Preview-Only!4729');
+    await stage('blossom');
     await page.screenshot({path:'zaytouna-mature-tree-verified.png'});
     let release;
     const gate = new Promise(resolve => release = resolve);
@@ -83,7 +88,8 @@ async page => {
     await page.setViewportSize({width:390,height:844});
     check(await page.locator('.auth-mini-tree').isVisible(), 'Mobile has its own growing tree');
     await page.locator('#Email').pressSequentially('supplier@example.test');
-    check(await growth() > .3, 'Mobile tree responds to typing');
+    await page.waitForFunction(() => document.body.dataset.treeStage === 'limbs');
+    check(true, 'Mobile tree responds to typing');
     await page.screenshot({path:'zaytouna-mobile-tree-verified.png'});
     const fallback = await page.context().browser().newContext({javaScriptEnabled:false});
     const plain = await fallback.newPage();

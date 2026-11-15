@@ -134,21 +134,60 @@
    Keep essential controls reachable instead of clipping them. */
 @media (max-height:319px) { .zt-auth { overflow:auto; }.auth-shell { height:auto; min-height:320px; overflow:visible; }.auth-workspace { min-height:320px; } }
 
-/* Every interaction adds a little growth; the form never scales or moves. */
-.zt-auth { --auth-tree-growth:.04; }
-.auth-botanical { aspect-ratio:500/470; transform:translate3d(calc(-50% + var(--auth-branch-x,0px)),var(--auth-branch-y,0px),0) rotate(var(--auth-branch-tilt,0deg)); }
-.auth-tree { display:block; width:100%; height:100%; overflow:visible; transform:scale(calc(.44 + var(--auth-tree-growth)*.56)); transform-origin:50% 94%; transition:transform 700ms cubic-bezier(.2,.8,.2,1); }
-.auth-tree-trunk { stroke-dasharray:1; stroke-dashoffset:calc(.66 - var(--auth-tree-growth)*.66); transition:stroke-dashoffset 700ms ease; }
-.auth-tree-limbs path { stroke-dasharray:1; stroke-dashoffset:calc(1 - var(--limb-growth,0)); transition:stroke-dashoffset 700ms ease; }
-.auth-tree-crown { opacity:var(--tree-bloom,0); transform:scale(calc(.2 + var(--tree-bloom,0)*.8)); transform-box:fill-box; transform-origin:50% 100%; transition:opacity 600ms ease,transform 700ms cubic-bezier(.2,.8,.2,1); }
-.auth-tree-fruit { opacity:var(--tree-bloom,0); transition:opacity 700ms ease; }
+/* ── Olive tree ──────────────────────────────────────────────────────────
+   Drawn and grown by auth-login.js: seed → sprout → trunk → limbs → leaves →
+   blossom → fruit. The form never scales or moves; only the tree does. */
+.zt-auth { --auth-tree-growth:0; }
+.auth-botanical { top:8%; width:auto; height:48%; max-width:88%; aspect-ratio:600/640; transform:translate3d(calc(-50% + var(--auth-branch-x,0px)),var(--auth-branch-y,0px),0) rotate(var(--auth-branch-tilt,0deg)); filter:drop-shadow(0 10px 18px #10261A70); }
+/* No photograph: the tree stands alone on deep olive, with a soft clearing of light behind the crown. */
+.auth-story { background:radial-gradient(115% 70% at 50% 36%,#17402A 0%,#10261A 68%); }
+.auth-story :is(.auth-story-image,.auth-story-shade) { display:none; }
+/* The 3D tree fills the panel behind the words; the drawn tree is its fallback. */
+.auth-tree3d { position:absolute; inset:0; width:100%; height:100%; z-index:-1; pointer-events:none; }
+.auth-story.has-tree3d .auth-botanical { display:none; }
+.auth-tree { --bark-a:#F0E4C2; --bark-b:#DCCFA6; --bark-c:#FBF3DF; --grain:#10261A; --leaf-a:#EEF0DC; --leaf-b:#B9C693; --leaf-c:#8FA862; --blossom:#FFFCF3; --olive:#8FA862; --olive-ripe:#DCEB4B; --sap:#DCEB4B;
+  display:block; width:100%; height:100%; overflow:visible; transform-origin:50% 92%; }
+.auth-tree .t-wood { fill:none; stroke-width:calc(var(--w,4)*var(--girth,1)*1px); stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1 1.5; stroke-dashoffset:1; visibility:hidden; }
+.auth-tree .t-bark-a { stroke:var(--bark-a); }
+.auth-tree .t-bark-b { stroke:var(--bark-b); }
+.auth-tree .t-bark-c { stroke:var(--bark-c); }
+.auth-tree .t-grain { stroke:var(--grain); opacity:.3; }
+.auth-tree .t-root { stroke:var(--bark-b); opacity:.55; }
+.auth-tree .t-shoot { stroke:var(--leaf-b); }
+.auth-tree .t-ground { stroke:var(--bark-a); stroke-width:1.5; stroke-linecap:round; opacity:.45; }
+.auth-tree .t-shadow { fill:#10261A; opacity:.4; }
+.auth-tree .t-seed { fill:var(--bark-a); stroke:#10261A; stroke-width:.8; transform-origin:300px 594px; }
+.auth-tree .t-seed--b { fill:var(--bark-b); }
+.auth-tree .t-leaf { visibility:hidden; }
+.auth-tree .t-leaf-a { fill:var(--leaf-a); }
+.auth-tree .t-leaf-b { fill:var(--leaf-b); }
+.auth-tree .t-leaf-c { fill:var(--leaf-c); }
+.auth-tree :is(.t-blossom,.t-olive) { visibility:hidden; }
+.auth-tree .t-blossom circle { fill:var(--blossom); }
+.auth-tree .t-blossom .t-blossom-eye { fill:var(--olive-ripe); }
+.auth-tree .t-olive-stem { stroke:var(--leaf-c); stroke-width:1.2; stroke-linecap:round; }
+.auth-tree .t-olive-body { fill:var(--olive); stroke:#10261A; stroke-width:.7; transition:fill 520ms ease var(--ripen,0ms); }
+.auth-tree .t-olive-light { fill:#FFFCF3; opacity:.55; }
+.auth-tree.is-ripe .t-olive-body { fill:var(--olive-ripe); }
+/* Wind: each twig sways on its own period once the crown has leaves. */
+.auth-tree.is-alive .t-cluster { animation:zt-tree-sway var(--sway,4s) ease-in-out var(--lag,0s) infinite alternate; }
+.auth-tree.is-shiver .t-cluster { animation:zt-tree-shiver 620ms cubic-bezier(.16,1,.3,1); }
+.auth-tree.is-still .t-cluster { animation:none; }
+/* Waiting on the server: sap climbs the trunk, then runs out along the limbs. */
+.auth-tree .t-sap { fill:none; stroke:var(--sap); stroke-width:3; stroke-linecap:round; stroke-dasharray:.14 1; stroke-dashoffset:.16; opacity:0; }
+.auth-tree.is-waiting .t-sap { opacity:.9; animation:zt-tree-sap 1500ms cubic-bezier(.45,0,.3,1) infinite; }
+.auth-tree.is-waiting .t-sap--limb { animation-delay:520ms; stroke-width:2; }
+/* Harvest: every third olive lets go just before the workspace opens. */
+.auth-tree .t-olive.is-falling { animation:zt-tree-fall 640ms cubic-bezier(.55,0,.9,.45) calc(160ms + var(--fall,0ms)) forwards; }
+@keyframes zt-tree-sway { from { transform:rotate(-1.7deg); } to { transform:rotate(1.9deg); } }
+@keyframes zt-tree-shiver { 0% { transform:rotate(0); } 18% { transform:rotate(-5deg); } 40% { transform:rotate(4deg); } 62% { transform:rotate(-2.4deg); } 82% { transform:rotate(1.2deg); } 100% { transform:rotate(0); } }
+@keyframes zt-tree-sap { from { stroke-dashoffset:.16; } to { stroke-dashoffset:-1; } }
+@keyframes zt-tree-fall { 0% { transform:translateY(0) rotate(0); opacity:1; } 80% { opacity:1; } 100% { transform:translateY(430px) rotate(38deg); opacity:0; } }
 .auth-brand { position:relative; }
-.auth-brand > .auth-mini-tree { display:none; position:absolute; left:-6px; top:-3px; width:54px; height:58px; color:var(--auth-olive); }
-.auth-mini-tree .auth-tree { filter:drop-shadow(0 1px 1px #10261A25); }
-.auth-mini-tree :is(.auth-tree-trunk,.auth-tree-limbs path) { stroke:#17402A; }
-.auth-mini-tree .auth-tree-crown path:first-child { fill:#4E6B2F; }
-.auth-mini-tree .auth-tree-crown path:last-child { stroke:#EEF0DC; }
+.auth-brand > .auth-mini-tree { display:none; position:absolute; left:-6px; top:-3px; width:54px; height:58px; overflow:hidden; }
+.auth-mini-tree .auth-tree { --bark-a:#17402A; --bark-b:#2C5536; --bark-c:#17402A; --leaf-a:#4E6B2F; --leaf-b:#6C8743; --leaf-c:#17402A; --olive:#17402A; --olive-ripe:#4E6B2F; }
+.auth-mini-tree .auth-tree :is(.t-shadow,.t-ground) { display:none; }
 .auth-submit:disabled { cursor:wait; }
 @media (max-width:767.98px) { .auth-brand > .auth-mini-tree { display:block; }.auth-brand > img { opacity:0; } }
 @media (max-height:580px) and (max-width:767.98px) { .auth-brand > .auth-mini-tree { width:39px; height:43px; top:-8px; left:-5px; } }
-@media (prefers-reduced-motion:reduce) { .auth-tree,.auth-tree-crown,.auth-tree-trunk,.auth-tree-limbs path { transition:none; } }
+@media (max-height:580px) { .auth-botanical { top:13%; height:56%; } }

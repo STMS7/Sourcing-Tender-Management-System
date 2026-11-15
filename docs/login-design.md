@@ -3,24 +3,58 @@
 Scope: Login, its dedicated _AuthLayout, _LoginOliveTree partial, auth-login.css
 and auth-login.js. Home is untouched. The shared layout loads a small one-use
 celebration handler after confirmed sign-in without changing its underlying UI. Uses the
-approved palette/fonts and existing olive-harvest photo. No dependencies or schema
+approved palette/fonts. The story panel has no photograph: the tree stands alone on deep olive. No dependencies or schema
 changes. Fonts use Google Fonts with system fallbacks.
 
 ## Interaction
 
-A locally rendered SVG olive tree grows from a seedling toward a bounded mature
-size. Each input event, focus and relevant click adds growth; leaves and fruit
-appear progressively. No input content is stored by the animation. Mobile has
-an animated tree in the existing logo footprint. Pointer parallax affects artwork
-only; the form never animates. Pause and system reduced motion are respected.
+The olive tree is drawn by auth-login.js from a fixed seed, so it is the same
+tree on every visit, and it lives through seven stages: seed, sprout, trunk,
+limbs, leaves, blossom, fruit. The stage follows how far the sign-in has come,
+read only from field lengths and validity: focusing the form cracks the seed,
+the email grows the trunk and limbs, the password opens the leaves, and a
+complete form brings the blossom. Clearing a field lets the tree recede. The
+camera starts close on the seed and pulls back as the crown fills the frame,
+the wood thickens with age, and each twig sways on its own period. No input content is stored by the animation. Mobile
+has the same tree, simplified, in the logo footprint. Pointer parallax affects
+artwork only; the form never animates.
 
-On genuine successful authentication, navigation starts immediately. A one-use
+While the server decides, sap climbs the trunk and the first fruit sets. A
+refused sign-in makes the crown shiver and leaves the tree where it was. With
+motion paused or reduced the tree still shows the current stage, without
+movement.
+
+On genuine successful authentication the tree finishes growing, the olives
+ripen to lime and a few fall, and then the workspace opens: about a second for
+a typed sign-in, at most 2.6 seconds from a bare seed (a biometric sign-in).
+Navigation is in a finally block and the harvest always resolves, so the
+decoration cannot block access; paused and reduced-motion users navigate
+immediately. A one-use
 sessionStorage timestamp lets the destination page show 22 small olives (12 on
 mobile) while the workspace is already usable. The decoration does not intercept
 input, freezes nothing and removes itself after 2.2 seconds. The flag expires
 after 10 seconds and is consumed once, so reloads do not replay it. It contains
 no account data and grants no access. Failed/pending attempts never queue it.
 Paused and reduced-motion users do not receive the decoration.
+
+## 3D tree
+
+On desktop, where WebGL2 is available, the story panel renders the tree as a lit
+3D mesh (wwwroot/js/auth-tree3d.js, no libraries): a fluted trunk, limbs, boughs
+and twigs as tapered tubes, about 1,700 leaves in opposite pairs, blossom and
+fruit. Every vertex stores when in the tree's life it appears, so the same growth
+progress drives it in the vertex shader. The camera pulls back from the seed and
+drifts slowly around the tree; the pointer nudges the view. Without WebGL2 the
+drawn SVG tree is used instead, and the mobile header always uses it. With motion
+paused or reduced the 3D tree renders a still frame of the current stage.
+
+## Passkey prompt
+
+The automatic passkey suggestion in the email box is switched off
+(AUTO_PASSKEY_SUGGESTION in wwwroot/biometric/biometric.js) because on Windows it
+could open the system "Sign in with your passkey" window unasked. A passkey
+prompt appears only after pressing the fingerprint button, and a running
+fingerprint or face attempt can be left with "Skip and use my password".
 
 ## Authentication integration
 

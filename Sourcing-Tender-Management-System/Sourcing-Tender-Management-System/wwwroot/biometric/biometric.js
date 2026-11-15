@@ -26,6 +26,14 @@
     }
 
     function sleep(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+    // "Skip" on the sign-in page cancels the attempt in progress; the same error name the browser uses for a cancelled request.
+    function stopIfSkipped(signal) {
+        if (signal && signal.aborted) {
+            var error = new Error('Skipped.');
+            error.name = 'AbortError';
+            throw error;
+        }
+    }
     function round3(n) { return Math.round(n * 1000) / 1000; }
     function $(id) { return document.getElementById(id); }
 
@@ -322,7 +330,7 @@
         if (!nets.ssdMobilenetv1.isLoaded) { await nets.ssdMobilenetv1.loadFromUri(FACE_CDN + '/model'); }
     }
 
-    async function capture(challenge, video, setHint) {
+    async function capture(challenge, video, setHint, signal) {
         var faceapi = window.faceapi;
         var thresholds = challenge.thresholds;
         var detectorLevel = 0;
@@ -367,6 +375,7 @@
         setHint(INSTRUCTIONS[challenge.actions[0]]);
 
         while (performance.now() - started < deadline) {
+            stopIfSkipped(signal);
             var now = performance.now() - started;
             var detection = await faceapi.detectSingleFace(grab(), detector).withFaceLandmarks();
             if (!detection) {
@@ -451,11 +460,14 @@
     async function runFace(options, challengeUrl, submitUrl, extra) {
         options.setStatus('Loading face recognition...');
         await loadFaceApi();
+        stopIfSkipped(options.signal);
         var stream = await startCamera(options.video);
         try {
+            stopIfSkipped(options.signal);
             options.setStatus('Follow the instructions under the camera.');
             var challenge = await post(challengeUrl);
-            var evidence = await capture(challenge, options.video, options.setHint);
+            var evidence = await capture(challenge, options.video, options.setHint, options.signal);
+            stopIfSkipped(options.signal);
             options.setStatus('Checking...');
             return await post(submitUrl, Object.assign({ token: challenge.token }, evidence, extra));
         } finally {
@@ -539,11 +551,42 @@
                 setStatus(successMessage, 'success');
                 return result;
             } catch (e) {
-                setStatus(e.message, 'danger');
+                if (attempt && attempt.signal.aborted && e && e.name === 'AbortError') {
+                    // Skipped on purpose: not an error. The sign-in page returns to the password form.
+                    setStatus('Skipped. Sign in with your password instead.', 'info');
+                    document.dispatchEvent(new CustomEvent('stms:biometric-skip'));
+                } else {
+                    setStatus(e.message, 'danger');
+                }
             } finally {
                 panel.classList.add('d-none');
                 busy(allButtons, false);
+                endAttempt();
             }
+        }
+
+        // ----- "Skip": leave a fingerprint or face sign-in that is in progress and use the password -----
+        // Only the sign-in page has it. It cancels the waiting browser request or the camera; nothing is sent
+        // to the server and no check is bypassed: the person still has to sign in another way.
+        var attempt = null;
+        var skipButton = null;
+        if ($('btnPasskeyLogin') || $('btnFaceLogin')) {
+            skipButton = document.createElement('button');
+            skipButton.type = 'button';
+            skipButton.id = 'btnBioSkip';
+            skipButton.className = 'btn btn-outline-secondary w-100 mt-2 d-none';
+            skipButton.textContent = 'Skip and use my password';
+            skipButton.addEventListener('click', function () { if (attempt) { attempt.abort(); } });
+            statusBox.insertAdjacentElement('afterend', skipButton);
+        }
+        function beginAttempt() {
+            attempt = new AbortController();
+            if (skipButton) { skipButton.classList.remove('d-none'); }
+            return attempt.signal;
+        }
+        function endAttempt() {
+            attempt = null;
+            if (skipButton) { skipButton.classList.add('d-none'); }
         }
 
         // ----- device check: a clear sentence and a details box instead of a vague failure -----
@@ -551,6 +594,7 @@
         var diagBox = $('bioDiagText');
         var caps = null;
         var conditional = { controller: null, stopped: false, failures: 0 };
+        var AUTO_PASSKEY_SUGGESTION = false;   // set to true to offer the passkey inside the email box again
 
         capabilities().then(function (c) {
             caps = c;
@@ -664,6 +708,9 @@
         // The browser shows the saved fingerprint sign-in as a suggestion; choosing it signs the person in with no
         // button and no password. It waits quietly in the background and is paused while a button is used.
         function startConditionalLogin() {
+            // Switched off: on Windows this waiting request can open the "Sign in with your passkey" system window by
+            // itself, before the person asked for it. A passkey prompt now appears only after pressing the fingerprint button.
+            if (!AUTO_PASSKEY_SUGGESTION) { return; }
             var emailBox = $('Email') || $('Input_Email');
             if (!caps || !caps.conditional || !caps.secure || !emailBox || !$('btnPasskeyLogin') || conditional.stopped) { return; }
             if (conditional.controller) { return; }
@@ -703,7 +750,10 @@
                 // otherwise this computer answers (PIN, fingerprint or Touch ID) with no phone and no QR code.
                 var phoneOnly = viaPhone();
                 setStatus(phoneOnly ? PHONE_STEPS : 'Confirm with your fingerprint or PIN when your device asks.');
-                guarded(function () { return passkeyLogin(returnUrl, phoneOnly ? { hints: ['hybrid'] } : {}); }, 'Signed in.').then(function () {
+                var signal = beginAttempt();
+                guarded(function () {
+                    return passkeyLogin(returnUrl, phoneOnly ? { hints: ['hybrid'], signal: signal } : { signal: signal });
+                }, 'Signed in.').then(function () {
                     // If it did not sign in, bring the email-box suggestion back.
                     startConditionalLogin();
                 });
@@ -718,7 +768,8 @@
                 var email = ((emailBox && emailBox.value) || '').trim();
                 if (!email) { setStatus('Enter your email first.', 'danger'); return; }
                 panel.classList.remove('d-none');
-                guarded(function () { return faceLogin(faceOptions, email, returnUrl); }, 'Signed in.');
+                var signal = beginAttempt();
+                guarded(function () { return faceLogin(Object.assign({}, faceOptions, { signal: signal }), email, returnUrl); }, 'Signed in.');
             });
         }
 
