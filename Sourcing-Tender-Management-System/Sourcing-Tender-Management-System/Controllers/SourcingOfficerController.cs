@@ -350,6 +350,9 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             w.Action == WorkflowAction.Forwarded).MaxAsync(w => (DateTime?)w.CreatedAt);
         ViewBag.History = await db.WorkflowTransitions.AsNoTracking().Where(w => w.TenderId == id)
             .OrderByDescending(w => w.CreatedAt).Take(30).ToListAsync();
+        var (resultReport, resultStep) = await CurrentResultStep(id);
+        ViewBag.ResultReport = resultReport;
+        ViewBag.ResultStep = resultStep;
         return View(tender);
     }
 

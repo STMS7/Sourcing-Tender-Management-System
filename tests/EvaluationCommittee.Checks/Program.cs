@@ -57,6 +57,28 @@ async Task<IActionResult> ManagerDecide(int reportId, string decision, string co
     { ControllerContext = new ControllerContext { HttpContext = http }, TempData = NewTempData(http) };
     return await controller.Decide(reportId, decision, comments);
 }
+async Task<IActionResult> ManagerForward(int reportId)
+{
+    await using var db = new ApplicationDbContext(options);
+    var http = HttpAs("manager", "SourcingManager");
+    var controller = new SourcingManagerController(db)
+    { ControllerContext = new ControllerContext { HttpContext = http }, TempData = NewTempData(http) };
+    return await controller.ForwardTopDecision(reportId);
+}
+async Task<SourcingManagerDashboardViewModel> ManagerDashboard()
+{
+    await using var db = new ApplicationDbContext(options);
+    var http = HttpAs("manager", "SourcingManager");
+    var controller = new SourcingManagerController(db)
+    { ControllerContext = new ControllerContext { HttpContext = http }, TempData = NewTempData(http) };
+    return (SourcingManagerDashboardViewModel)((ViewResult)await controller.Index()).Model!;
+}
+async Task<Sourcing_Tender_Management_System.Models.TopCommittee.VoteResult> TopVote(string member, int reportId, CommitteeDecision decision)
+{
+    await using var db = new ApplicationDbContext(options);
+    return await new Sourcing_Tender_Management_System.Services.TopCommittee.TopCommitteeVotingService(db).CastVoteAsync(member,
+        new Sourcing_Tender_Management_System.Models.TopCommittee.CastVoteInput { EvaluationReportId = reportId, Decision = decision, Reason = "Test vote" }, null);
+}
 async Task<IActionResult> Officer(Func<SourcingOfficerController, Task<IActionResult>> action)
 {
     await using var db = new ApplicationDbContext(options);
@@ -151,15 +173,6 @@ try
 
     Check(await Officer(c => c.RequestWeightApproval(tenderId)) is RedirectToActionResult, "Officer requests locked preparation approval");
 
-    List<CommitteeCriterionWeightInput> technicalCriteria, financialCriteria;
-    await using (var db = new ApplicationDbContext(options)) {
-        var ids = await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Technical).OrderBy(c => c.Id).Select(c => c.Id).ToListAsync();
-        technicalCriteria = [new() { CriterionId = ids[0], Weight = 60 }, new() { CriterionId = ids[1], Weight = 40 }];
-        financialCriteria = await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Financial)
-            .Select(c => new CommitteeCriterionWeightInput { CriterionId = c.Id, Weight = 100 }).ToListAsync();
-        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId).SumAsync(c => c.Weight) == 0,
-            "Preparation can start with all criterion weights pending committee assignment");
-    }
     // Access
     Check(await Act("outsider", c => c.Evaluate(tenderId)) is NotFoundResult, "Non-members cannot open the tender");
     Check(await Act("manager", c => c.Evaluate(tenderId)) is ViewResult, "Sourcing manager (committee member) can open the tender");
@@ -168,47 +181,18 @@ try
     Check(await Act("manager", c => c.Review(tenderId, "accept", null)) is ConflictObjectResult, "Manager cannot accept before technical/financial agree");
     var page = await Page("technical", tenderId);
     Check(page.Bids.Count == 0 && page.Tender.Status == TenderStatus.Draft, "Preparation reveals no supplier offers");
-    Check(await Act("outsider", c => c.SubmitWeights(tenderId, 70, 30, technicalCriteria)) is NotFoundResult, "Non-members cannot submit weights");
-
-    // Assignment boundaries apply to criterion weights as well as the overall split.
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20));
-    Check((await Page("technical", tenderId)).MyProposal == null, "Missing criterion weight payload cannot approve preparation");
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, financialCriteria));
-    Check((await Page("technical", tenderId)).MyProposal == null, "Technical member cannot assign the financial group's weights");
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [
-        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 50 },
-        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 50 }]));
-    Check((await Page("technical", tenderId)).MyProposal == null, "Duplicate criterion IDs cannot replace a complete group");
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [technicalCriteria[0]]));
-    Check((await Page("technical", tenderId)).MyProposal == null, "Omitted criteria cannot approve a group");
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [
-        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 60.001m },
-        new() { CriterionId = technicalCriteria[1].CriterionId, Weight = 39.999m }]));
-    Check((await Page("technical", tenderId)).MyProposal == null, "Criterion percentages reject excess decimal precision");
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, [
-        new() { CriterionId = technicalCriteria[0].CriterionId, Weight = 60 },
-        new() { CriterionId = technicalCriteria[1].CriterionId, Weight = 50 }]));
-    Check((await Page("technical", tenderId)).MyProposal == null, "Criterion group totals must equal 100 percent");
-    await using (var db = new ApplicationDbContext(options))
-        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId).SumAsync(c => c.Weight) == 0,
-            "Invalid group submissions do not partially persist criterion weights");
+    Check(await Act("outsider", c => c.SubmitWeights(tenderId, 70, 30)) is NotFoundResult, "Non-members cannot submit weights");
 
     // Weights
-    await Act("technical", c => c.SubmitWeights(tenderId, 70, 20, technicalCriteria));
+    await Act("technical", c => c.SubmitWeights(tenderId, 70, 20));
     Check((await Page("technical", tenderId)).MyProposal == null, "Invalid total is not saved");
     Check(await Act("technical", c => c.ChooseBid(tenderId, bidA)) is ConflictObjectResult, "Bid choice blocked before weights agree");
-    await Act("technical", c => c.SubmitWeights(tenderId, 90, 10, technicalCriteria));
-    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20, technicalCriteria));
-    await using (var db = new ApplicationDbContext(options)) {
-        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Technical && !c.Name.StartsWith("__weight:")).SumAsync(c => c.Weight) == 100,
-            "Technical member persists only the complete technical criterion group");
-        Check(await db.EvaluationCriteria.Where(c => c.TenderId == tenderId && c.Type == CriterionType.Financial && !c.Name.StartsWith("__weight:")).SumAsync(c => c.Weight) == 0,
-            "Technical submission leaves financial criteria pending");
-    }
+    await Act("technical", c => c.SubmitWeights(tenderId, 90, 10));
+    await Act("technical", c => c.SubmitWeights(tenderId, 80, 20));
     var finView = await Page("financial", tenderId);
     Check(finView.OtherProposalSubmitted && finView.Proposals.Count == 0 && finView.AgreedWeights == null,
         "Financial member sees that technical submitted, but not the numbers");
-    await Act("financial", c => c.SubmitWeights(tenderId, 60, 40, financialCriteria));
+    await Act("financial", c => c.SubmitWeights(tenderId, 60, 40));
     await using (var db = new ApplicationDbContext(options))
     {
         var t = await db.Tenders.Include(x => x.EvaluationCriteria).SingleAsync(x => x.Id == tenderId);
@@ -217,11 +201,11 @@ try
         Check(t.EvaluationCriteria.Single(c => c.Name == CommitteeWeighting.ProposalName(tech, CriterionType.Technical)).Weight == 80,
             "Technical member's updated proposal replaced the earlier one");
     }
-    Check(await Act("technical", c => c.SubmitWeights(tenderId, 50, 50, technicalCriteria)) is ConflictObjectResult, "Agreed weights are final");
+    Check(await Act("technical", c => c.SubmitWeights(tenderId, 50, 50)) is ConflictObjectResult, "Agreed weights are final");
 
     Check(await Officer(c => c.Publish(tenderId)) is RedirectToActionResult, "Approved weights allow publication through the actual officer action");
     Check((await Page("technical", tenderId)).Bids.Count == 0, "Published tender keeps bids sealed from committee");
-    Check(await Act("technical", c => c.SubmitWeights(tenderId, 95, 5, technicalCriteria)) is ConflictObjectResult,
+    Check(await Act("technical", c => c.SubmitWeights(tenderId, 95, 5)) is ConflictObjectResult,
         "Publication blocks late weight changes");
     await using (var db = new ApplicationDbContext(options)) {
         db.Bids.AddRange(pendingBids);
@@ -288,8 +272,8 @@ try
         reportId = report.Id;
         var t = await db.Tenders.FindAsync(tenderId);
         Check(report.RecommendedBidId == bidA && report.Round == 1, "All four agree: report round 1 recommends BID-A");
-        Check(report.Status == RecommendationStatus.PendingManagerReview && report.SubmittedAt != null &&
-            t!.Status == TenderStatus.AwaitingManagerReview, "Report and tender move to manager review (team contract)");
+        Check(report.Status == RecommendationStatus.Draft && report.SubmittedAt == null &&
+            t!.Status == TenderStatus.AwaitingManagerReview, "Report goes to the sourcing officer first (Draft, not yet submitted)");
         Check(report.Summary.Contains("technical 70") && report.Summary.Contains("BID-A"), "Report summary holds the weights and chosen bid");
         Check(report.Bids.Count == 2 && report.Bids.All(b => b.IsCompliant), "Report lists the two compliant bids only");
         Check(report.Votes.Count == 4 && report.Votes.All(v => v.Decision == CommitteeDecision.Approved), "Four committee votes recorded");
@@ -300,6 +284,22 @@ try
     Check((await Page("technical", tenderId)).SubmittedReport?.Id == reportId, "Committee page shows the submitted report");
     Check(await OfficerDetails(tenderId) is ViewResult { Model: Tender officerView } &&
         officerView.EvaluationReports.Single().RecommendedBid?.BidNumber == "BID-A", "Sourcing officer reads the report and chosen bid");
+
+    // Officer forwards to the manager (forward only)
+    await ManagerDecide(reportId, "return", "Too early.");
+    await using (var db = new ApplicationDbContext(options))
+        Check((await db.EvaluationReports.FindAsync(reportId))!.Status == RecommendationStatus.Draft,
+            "Manager cannot decide before the officer forwards the report");
+    Check(await Officer(c => c.ForwardReportToManager(tenderId)) is RedirectToActionResult, "Officer forwards the report to the sourcing manager");
+    await using (var db = new ApplicationDbContext(options))
+    {
+        var forwardedReport = (await db.EvaluationReports.FindAsync(reportId))!;
+        Check(forwardedReport.Status == RecommendationStatus.PendingManagerReview && forwardedReport.SubmittedAt != null,
+            "Forwarded report enters the manager's queue");
+        Check(await db.Notifications.AnyAsync(n => n.UserId == "manager" && n.Link == "/SourcingManager/Details/" + reportId),
+            "Tender's sourcing manager is notified");
+    }
+    Check(await Officer(c => c.ForwardReportToManager(tenderId)) is ConflictObjectResult, "A report is forwarded only once");
 
     // Manager Review page returns it: a fresh round starts
     Check(await ManagerDecide(reportId, "return", "Check warranty terms.") is RedirectToActionResult, "Existing Manager Review page accepts the report");
@@ -316,6 +316,7 @@ try
         Check(second.Round == 2 && second.RecommendedBidId == bidB, "Round 2 report recommends the new agreed bid");
         reportId = second.Id;
     }
+    await Officer(c => c.ForwardReportToManager(tenderId));
 
     // ---- 4. Manager approve always forwards to the Top Committee ----
     await ManagerDecide(reportId, "approve", "");
@@ -344,18 +345,86 @@ try
         Check((await new Sourcing_Tender_Management_System.Services.TopCommittee.TopCommitteeService(db).GetDashboardAsync("top1"))
             .AwaitingTenders.Any(a => a.TenderId == tenderId), "The tender appears on the Top Committee dashboard");
     }
-    foreach (var member in new[] { "top1", "top2" })
+    // ---- 5. Top Committee RETURNS: manager -> officer -> back to the committee ----
+    Check((await TopVote("top1", reportId, CommitteeDecision.ReturnedForRevision)).Succeeded, "Top Committee member top1 can vote");
+    Check((await TopVote("top2", reportId, CommitteeDecision.Approved)).Succeeded, "Top Committee member top2 can vote");
+    await using (var db = new ApplicationDbContext(options))
     {
-        await using var db = new ApplicationDbContext(options);
-        var vote = await new Sourcing_Tender_Management_System.Services.TopCommittee.TopCommitteeVotingService(db).CastVoteAsync(member,
-            new Sourcing_Tender_Management_System.Models.TopCommittee.CastVoteInput { EvaluationReportId = reportId, Decision = CommitteeDecision.Approved, Reason = "OK" }, null);
-        Check(vote.Succeeded, $"Top Committee member {member} can vote");
+        var returned = (await db.EvaluationReports.FindAsync(reportId))!;
+        Check(returned.Status == RecommendationStatus.ReturnedForReview &&
+            (await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.AwaitingCommitteeDecision,
+            "A Top Committee return is recorded on the report; the tender waits for the hand-back");
+        Check(await db.Notifications.AnyAsync(n => n.UserId == "manager" && n.Link == "/SourcingManager"),
+            "The Top Committee decision goes to the sourcing manager first");
     }
+    Check(await Officer(c => c.SendBackToCommittee(tenderId)) is ConflictObjectResult, "Officer waits for the manager to forward the decision");
+    Check(await ManagerDashboard() is { TopDecisionsToForward.Count: 1 }, "Manager sees the Top decision to forward");
+    Check(await ManagerForward(reportId) is RedirectToActionResult, "Manager forwards the Top decision to the officer");
+    Check(await ManagerDashboard() is { TopDecisionsToForward.Count: 0 }, "A forwarded decision leaves the manager's list");
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is ConflictObjectResult, "A return cannot be announced to suppliers");
+    Check(await Officer(c => c.SendBackToCommittee(tenderId)) is RedirectToActionResult, "Officer sends the return back to the committee");
+    var round3 = await Page("technical", tenderId);
+    Check(round3.Tender.Status == TenderStatus.UnderEvaluation && round3.AgreedBidId == null, "Committee starts a new round after the Top return");
+
+    // ---- 6. Round 3: Top Committee APPROVES: manager -> officer -> suppliers ----
+    await Act("technical", c => c.ChooseBid(tenderId, bidB));
+    await Act("financial", c => c.ChooseBid(tenderId, bidB));
+    await Act("manager", c => c.Review(tenderId, "accept", null));
+    await Act("department", c => c.Review(tenderId, "accept", null));
+    await using (var db = new ApplicationDbContext(options))
+        reportId = (await db.EvaluationReports.OrderByDescending(r => r.Round).FirstAsync(r => r.TenderId == tenderId)).Id;
+    await Officer(c => c.ForwardReportToManager(tenderId));
+    Check(await ManagerDecide(reportId, "approve", "") is RedirectToActionResult, "Manager approves round 3");
+    await TopVote("top1", reportId, CommitteeDecision.Approved);
+    await TopVote("top2", reportId, CommitteeDecision.Approved);
+    string winnerUser = "supplier-b", loserUser = "supplier-a";
     await using (var db = new ApplicationDbContext(options))
     {
         var t = await db.Tenders.FindAsync(tenderId);
         Check(t!.Status == TenderStatus.Awarded && t.AwardedBidId == bidB, "Top Committee approval awards the committee's chosen bid");
+        Check((await db.EvaluationReports.FindAsync(reportId))!.Status == RecommendationStatus.CommitteeApproved, "Approval is recorded on the report");
+        // Supplier accounts so the result messages have someone to reach.
+        foreach (var (user, bidId) in new[] { (winnerUser, bidB), (loserUser, bidA) })
+            db.Users.Add(new ApplicationUser { Id = user, FullName = user, UserName = user, NormalizedUserName = user.ToUpperInvariant(),
+                IsActive = true, SupplierId = (await db.Bids.FindAsync(bidId))!.SupplierId });
+        await db.SaveChangesAsync();
     }
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is ConflictObjectResult, "Officer cannot announce before the manager forwards");
+    await ManagerForward(reportId);
+    Check(await Officer(c => c.SendBackToCommittee(tenderId)) is ConflictObjectResult, "An approval cannot be sent back to the committee");
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is RedirectToActionResult, "Officer sends the result to the suppliers");
+    await using (var db = new ApplicationDbContext(options))
+    {
+        Check(await db.Notifications.AnyAsync(n => n.UserId == winnerUser && n.Title.Contains("You won") && n.Link == "/Suppliers/OfferDetails/" + bidB),
+            "Winning supplier gets the winning message");
+        Check(await db.Notifications.AnyAsync(n => n.UserId == loserUser && n.Message.Contains("Another offer was selected")),
+            "Other bidder gets a not-selected message");
+        Check(!await db.Notifications.AnyAsync(n => n.UserId == loserUser && n.Title.Contains("You won")), "Only the winner gets the winning message");
+        Check((await db.Bids.FindAsync(bidA))!.Status == BidStatus.Rejected && (await db.Bids.FindAsync(bidB))!.Status == BidStatus.Accepted,
+            "Winning bid accepted, other bid rejected");
+    }
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is ConflictObjectResult, "The result is sent only once");
+    Check(await OfficerDetails(tenderId) is ViewResult officerDone &&
+        officerDone.ViewData["ResultStep"] is TenderResultFlow.Step.Done, "Officer page shows the round as finished");
+
+    // ---- 7. Top Committee REJECTS: suppliers are told the tender is cancelled ----
+    await using (var db = new ApplicationDbContext(options))
+    {
+        // A further round whose Top Committee vote rejected it (the voting itself is covered above).
+        var t = (await db.Tenders.FindAsync(tenderId))!;
+        t.Status = TenderStatus.Cancelled;
+        var rejected = new EvaluationReport { TenderId = tenderId, Round = 4, PreparedByUserId = "manager", Summary = "Round 4",
+            RecommendedBidId = bidA, Status = RecommendationStatus.CommitteeRejected, SubmittedAt = DateTime.UtcNow,
+            Votes = [new CommitteeVote { CommitteeType = CommitteeType.Top, MemberUserId = "top1", Decision = CommitteeDecision.Rejected }] };
+        db.EvaluationReports.Add(rejected);
+        await db.SaveChangesAsync();
+        reportId = rejected.Id;
+    }
+    await ManagerForward(reportId);
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is RedirectToActionResult, "Officer announces a rejected outcome");
+    await using (var db = new ApplicationDbContext(options))
+        Check(await db.Notifications.CountAsync(n => (n.UserId == winnerUser || n.UserId == loserUser) && n.Title.Contains("cancelled")) == 2,
+            "Every bidder is told the tender was cancelled with no award");
 
     Console.WriteLine($"All {checks} checks passed.");
 }

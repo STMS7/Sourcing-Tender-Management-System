@@ -170,7 +170,46 @@ else if (draft && suppliers.Count == 0) { <p class="text-secondary">No additiona
 @if (ViewBag.EvaluationSentAt is DateTime sentAt) {
     <p role="status">Sent to the evaluation committee on <strong>@sentAt.ToString("dd MMM yyyy HH:mm") UTC</strong>. Assigned technical and financial members receive a link to their evaluation page.</p>
 }
-<p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; the sourcing manager reviews it.</p>
+<p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; you forward it to the sourcing manager, who sends it to the Top Committee.</p>
+@if (ViewBag.ResultReport is EvaluationReport resultReport && ViewBag.ResultStep is Sourcing_Tender_Management_System.Services.TenderResultFlow.Step resultStep) {
+<section class="form-panel mb-4" aria-labelledby="result-cycle-heading">
+<h3 id="result-cycle-heading" class="h5">Result cycle — report round @resultReport.Round</h3>
+<p>Chosen bid: <strong>@resultReport.RecommendedBid?.Supplier.CompanyName (@resultReport.RecommendedBid?.BidNumber)</strong></p>
+@switch (resultStep) {
+    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToForward:
+        <p>The evaluation committee sent you its report and chosen bid. Forward it to the sourcing manager.</p>
+        <form asp-action="ForwardReportToManager" method="post"><input type="hidden" name="id" value="@Model.Id" />
+        <button type="submit" class="btn btn-primary">Forward report to sourcing manager</button></form>
+        break;
+    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtManagerReview:
+        <p role="status">Waiting for the sourcing manager's decision.</p>
+        break;
+    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtTopCommittee:
+        <p role="status">Waiting for the Top Committee's vote.</p>
+        break;
+    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtManagerToForwardDecision:
+        <p role="status">The Top Committee decided (@resultReport.Status). Waiting for the sourcing manager to forward the decision to you.</p>
+        break;
+    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToAnnounce:
+        @if (resultReport.Status == RecommendationStatus.CommitteeApproved) {
+            <p>The Top Committee approved the award. Send the winning message to the chosen supplier and a "not selected" message to the other bidders.</p>
+        } else {
+            <p>The Top Committee rejected the recommendation and the tender is cancelled. Tell every bidder that no offer was awarded.</p>
+        }
+        <form asp-action="AnnounceResult" method="post"><input type="hidden" name="id" value="@Model.Id" />
+        <button type="submit" class="btn btn-success">Send result to suppliers</button></form>
+        break;
+    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToSendBack:
+        <p>The Top Committee asked for further details. Send the tender back to the evaluation committee for a new round.</p>
+        <form asp-action="SendBackToCommittee" method="post"><input type="hidden" name="id" value="@Model.Id" />
+        <button type="submit" class="btn btn-outline-primary">Send back to evaluation committee</button></form>
+        break;
+    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.Done:
+        <p role="status">This round is finished: the result was sent to the suppliers, or the tender went back to the committee.</p>
+        break;
+}
+</section>
+}
 @foreach (var report in Model.EvaluationReports.OrderByDescending(r => r.Round)) {
 <p>Report round @report.Round: <span class="status">@report.Status</span> · @(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? "Not submitted")</p>
 @if (report.RecommendedBid is { } chosenBid) {
