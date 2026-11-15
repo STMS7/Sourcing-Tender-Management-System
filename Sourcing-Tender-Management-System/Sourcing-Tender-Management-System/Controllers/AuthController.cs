@@ -18,12 +18,14 @@ public class AuthController(
 
 {
     [AllowAnonymous, HttpGet]
-    public IActionResult Login(string? returnUrl = null) => View(new LoginViewModel { ReturnUrl = returnUrl });
+    public IActionResult Login(string? returnUrl = null) => User.Identity?.IsAuthenticated == true
+        ? RedirectToAction("Index", "Dashboard")
+        : View(new LoginViewModel { ReturnUrl = returnUrl });
 
     [AllowAnonymous, HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
-        if (!ModelState.IsValid) return View(model);
+        if (!ModelState.IsValid) return LoginError(model);
         var user = await userManager.FindByEmailAsync(model.Email.Trim());
 
         Console.WriteLine($"LOGIN IP = {HttpContext.Connection.RemoteIpAddress} | HOST = {Request.Host}");
@@ -31,27 +33,38 @@ public class AuthController(
         if (user is { SupplierId: null } && !network.IsAllowed(HttpContext.Connection.RemoteIpAddress))
         {
             ModelState.AddModelError(string.Empty, "Staff must sign in from the company network (VPN).");
-            return View(model);
+            return LoginError(model);
         }
 
         if (user is null || !await CanSignInAsync(user))
         {
             ModelState.AddModelError(string.Empty, "Invalid credentials or account awaiting approval.");
-            return View(model);
+            return LoginError(model);
         }
 
         var result = await signInManager.PasswordSignInAsync(user, model.Password, model.RememberMe, lockoutOnFailure: true);
         if (!result.Succeeded)
         {
             ModelState.AddModelError(string.Empty, result.IsLockedOut ? "Account temporarily locked. Try again later." : "Invalid credentials or account awaiting approval.");
-            return View(model);
+            return LoginError(model);
         }
 
         user.LastLoginAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
-        var destination = Url.IsLocalUrl(model.ReturnUrl) ? model.ReturnUrl! :
-                   await LandingPage.For(userManager, user, Url);
+        var destination = WorkspaceNavigation.SignInDestination(Url, await userManager.GetRolesAsync(user), model.ReturnUrl);
+        // Optional progressive enhancement: only this page asks for JSON. All
+        // authentication, lockout, network and account checks above are identical.
+        if (Request.Headers["X-Login-Animation"] == "1")
+            return Json(new { succeeded = true, redirect = Url.Content(destination) });
         return LocalRedirect(destination);
+    }
+
+    private IActionResult LoginError(LoginViewModel model)
+    {
+        if (Request.Headers["X-Login-Animation"] != "1") return View("Login", model);
+        var errors = ModelState.Values.SelectMany(x => x.Errors)
+            .Select(x => string.IsNullOrWhiteSpace(x.ErrorMessage) ? "Check your sign-in details and try again." : x.ErrorMessage).ToArray();
+        return BadRequest(new { succeeded = false, errors });
     }
 
     [Authorize, HttpPost, ValidateAntiForgeryToken]

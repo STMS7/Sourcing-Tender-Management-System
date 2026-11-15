@@ -1,0 +1,12 @@
+@{ Layout = null; }
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>Returning home · Zaytouna</title></head>
+<body>
+    <main><h1>Returning to Home</h1><p>Your workspace session will end.</p>
+        <form asp-controller="Auth" asp-action="Logout" method="post" data-home-exit>
+            <button type="submit">Continue to Home and sign out</button>
+        </form>
+        <noscript><p>Use the button above to return to Home and end your session.</p></noscript>
+    </main>
+    <script src="~/js/home-session.js" asp-append-version="true"></script>
+</body></html>

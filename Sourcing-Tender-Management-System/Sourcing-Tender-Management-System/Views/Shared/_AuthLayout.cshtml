@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · Zaytouna</title><meta name="theme-color" content="#17402A" />
+    <link rel="icon" type="image/svg+xml" href="~/landing/logo/zaytouna-emblem.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&amp;family=Cormorant+Garamond:wght@600&amp;family=DM+Mono&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/auth-login.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/login-celebration.css" asp-append-version="true" />
+</head><body class="zt-auth">
+    <a class="auth-skip" href="#login-title">Skip to sign in</a>
+    <main>@RenderBody()</main>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script><script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/login-celebration.js" asp-append-version="true"></script>
+    <script src="~/js/home-session.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body></html>

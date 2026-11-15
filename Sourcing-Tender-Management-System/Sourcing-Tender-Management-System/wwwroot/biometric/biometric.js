@@ -528,7 +528,12 @@
                 var result = await action();
                 if (result && result.redirect) {
                     setStatus('Signed in. Redirecting...', 'success');
-                    window.location.href = result.redirect;
+                    // The dedicated login page may celebrate a confirmed sign-in.
+                    // All other biometric pages keep their original navigation.
+                    if (typeof window.stmsLoginSuccess === 'function') {
+                        try { await window.stmsLoginSuccess(result.redirect); }
+                        catch (animationError) { window.location.href = result.redirect; }
+                    } else { window.location.href = result.redirect; }
                     return;
                 }
                 setStatus(successMessage, 'success');

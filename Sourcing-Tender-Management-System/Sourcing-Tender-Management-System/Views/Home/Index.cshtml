@@ -1469,5 +1469,6 @@ if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es
 links.forEach(function(l){var t=document.getElementById(l.dataset.spy);if(t)io.observe(t)})}})();
 </script>
 <script>(function(){var z=document.querySelector('.zs');if(!z)return;if(!('IntersectionObserver' in window)){z.classList.add('is-in');return}var o=new IntersectionObserver(function(e){if(e[0].isIntersecting){z.classList.add('is-in');o.disconnect()}},{threshold:.4});o.observe(z)})();</script>
+<script src="~/js/home-session.js" asp-append-version="true"></script>
 </body>
 </html>

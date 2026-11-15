@@ -1,0 +1,98 @@
+// Real password authentication against the isolated synthetic SQL fixture only.
+async page => {
+    const base = 'http://localhost:5197';
+    const results = [];
+    const check = (ok,label) => { if (!ok) throw new Error(label); results.push(label); };
+    const growth = () => page.locator('body').evaluate(el => Number(el.style.getPropertyValue('--auth-tree-growth')));
+    const logout = async () => {
+        await page.getByRole('button', { name: 'Logout', exact: true }).click();
+        await page.waitForURL(base + '/');
+    };
+    await page.context().clearCookies();
+    await page.goto(base + '/Auth/Login');
+    await page.evaluate(() => localStorage.removeItem('zt.login.motion'));
+    await page.reload();
+    await page.emulateMedia({ reducedMotion:'no-preference' });
+    await page.setViewportSize({width:1440,height:900});
+    const initial = await growth();
+    await page.locator('#Email').focus();
+    let last = await growth();
+    for (const char of 'officer@example.test') {
+        await page.locator('#Email').pressSequentially(char);
+        const current = await growth();
+        check(current > last, 'Each typed email character grows tree');
+        last = current;
+    }
+    const beforePassword = await growth();
+    await page.locator('#Password').pressSequentially('Preview-Only!4729');
+    check(await growth() > beforePassword, 'Password typing grows the tree without retaining text');
+    check(await growth() > initial + .5, 'Tree visibly matures through interaction');
+    check(await page.locator('.auth-tree-fruit').first().evaluate(el => Number(el.style.getPropertyValue('--tree-bloom')) > 0), 'Fruit appears as tree matures');
+    await page.screenshot({path:'zaytouna-mature-tree-verified.png'});
+    let release;
+    const gate = new Promise(resolve => release = resolve);
+    await page.route('**/Auth/Login',async route => {
+        if (route.request().method() === 'POST') await gate;
+        await route.continue();
+    });
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    check(await page.locator('.auth-falling-olive').count() === 0, 'No olives before server confirms');
+    check(!await page.locator('body').evaluate(el => el.classList.contains('auth-login-success')), 'Pending sign-in never claims success');
+    const responsePromise = page.waitForResponse(r => r.url().endsWith('/Auth/Login') && r.request().method() === 'POST');
+    release();
+    const response = await responsePromise;
+    const payload = await response.json();
+    check(response.ok() && payload.succeeded === true, 'Server confirms genuine authentication');
+    await page.waitForURL(base + '/SourcingOfficer');
+    check(await page.locator('.zt-signin-olive').count() === 22, 'Olives appear after workspace is already usable');
+    check(await page.locator('.zt-signin-rain').evaluate(el => getComputedStyle(el).pointerEvents === 'none'), 'Celebration never blocks workspace interactions');
+    await page.waitForFunction(() => [...document.querySelectorAll('.zt-signin-olive')].some(el => {
+        const r=el.getBoundingClientRect(); return r.top > innerHeight * .18 && r.top < innerHeight * .8 && Number(getComputedStyle(el).opacity) > .4;
+    }));
+    check(true, 'Olives animate on the workspace without delaying entry');
+    await page.screenshot({path:'zaytouna-olive-rain-verified.png'});
+    await page.reload();
+    check(await page.locator('.zt-signin-olive').count() === 0, 'Celebration is not replayed on reload');
+    await page.unroute('**/Auth/Login');
+    await logout();
+    await page.goto(base + '/Auth/Login');
+    await page.locator('#Email').fill('officer@example.test');
+    await page.locator('#Password').fill('Wrong-Password!123');
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    await page.locator('.validation-summary-errors').waitFor();
+    check(await page.locator('.auth-falling-olive').count() === 0, 'Invalid credentials never trigger olives');
+    check(!await page.locator('body').evaluate(el => el.classList.contains('auth-login-success')), 'Invalid credentials never show success');
+    check(await page.getByRole('button',{name:'Sign in',exact:true}).isEnabled(), 'Failed attempt can be corrected');
+    await page.route('**/Auth/Login',route => route.request().method() === 'POST' ? route.abort('failed') : route.continue());
+    await page.locator('#Password').fill('Preview-Only!4729');
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    await page.waitForFunction(() => document.querySelector('.auth-validation')?.textContent.includes('Could not complete sign-in'));
+    check(await page.locator('.auth-falling-olive').count() === 0, 'Network failure never triggers success');
+    check(await page.getByRole('button',{name:'Sign in',exact:true}).isEnabled(), 'Network failure releases submit button');
+    await page.unroute('**/Auth/Login');
+    await page.goto(base + '/Auth/Login');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.locator('#Email').fill('officer@example.test');
+    await page.locator('#Password').fill('Preview-Only!4729');
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    await page.waitForURL(base + '/SourcingOfficer');
+    check(true, 'Reduced-motion users proceed directly to workspace');
+    await logout();
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.goto(base + '/Auth/Login');
+    await page.setViewportSize({width:390,height:844});
+    check(await page.locator('.auth-mini-tree').isVisible(), 'Mobile has its own growing tree');
+    await page.locator('#Email').pressSequentially('supplier@example.test');
+    check(await growth() > .3, 'Mobile tree responds to typing');
+    await page.screenshot({path:'zaytouna-mobile-tree-verified.png'});
+    const fallback = await page.context().browser().newContext({javaScriptEnabled:false});
+    const plain = await fallback.newPage();
+    await plain.goto(base + '/Auth/Login');
+    await plain.locator('#Email').fill('officer@example.test');
+    await plain.locator('#Password').fill('Preview-Only!4729');
+    await plain.getByRole('button',{name:'Sign in',exact:true}).click();
+    await plain.waitForURL(base + '/SourcingOfficer');
+    check(true, 'Original form POST works without JavaScript');
+    await fallback.close();
+    return {checks:results.length,passed:results};
+}
