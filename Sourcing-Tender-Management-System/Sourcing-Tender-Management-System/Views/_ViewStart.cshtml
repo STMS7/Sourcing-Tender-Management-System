@@ -1,3 +1,10 @@
 ﻿@{
-    Layout = "_Layout";
+    // Login, registration and other public pages always keep the original layout, signed in or not.
+    // Everything else (signed-in pages) uses the sidebar layout.
+    var routeController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var routeAction = ViewContext.RouteData.Values["action"]?.ToString();
+    var publicPage = routeController == "Auth" ||
+        (routeController == "Biometric" && routeAction == "Login") ||
+        (routeController == "Suppliers" && routeAction is "Register" or "RegistrationComplete");
+    Layout = publicPage || User.Identity?.IsAuthenticated != true ? "_PublicLayout" : "_Layout";
 }

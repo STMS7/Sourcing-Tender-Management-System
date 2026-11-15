@@ -7,32 +7,12 @@
 <h1 class="h3 mb-3">Top Committee</h1>
 <partial name="_Nav" model="@("Index")" />
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="card text-center h-100"><div class="card-body">
-            <div class="display-6">@Model.AwaitingDecisionCount</div>
-            <div class="text-muted">Awaiting decision</div>
-        </div></div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center h-100 @(Model.MyPendingVotesCount > 0 ? "border-warning" : "")"><div class="card-body">
-            <div class="display-6">@Model.MyPendingVotesCount</div>
-            <div class="text-muted">Waiting for my vote</div>
-        </div></div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center h-100"><div class="card-body">
-            <div class="display-6">@Model.DecidedCount</div>
-            <div class="text-muted">Decided so far</div>
-        </div></div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center h-100"><div class="card-body">
-            <div class="display-6">@Model.AwaitingTotalEstimatedValue.ToString("N0")</div>
-            <div class="text-muted">Estimated value awaiting</div>
-        </div></div>
-    </div>
-</div>
+<ul class="zt-bento" aria-label="Top Committee summary">
+    <li><div class="zt-tile"><span class="zt-tile-label">Awaiting decision</span><span class="zt-tile-value">@Model.AwaitingDecisionCount</span></div></li>
+    <li><div class="zt-tile @(Model.MyPendingVotesCount > 0 ? "is-alert" : "")"><span class="zt-tile-label">Waiting for my vote</span><span class="zt-tile-value">@Model.MyPendingVotesCount</span>@if (Model.MyPendingVotesCount > 0) {<span class="zt-tile-note">Your vote is needed</span>}</div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Decided so far</span><span class="zt-tile-value">@Model.DecidedCount</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Estimated value awaiting</span><span class="zt-tile-value">@Model.AwaitingTotalEstimatedValue.ToString("N0")</span></div></li>
+</ul>
 
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "top-committee-search", ResultsId = "top-committee-search-results", Label = "Search tenders awaiting a decision" })" />
 <h2 class="h5">Tenders awaiting the committee's decision</h2>

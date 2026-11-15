@@ -2,13 +2,13 @@
 @{ ViewData["Title"] = "Sourcing officer"; }
 <h1>Sourcing officer dashboard</h1>
 <p class="text-secondary">Manage approved purchase requests, prepare tenders and move compliant offers to evaluation.</p>
-<div class="summary-strip">
-    <a asp-action="Requests">Requests awaiting review: <strong>@Model.IncomingRequests</strong></a>
-    <a asp-action="Requests">Approved requests: <strong>@Model.ApprovedRequests</strong></a>
-    <a asp-action="Tenders" asp-route-status="Draft">Draft tenders: <strong>@Model.DraftTenders</strong></a>
-    <a asp-action="Tenders" asp-route-status="Published">Published tenders: <strong>@Model.PublishedTenders</strong></a>
-    <span>Offers awaiting compliance: <strong>@Model.PendingCompliance</strong></span>
-</div>
+<ul class="zt-bento" aria-label="Sourcing summary">
+    <li><a class="zt-tile" asp-action="Requests"><span class="zt-tile-label">Requests awaiting review</span><span class="zt-tile-value">@Model.IncomingRequests</span></a></li>
+    <li><a class="zt-tile" asp-action="Requests"><span class="zt-tile-label">Approved requests</span><span class="zt-tile-value">@Model.ApprovedRequests</span></a></li>
+    <li><a class="zt-tile" asp-action="Tenders" asp-route-status="Draft"><span class="zt-tile-label">Draft tenders</span><span class="zt-tile-value">@Model.DraftTenders</span></a></li>
+    <li><a class="zt-tile" asp-action="Tenders" asp-route-status="Published"><span class="zt-tile-label">Published tenders</span><span class="zt-tile-value">@Model.PublishedTenders</span></a></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Offers awaiting compliance</span><span class="zt-tile-value">@Model.PendingCompliance</span></div></li>
+</ul>
 <h2>Recent tenders</h2>
 <partial name="_TenderTable" model="Model.RecentTenders" />
 <h2>My tasks</h2>
