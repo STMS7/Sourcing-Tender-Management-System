@@ -12,13 +12,13 @@
     <h2 class="h5">Or sign in with</h2>
     <div id="bio-status" class="alert d-none" role="alert"></div>
     <div class="d-grid gap-2">
-        <button id="btnPasskeyLogin" type="button" class="btn btn-outline-primary">Fingerprint</button>
+        <button id="btnPasskeyLogin" type="button" class="btn btn-outline-primary">Sign in with fingerprint</button>
         <button id="btnFaceLogin" type="button" class="btn btn-outline-primary">Face recognition</button>
     </div>
     <div class="form-text mt-2">
-        Fingerprint uses your device (or your phone through a QR code) and needs no email.
-        For face recognition, type your email above first.
+        Fingerprint needs no email. For face recognition, type your email above first.
     </div>
+    <partial name="~/Views/Biometric/_DeviceCheck.cshtml" />
     <div id="facePanel" class="d-none text-center mt-3">
         <video id="faceVideo" playsinline muted autoplay
                style="width:100%;max-width:360px;border-radius:.5rem;transform:scaleX(-1);background:#000"></video>

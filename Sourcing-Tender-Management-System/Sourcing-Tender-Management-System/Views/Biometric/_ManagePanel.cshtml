@@ -37,15 +37,16 @@
                         }
                         </ul>
                     }
-                    <div class="input-group">
-                        <input id="passkeyLabel" type="text" class="form-control" maxlength="150" placeholder="Name this device (for example: My phone)" />
-                        <button id="btnPasskeyRegister" type="button" class="btn btn-primary">Register fingerprint</button>
-                    </div>
+                    <button id="btnPasskeyRegister" type="button" class="btn btn-primary w-100">Register fingerprint</button>
                     <div class="form-text mt-2">
-                        If this computer has no fingerprint reader or Windows Hello, choose
-                        "Use a phone or tablet" in the window that opens, scan the QR code with your phone,
-                        and confirm with the phone's fingerprint.
+                        Scan the QR code with your phone and confirm with the phone's fingerprint. To sign in later you scan the
+                        QR code again and confirm with the same fingerprint. No PIN is used.
                     </div>
+                    <div class="form-text">
+                        This computer has its own fingerprint reader?
+                        <a href="#" id="btnPasskeyRegisterDevice">Register only this computer</a>
+                    </div>
+                    <partial name="~/Views/Biometric/_DeviceCheck.cshtml" />
                 </div>
             </div>
         </div>
