@@ -49,15 +49,10 @@
         try { return Number(window.localStorage.getItem(HIDE_KEY) || 0) > Date.now(); } catch (e) { return false; }
     }
 
-    function deviceLabel() {
-        var platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || 'device';
-        return ('This ' + platform + ' (' + (/Edg\//.test(navigator.userAgent) ? 'Edge' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : /Firefox\//.test(navigator.userAgent) ? 'Firefox' : /Safari\//.test(navigator.userAgent) ? 'Safari' : 'browser') + ')').slice(0, 150);
-    }
-
     function explain(error) {
         var name = error && error.name;
         if (name === 'NotAllowedError' || name === 'AbortError') {
-            return 'It was cancelled or timed out. Press "Turn on" to try again and confirm with your fingerprint, face or PIN.';
+            return 'It was cancelled or timed out. Press "Turn on" to try again, scan the QR code with your phone and confirm with its fingerprint.';
         }
         if (name === 'InvalidStateError') { return 'This device is already registered.'; }
         if (name === 'SecurityError') { return 'Open the site from https://localhost:7288 and try again.'; }
@@ -85,13 +80,17 @@
         options.user.id = base64UrlToBytes(options.user.id);
         (options.excludeCredentials || []).forEach(function (c) { c.id = base64UrlToBytes(c.id); });
 
+        // The real fingerprint is the phone's: ask for the QR code straight away (no PIN is stored on this computer).
+        options.authenticatorSelection = Object.assign({}, options.authenticatorSelection, { authenticatorAttachment: 'cross-platform' });
+        options.hints = ['hybrid'];
+
         var credential = await navigator.credentials.create({ publicKey: options });
         return post('/Biometric/PasskeyRegister', token, {
             token: start.token,
             id: bytesToBase64Url(credential.rawId),
             clientDataJson: bytesToBase64Url(credential.response.clientDataJSON),
             attestationObject: bytesToBase64Url(credential.response.attestationObject),
-            label: deviceLabel()
+            label: 'My phone'
         });
     }
 
@@ -107,11 +106,11 @@
 
         var text = document.createElement('div');
         var title = document.createElement('strong');
-        title.textContent = kind === 'fingerprint' ? 'Sign in with one tap next time. ' : 'Sign in with your face next time. ';
+        title.textContent = kind === 'fingerprint' ? 'Sign in with your fingerprint next time. ' : 'Sign in with your face next time. ';
         text.appendChild(title);
         var message = document.createElement('span');
         message.textContent = kind === 'fingerprint'
-            ? 'Turn on fingerprint sign-in on this device. One click, and your password keeps working.'
+            ? 'Turn on fingerprint sign-in: scan one QR code with your phone and confirm with its fingerprint. Your password keeps working.'
             : 'Turn on face sign-in. It uses your camera and takes about 10 seconds; your password keeps working.';
         text.appendChild(message);
 
@@ -124,12 +123,13 @@
             turnOn.type = 'button';
             turnOn.addEventListener('click', async function () {
                 turnOn.disabled = true;
-                message.textContent = 'Confirm with your fingerprint, face or PIN when your device asks...';
+                message.textContent = 'Scan the QR code with your phone, tap Continue, and confirm with its fingerprint...';
                 try {
                     await registerFingerprint(status.token);
                     remember({ name: status.name, email: status.email, hasPasskey: true, hasFace: status.hasFace });
+                    try { window.localStorage.setItem('stms.passkeyVia', 'phone'); } catch (e) { /* ignore */ }
                     tip.className = 'alert alert-success mx-3 mt-3 mb-0';
-                    tip.textContent = 'Done. Next time, just tap "Continue with fingerprint" on the sign-in page.';
+                    tip.textContent = 'Done. Next time, press "Sign in with fingerprint" and scan the QR code with your phone.';
                     setTimeout(function () { tip.remove(); }, 8000);
                 } catch (e) {
                     console.warn('Turning on fingerprint failed:', e);
@@ -182,11 +182,7 @@
         if (document.getElementById('bio-root') || status.hasPasskey || status.hasFace) { return; }
         if (hiddenLately() || !window.isSecureContext) { return; }
 
-        var platform = false;
-        if (window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-            try { platform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { platform = false; }
-        }
-        if (platform) { showTip('fingerprint', status); return; }
+        if (window.PublicKeyCredential) { showTip('fingerprint', status); return; }
         if (await hasCamera()) { showTip('face', status); }
     }
 

@@ -717,30 +717,19 @@
             });
         }
 
-        // ONE way to register: the fingerprint is confirmed on the person's phone (QR code), then this computer is added
-        // too (PIN, fingerprint or Touch ID), so next time signing in here needs no phone and no QR code.
+        // ONE way to register, with the real fingerprint: scan the QR code with the phone and confirm with the phone's
+        // fingerprint. Nothing else is stored on this computer (no PIN). Signing in later goes straight to the QR code.
         var passkeyRegisterButton = $('btnPasskeyRegister');
         if (passkeyRegisterButton) {
             passkeyRegisterButton.addEventListener('click', function () {
                 guarded(async function () {
                     setStatus(PHONE_STEPS);
                     await passkeyRegister('My phone', { phone: true });
-
-                    var via = 'phone';
-                    var note = 'Fingerprint registered on your phone.';
-                    if (caps && caps.platform) {
-                        setStatus('Step 2 of 2: confirm with your PIN or fingerprint on this computer, so you can sign in here without the phone.');
-                        try {
-                            await passkeyRegister(deviceName(), { device: true });
-                            via = 'both';
-                            note = 'Fingerprint registered. Next time just press Sign in with fingerprint.';
-                        } catch (e) {
-                            console.warn('This computer was not added:', e);
-                            note = 'Fingerprint registered on your phone. This computer was not added, so signing in will use your phone.';
-                        }
-                    }
-                    try { window.sessionStorage.setItem('stms.flash', note); } catch (e) { /* ignore */ }
-                    rememberVia(via);
+                    try {
+                        window.sessionStorage.setItem('stms.flash',
+                            'Fingerprint registered. Next time press Sign in with fingerprint and scan the QR code with your phone.');
+                    } catch (e) { /* ignore */ }
+                    rememberVia('phone');
                     return { succeeded: true };
                 }, 'Fingerprint registered.').then(function (ok) {
                     if (ok) { window.location.reload(); }
