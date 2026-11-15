@@ -50,7 +50,7 @@ public class AuthController(
         user.LastLoginAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
         var destination = Url.IsLocalUrl(model.ReturnUrl) ? model.ReturnUrl! :
-            Url.Action("Index", await userManager.IsInRoleAsync(user, "Admin") ? "Admin" : "Home")!;
+                   await LandingPage.For(userManager, user, Url);
         return LocalRedirect(destination);
     }
 

@@ -1,0 +1,73 @@
+/* Signed-in layout frame only: sidebar and top bar (Zaytouna colours, DM Sans).
+   Nothing here targets page content: dashboards, tables, buttons and forms keep their existing styles. */
+.zt-app {
+  --zt-ink: #17402A;
+  --zt-ink-deep: #10261A;
+  --zt-bg: #FBF3DF;
+  --zt-card: #FFFCF3;
+  --zt-lime: #DCEB4B;
+  --zt-sage-soft: #EEF0DC;
+  --zt-line: rgba(23, 64, 42, .14);
+  --zt-font: 'DM Sans', system-ui, sans-serif;
+  background: var(--zt-bg);
+  margin-bottom: 0;
+}
+
+.zt-shell { display: flex; gap: 20px; padding: 20px; min-height: 100vh; box-sizing: border-box; align-items: flex-start; }
+
+.zt-sidebar {
+  position: sticky; top: 20px; flex: 0 0 236px; box-sizing: border-box;
+  min-height: calc(100vh - 40px); max-height: calc(100vh - 40px); overflow-y: auto;
+  background: var(--zt-ink-deep); color: #FBF3DF; border-radius: 28px;
+  padding: 24px 16px; display: flex; flex-direction: column; gap: 22px; font-family: var(--zt-font);
+}
+.zt-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; color: #FBF3DF; }
+.zt-brand .zt-mark { flex: none; }
+.zt-brand-name { font-size: 22px; font-weight: 700; letter-spacing: -.03em; line-height: 1; display: block; }
+.zt-brand-name span { color: var(--zt-lime); }
+.zt-brand-sub { display: block; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #A9B49A; margin-top: 4px; }
+
+.zt-nav { display: flex; flex-direction: column; gap: 4px; }
+.zt-nav a, .zt-nav button {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 44px; box-sizing: border-box;
+  border-radius: 14px; border: 0; background: transparent; width: 100%;
+  color: #E7ECDD; font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; text-align: left; cursor: pointer;
+}
+.zt-nav a:hover, .zt-nav button:hover { background: rgba(251, 243, 223, .08); color: #FFFFFF; }
+.zt-nav a.is-active { background: #1E3A2A; color: var(--zt-lime); }
+.zt-nav svg { flex: none; }
+.zt-nav a:focus-visible, .zt-nav button:focus-visible { outline: 3px solid var(--zt-lime); outline-offset: 2px; }
+.zt-sidebar-spacer { flex: 1 1 auto; }
+.zt-account { border-top: 1px solid rgba(251, 243, 223, .12); padding-top: 14px; }
+.zt-account form { margin: 0; }
+
+.zt-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.zt-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; font-family: var(--zt-font); }
+.zt-pill {
+  display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; max-width: 60vw;
+  background: #FFFFFF; border-radius: 999px; padding: 6px 20px; font-size: 14px; font-weight: 600; color: var(--zt-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.zt-topbar-actions { display: flex; align-items: center; gap: 10px; }
+.zt-round {
+  width: 44px; height: 44px; border-radius: 999px; border: 0; background: #FFFFFF; color: var(--zt-ink);
+  display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 0;
+}
+.zt-round:hover { background: var(--zt-lime); color: var(--zt-ink); }
+.zt-round:focus-visible { outline: 3px solid #4E6B2F; outline-offset: 2px; }
+.zt-avatar { width: 34px; height: 34px; border-radius: 999px; background: var(--zt-lime); color: var(--zt-ink); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; font-family: var(--zt-font); }
+.zt-menu-toggle { display: none; }
+
+@media (max-width: 991.98px) {
+  .zt-shell { flex-direction: column; align-items: stretch; padding: 12px; gap: 12px; }
+  .zt-sidebar { position: static; flex: none; width: 100%; min-height: 0; max-height: none; border-radius: 22px; padding: 14px; gap: 12px; }
+  .zt-sidebar-body { display: none; flex-direction: column; gap: 16px; }
+  .zt-sidebar.is-open .zt-sidebar-body { display: flex; }
+  .zt-sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .zt-menu-toggle { display: inline-flex; background: #1E3A2A; color: var(--zt-lime); }
+  .zt-sidebar-spacer { display: none; }
+  .zt-pill { max-width: 70vw; }
+}
+@media (min-width: 992px) {
+  .zt-sidebar-body { display: flex; flex-direction: column; gap: 22px; flex: 1 1 auto; }
+}
