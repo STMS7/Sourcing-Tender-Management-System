@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Models.Biometric;
+using Sourcing_Tender_Management_System.Services;
 using Sourcing_Tender_Management_System.Services.Biometric;
 
 namespace Sourcing_Tender_Management_System.Controllers;
@@ -249,8 +250,7 @@ public class BiometricController(
             return returnUrl;
         }
 
-        var isAdmin = await users.IsInRoleAsync(user, "Admin");
-        return Url.Action("Index", isAdmin ? "Admin" : "Home") ?? "/";
+        return await LandingPage.For(users, user, Url);
     }
 
     private ObjectResult TooManyAttempts() =>

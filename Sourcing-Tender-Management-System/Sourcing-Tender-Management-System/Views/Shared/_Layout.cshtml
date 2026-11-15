@@ -1,100 +1,199 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<Sourcing_Tender_Management_System.Models.ApplicationUser> SignInManager
+@inject UserManager<Sourcing_Tender_Management_System.Models.ApplicationUser> UserManager
+@{
+    // Signed-in layout: dark rounded sidebar + top bar. The same links and role rules as the
+    // previous top navigation; only the frame around the page changed.
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    var signedIn = SignInManager.IsSignedIn(User);
+    var currentUser = signedIn ? await UserManager.GetUserAsync(User) : null;
+    var displayName = currentUser?.FullName ?? User.Identity?.Name ?? "";
+    var initial = string.IsNullOrWhiteSpace(displayName) ? "?" : displayName.Trim()[..1].ToUpperInvariant();
+    bool InRole(params string[] roles) => roles.Any(User.IsInRole);
+    var isOfficer = InRole("ProcurementOfficer", "SourcingOfficer");
+    var isAdmin = InRole("Admin");
+    var isAdminArea = isAdmin && (controller is "Admin" or "AdminCatalog" or "AdminCommittee");
+
+    const string IconGrid = "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z";
+    const string IconList = "M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01";
+    const string IconDoc = "M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6";
+    const string IconChat = "M4 5h16v11H9l-5 4z";
+    const string IconScale = "M12 4v16M8 20h8M5 8h14M5 8l-3 6a3 3 0 006 0zM19 8l-3 6a3 3 0 006 0z";
+    const string IconCheck = "M6 3h9l4 4v14H6zM9 14l2 2 4-4";
+    const string IconStar = "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z";
+    const string IconPeople = "M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c.8-3 3-5 6-5s5.2 2 6 5M16 5a3 3 0 010 6M18 15c1.6.6 2.6 2.4 3 5";
+    const string IconShield = "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z";
+    const string IconBuilding = "M4 21V5l8-3 8 3v16M9 21v-5h6v5M8 9h.01M12 9h.01M16 9h.01M8 13h.01M12 13h.01M16 13h.01";
+    const string IconTruck = "M3 7h11v9H3zM14 10h4l3 3v3h-7M7 20a2 2 0 100-4 2 2 0 000 4zM17 20a2 2 0 100-4 2 2 0 000 4z";
+    const string IconHistory = "M3 12a9 9 0 109-9 9 9 0 00-8.5 6M3 4v5h5M12 7v5l3 2";
+    const string IconMail = "M3 5h18v14H3zM3 6l9 7 9-7";
+    const string IconLogout = "M10 4H5v16h5M15 8l4 4-4 4M19 12H9";
+    const string IconUser = "M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c1-4 4-6 8-6s7 2 8 6";
+    const string IconMenu = "M4 7h16M4 12h16M4 17h16";
+
+    var links = new List<(string Label, string Href, string Icon, bool Active)>();
+    if (InRole("Supplier"))
+        links.Add(("Supplier Dashboard", Url.Action("Index", "Suppliers")!, IconTruck, controller == "Suppliers"));
+    if (InRole("Admin"))
+    {
+        links.Add(("Dashboard", Url.Action("Index", "Admin")!, IconShield,
+            controller == "Admin" && currentAction == "Index"));
+        links.Add(("Users", Url.Action("Users", "Admin")!, IconPeople,
+            (controller == "Admin" && currentAction is "Users" or "CreateUser" or "EditUser" or "ResetPassword") ||
+            (controller == "AdminCatalog" && currentAction is "Roles" or "CreateRole" or "DeleteRole" or "Categories") ||
+            controller == "AdminCommittee"));
+        links.Add(("Departments", Url.Action("Departments", "AdminCatalog")!, IconBuilding,
+            controller == "AdminCatalog" && currentAction == "Departments"));
+        links.Add(("Suppliers", Url.Action("Suppliers", "AdminCatalog")!, IconTruck,
+            controller == "AdminCatalog" && currentAction is "Suppliers" or "DownloadSupplierDocument" or "ReviewSupplierDocument" or "AddSupplierCategory" or "RemoveSupplierCategory"));
+    }
+    if (InRole("SourcingManager"))
+        links.Add(("Manager Review", Url.Action("Index", "SourcingManager")!, IconCheck, controller == "SourcingManager"));
+    if (isOfficer)
+    {
+        links.Add(("Sourcing", Url.Action("Index", "SourcingOfficer")!, IconGrid, controller == "SourcingOfficer" && currentAction == "Index"));
+        links.Add(("Requests", Url.Action("Requests", "SourcingOfficer")!, IconList, controller == "SourcingOfficer" && currentAction is "Requests" or "RequestDetails" or "AcceptRequest"));
+        links.Add(("Tenders", Url.Action("Tenders", "SourcingOfficer")!, IconDoc, controller == "SourcingOfficer" && currentAction is "Tenders" or "Details" or "Create" or "Edit" or "Offers"));
+    }
+    if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative", "RequestingDepartment"))
+        links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee"));
+    var tools = new List<(string Label, string Href, string Icon, bool Active)>();
+    if (signedIn && !isOfficer && !isAdmin)
+        tools.Add(("Messages", Url.Action("Index", "Messages")!, IconChat, controller == "Messages"));
+    if (InRole("Admin"))
+    {
+        tools.Add(("Contact Us", Url.Action("ContactMessages", "Admin")!, IconMail,
+            controller == "Admin" && currentAction == "ContactMessages"));
+        tools.Add(("Audit log", Url.Action("AuditLogs", "AdminCatalog")!, IconHistory,
+            controller == "AdminCatalog" && currentAction == "AuditLogs"));
+    }
+    if (InRole("TopCommittee"))
+        links.Add(("Top committee", Url.Action("Index", "TopCommittee")!, IconStar, controller == "TopCommittee"));
+    if (InRole("DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment"))
+        links.Add(("Department", Url.Action("Dashboard", "Department")!, IconBuilding, controller == "Department"));
+}
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Sourcing_Tender_Management_System</title>
     <script type="importmap"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/layout.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/content.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Sourcing_Tender_Management_System</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                        @if (User.IsInRole("Supplier"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Suppliers" asp-action="Index">Supplier Dashboard</a>
-                            </li>
-                        }
-                        @if (User.IsInRole("Admin"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Admin</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="AdminCommittee" asp-action="Index">Committees</a>
-                            </li>
-                        }
-                        @if (User.IsInRole("SourcingManager"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="SourcingManager" asp-action="Index">Manager Review</a>
-                            </li>
-                        }
-                        @if (User.IsInRole("ProcurementOfficer") || User.IsInRole("SourcingOfficer"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="SourcingOfficer" asp-action="Index">Sourcing</a>
-                            </li>
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Requests">Requests</a></li>
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Tenders">Tenders</a></li>
-                        }
-                        @if (User.IsInRole("TechnicalRepresentative") || User.IsInRole("FinancialRepresentative") ||
-                            User.IsInRole("SourcingManager") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="EvaluationCommittee" asp-action="Index">Evaluation</a>
-                            </li>
-                        }
-                        @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("ProcurementOfficer") && !User.IsInRole("SourcingOfficer"))
-                        {
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Messages" asp-action="Index">Messages</a></li>
-                        }
-                        @if (User.IsInRole("TopCommittee"))
-                        {
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="TopCommittee" asp-action="Index">Top committee</a></li>
-                        }
-                        @if (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
-                        {
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Department" asp-action="Dashboard">Department</a></li>
-                        }
-                    </ul>
-                    <partial name="_LoginPartial" />
-                </div>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
-
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - Sourcing_Tender_Management_System - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+<body class="zt-app @(isAdminArea ? "zt-admin" : null)">
+<div class="zt-shell">
+    <aside class="zt-sidebar" id="zt-sidebar" aria-label="Main navigation">
+        <div class="zt-sidebar-head">
+            <span class="zt-brand">
+                <svg class="zt-mark" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12" fill="#17402A"></rect><path d="M12 29c0-9 6-15 16-16 0 9-5 15-16 16z" fill="#DCEB4B"></path><path d="M12 29c3-5 7-9 12-12" fill="none" stroke="#17402A" stroke-width="1.6" stroke-linecap="round"></path></svg>
+                <span><span class="zt-brand-name">Zaytouna<span>.</span></span><span class="zt-brand-sub">Sourcing portal</span></span>
+            </span>
+            <button type="button" class="zt-round zt-menu-toggle" aria-controls="zt-sidebar-body" aria-expanded="false" aria-label="Open menu" data-zt-menu>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="@IconMenu"></path></svg>
+            </button>
         </div>
-    </footer>
+        <div class="zt-sidebar-body" id="zt-sidebar-body">
+            <nav class="zt-nav" aria-label="General">
+                <div class="zt-nav-label">General</div>
+                @foreach (var item in links)
+                {
+                    <a href="@item.Href" class="@(item.Active ? "is-active" : null)" aria-current="@(item.Active ? "page" : null)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@item.Icon"></path></svg>
+                        <span>@item.Label</span>
+                    </a>
+                }
+            </nav>
+            @if (tools.Count > 0)
+            {
+                <nav class="zt-nav" aria-label="Tools">
+                    <div class="zt-nav-label">Tools</div>
+                    @foreach (var item in tools)
+                    {
+                        <a href="@item.Href" class="@(item.Active ? "is-active" : null)" aria-current="@(item.Active ? "page" : null)">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@item.Icon"></path></svg>
+                            <span>@item.Label</span>
+                        </a>
+                    }
+                </nav>
+            }
+            <div class="zt-sidebar-spacer"></div>
+            <nav class="zt-nav zt-account" aria-label="Account">
+                <a asp-area="Identity" asp-page="/Account/Manage/Index">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@IconUser"></path></svg>
+                    <span>Profile</span>
+                </a>
+                <form asp-area="" asp-controller="Auth" asp-action="Logout" method="post">
+                    <button type="submit">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@IconLogout"></path></svg>
+                        <span>Log out</span>
+                    </button>
+                </form>
+            </nav>
+        </div>
+    </aside>
+
+    <div class="zt-main">
+        <header class="zt-topbar">
+            @if (ViewData["Title"] is string pageTitle && !string.IsNullOrWhiteSpace(pageTitle))
+            {
+                <span class="zt-pill">@pageTitle</span>
+            }
+            else
+            {
+                <span></span>
+            }
+            <div class="zt-topbar-actions">
+                @if (signedIn && !isOfficer && !isAdmin)
+                {
+                    <a class="zt-round" asp-controller="Messages" asp-action="Index" aria-label="Messages" title="Messages">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@IconChat"></path></svg>
+                    </a>
+                }
+                else if (isOfficer && !isAdmin)
+                {
+                    <a class="zt-round" asp-controller="SourcingOfficer" asp-action="Messages" aria-label="Messages" title="Messages">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@IconChat"></path></svg>
+                    </a>
+                }
+                <a class="zt-round" asp-area="Identity" asp-page="/Account/Manage/Index" aria-label="Profile: @displayName" title="@displayName">
+                    <span class="zt-avatar" aria-hidden="true">@initial</span>
+                </a>
+            </div>
+        </header>
+        <div class="container-fluid px-0">
+            <main role="main" class="pb-3">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+</div>
+    <script src="~/biometric/biometric-nudge.js" asp-append-version="true" defer></script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/sourcing-search.js" asp-append-version="true"></script>
+    <script>
+        // Phone width: the sidebar folds behind a menu button.
+        (function () {
+            var toggle = document.querySelector('[data-zt-menu]');
+            var sidebar = document.getElementById('zt-sidebar');
+            if (!toggle || !sidebar) return;
+            toggle.addEventListener('click', function () {
+                var open = sidebar.classList.toggle('is-open');
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+            });
+        })();
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

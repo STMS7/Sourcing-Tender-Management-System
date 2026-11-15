@@ -1,88 +1,253 @@
 @model IReadOnlyList<Sourcing_Tender_Management_System.Models.Supplier>
 @using Sourcing_Tender_Management_System.Models
-@{ ViewData["Title"] = "Suppliers"; }
-<div id="supplier-catalog-search-results">
-<h1>Suppliers</h1>
-@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
-@if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
-<p>Suppliers register their own accounts. Review registrations here.</p>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-catalog-search", ResultsId = "supplier-catalog-search-results", Label = "Search supplier registrations" })" />
-
-@foreach (var item in Model)
-{
-    var isNew = item.Id == 0;
-    <details data-search-item class="card mb-2" open="@isNew">
-        <summary class="card-header">@(isNew ? "Add supplier" : item.CompanyName)</summary>
-        <form asp-action="SaveSupplier" method="post" class="card-body row g-3">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="id" value="@item.Id" />
-            <div class="col-md-6"><label class="form-label">Company name</label><input name="companyName" value="@item.CompanyName" class="form-control" required maxlength="200" /></div>
-            <div class="col-md-6"><label class="form-label">Registration number</label><input name="registrationNumber" value="@item.RegistrationNumber" class="form-control" required maxlength="100" /></div>
-            <div class="col-md-6"><label class="form-label">Email</label><input name="email" value="@item.Email" type="email" class="form-control" required maxlength="256" /></div>
-            <div class="col-md-6"><label class="form-label">Tax number</label><input name="taxNumber" value="@item.TaxNumber" class="form-control" maxlength="100" /></div>
-            <div class="col-md-6"><label class="form-label">License number</label><input name="licenseNumber" value="@item.LicenseNumber" class="form-control" maxlength="100" /></div>
-            <div class="col-md-6"><label class="form-label">License expiry</label><input name="licenseExpiresAt" value="@item.LicenseExpiresAt?.ToString("yyyy-MM-dd")" type="date" class="form-control" /></div>
-            <div class="col-md-6"><label class="form-label">Legal verification</label><select name="legalVerificationStatus" class="form-select">
-                @foreach (var status in Enum.GetValues<DocumentVerificationStatus>())
-                { <option value="@status" selected="@(item.LegalVerificationStatus == status)">@status</option> }
-            </select></div>
-            <div class="col-md-6"><label class="form-label">Phone</label><input name="phoneNumber" value="@item.PhoneNumber" class="form-control" maxlength="30" /></div>
-            <div class="col-md-6"><label class="form-label">Address</label><input name="address" value="@item.Address" class="form-control" maxlength="500" /></div>
-            <div class="col-md-6"><label class="form-label">Registration status</label><select name="registrationStatus" class="form-select">
-                @foreach (var status in Enum.GetValues<SupplierRegistrationStatus>())
-                { <option value="@status" selected="@(item.RegistrationStatus == status)">@status</option> }
-            </select></div>
-            <div class="col-md-6"><label class="form-label">Decision reason</label><input name="reviewReason" value="@item.ReviewReason" class="form-control" maxlength="2000" /></div>
-            <div class="col-md-6 form-check ms-3"><input type="checkbox" name="isActive" value="true" checked="@(item.IsActive || item.RegistrationStatus == SupplierRegistrationStatus.Pending)" class="form-check-input" id="activeSupplier-@item.Id" /><label for="activeSupplier-@item.Id">Active after approval</label></div>
-            <div class="col-12"><button class="btn btn-primary" type="submit">Save supplier</button></div>
-        </form>
-        @if (!isNew)
-        {
-            var categories = (IReadOnlyList<Category>)ViewBag.Categories;
-            var links = ((IReadOnlyList<SupplierCategory>)ViewBag.SupplierCategories).Where(x => x.SupplierId == item.Id).ToList();
-            var documents = ((IReadOnlyList<SupplierDocument>)ViewBag.SupplierDocuments).Where(x => x.SupplierId == item.Id).ToList();
-            <div class="card-body border-top">
-                <strong>Registration documents</strong>
-                @foreach (var document in documents)
-                {
-                    <div class="d-flex flex-wrap align-items-center gap-2 my-2">
-                        <a asp-action="DownloadSupplierDocument" asp-route-id="@document.Id">@document.DocumentType: @document.FileName</a>
-                        <span>@document.VerificationStatus</span>
-                        <form asp-action="ReviewSupplierDocument" method="post" class="d-flex gap-2">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@document.Id" />
-                            <input name="notes" value="@document.VerificationNotes" maxlength="1000" class="form-control" placeholder="Review notes" />
-                            <button class="btn btn-sm btn-outline-success" name="status" value="Verified">Verify</button>
-                            <button class="btn btn-sm btn-outline-danger" name="status" value="Rejected">Reject</button>
-                        </form>
-                    </div>
-                }
-            </div>
-            <div class="card-body border-top">
-                <strong>Categories:</strong>
-                @foreach (var link in links)
-                {
-                    <form asp-action="RemoveSupplierCategory" method="post" class="d-inline-block me-2">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="supplierId" value="@item.Id" />
-                        <input type="hidden" name="categoryId" value="@link.CategoryId" />
-                        <span>@categories.First(x => x.Id == link.CategoryId).Name</span>
-                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                    </form>
-                }
-                <form asp-action="AddSupplierCategory" method="post" class="d-flex gap-2 mt-2">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="supplierId" value="@item.Id" />
-                    <select name="categoryId" class="form-select" style="max-width:300px" required>
-                        <option value="">Choose category</option>
-                        @foreach (var category in categories.Where(x => links.All(y => y.CategoryId != x.Id)))
-                        { <option value="@category.Id">@category.Name</option> }
-                    </select>
-                    <button type="submit" class="btn btn-outline-primary">Add category</button>
-                </form>
-            </div>
-        }
-    </details>
+@{
+    ViewData["Title"] = "Suppliers";
+    var currentPage = ViewBag.CurrentPage is int page ? page : 1;
+    var totalPages = ViewBag.TotalPages is int pages ? pages : 1;
+    var totalCount = ViewBag.TotalCount is int count ? count : Model.Count;
+    var firstResult = totalCount == 0 ? 0 : ((currentPage - 1) * 3) + 1;
+    var lastResult = Math.Min(currentPage * 3, totalCount);
+    var categories = (IReadOnlyList<Category>)ViewBag.Categories;
+    var allLinks = (IReadOnlyList<SupplierCategory>)ViewBag.SupplierCategories;
+    var allDocuments = (IReadOnlyList<SupplierDocument>)ViewBag.SupplierDocuments;
 }
 
+<div class="py-4">
+    <h1>Suppliers</h1>
+    <p class="text-secondary">Suppliers register their own accounts. Review registrations and company details here.</p>
+    @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
+    @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
+
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-catalog-search", ResultsId = "supplier-catalog-results", Label = "Search supplier registrations", Placeholder = "Search company, registration number, email or phone", Action = Url.Action("Suppliers", "AdminCatalog"), SearchValue = ViewBag.Search, Local = false })" />
+
+    <div id="supplier-catalog-results" aria-busy="false">
+        <span hidden data-result-count="@totalCount"></span>
+        <div class="d-flex justify-content-between px-1 mb-2 small text-secondary"><span>Showing @firstResult–@lastResult of @totalCount suppliers</span><span>Page @currentPage of @totalPages</span></div>
+
+        <div class="row g-4">
+        @foreach (var item in Model)
+        {
+            var links = allLinks.Where(x => x.SupplierId == item.Id).ToList();
+            var documents = allDocuments.Where(x => x.SupplierId == item.Id).ToList();
+            var statusClass = item.RegistrationStatus == SupplierRegistrationStatus.Approved ? "text-bg-success" :
+                item.RegistrationStatus == SupplierRegistrationStatus.Pending ? "text-bg-warning" : "text-bg-secondary";
+            <div class="col-lg-4" data-search-item>
+                <article class="card h-100 border shadow-sm">
+                    <div class="card-body d-flex flex-column gap-3">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div><h2 class="h5 mb-1">@item.CompanyName</h2><div class="small text-secondary">@item.RegistrationNumber</div></div>
+                            <span class="badge rounded-pill @statusClass">@item.RegistrationStatus</span>
+                        </div>
+                        <div class="small"><strong>Email</strong><div class="text-secondary text-break">@item.Email</div></div>
+                        <div class="small"><strong>Phone</strong><div class="text-secondary">@(string.IsNullOrWhiteSpace(item.PhoneNumber) ? "Not provided" : item.PhoneNumber)</div></div>
+                        <div class="d-flex flex-wrap gap-2 small">
+                            <span class="badge rounded-pill text-bg-light border" data-supplier-category-count="@item.Id">@links.Count categories</span>
+                            <span class="badge rounded-pill text-bg-light border">@documents.Count documents</span>
+                            <span class="badge rounded-pill @(item.IsActive ? "text-bg-success" : "text-bg-secondary")">@(item.IsActive ? "Active" : "Inactive")</span>
+                        </div>
+                        <button class="btn btn-outline-primary mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#supplier-modal-@item.Id">Details / Edit</button>
+                    </div>
+                </article>
+
+                <div class="modal fade" id="supplier-modal-@item.Id" tabindex="-1" aria-labelledby="supplier-modal-title-@item.Id" aria-hidden="true">
+                    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content" data-supplier-wizard data-supplier-id="@item.Id">
+                            <div class="modal-header"><div><h2 class="modal-title h4 mb-1" id="supplier-modal-title-@item.Id">@item.CompanyName</h2><p class="small text-secondary mb-0">Supplier details, registration review and categories.</p></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                            <div class="zt-wizard-steps px-3 px-md-4 pt-3" aria-label="Supplier review steps">
+                                <span data-supplier-step-indicator="1"><b>1</b> Information</span><span data-supplier-step-indicator="2"><b>2</b> Documents</span><span data-supplier-step-indicator="3"><b>3</b> Categories</span>
+                            </div>
+                            <div class="modal-body">
+                                <div data-supplier-feedback></div>
+                                <form id="supplier-edit-form-@item.Id" asp-action="SaveSupplier" method="post" class="row g-3" data-supplier-step="1">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@item.Id" /><input type="hidden" name="page" value="@currentPage" /><input type="hidden" name="search" value="@ViewBag.Search" />
+                                    <div class="col-md-6"><label class="form-label">Company name</label><input name="companyName" value="@item.CompanyName" class="form-control" required maxlength="200" /></div>
+                                    <div class="col-md-6"><label class="form-label">Registration number</label><input name="registrationNumber" value="@item.RegistrationNumber" class="form-control" required maxlength="100" /></div>
+                                    <div class="col-md-6"><label class="form-label">Email</label><input name="email" value="@item.Email" type="email" class="form-control" required maxlength="256" /></div>
+                                    <div class="col-md-6"><label class="form-label">Phone</label><input name="phoneNumber" value="@item.PhoneNumber" class="form-control" maxlength="30" /></div>
+                                    <div class="col-md-6"><label class="form-label">Tax number</label><input name="taxNumber" value="@item.TaxNumber" class="form-control" maxlength="100" /></div>
+                                    <div class="col-md-6"><label class="form-label">Address</label><input name="address" value="@item.Address" class="form-control" maxlength="500" /></div>
+                                    <div class="col-md-6"><label class="form-label">License number</label><input name="licenseNumber" value="@item.LicenseNumber" class="form-control" maxlength="100" /></div>
+                                    <div class="col-md-6"><label class="form-label">License expiry</label><input name="licenseExpiresAt" value="@item.LicenseExpiresAt?.ToString("yyyy-MM-dd")" type="date" class="form-control" /></div>
+                                    <div class="col-md-6"><label class="form-label">Legal verification</label><select name="legalVerificationStatus" class="form-select">@foreach (var status in Enum.GetValues<DocumentVerificationStatus>()) { <option value="@status" selected="@(item.LegalVerificationStatus == status)">@status</option> }</select></div>
+                                    <div class="col-md-6"><label class="form-label">Registration status</label><select name="registrationStatus" class="form-select">@foreach (var status in Enum.GetValues<SupplierRegistrationStatus>()) { <option value="@status" selected="@(item.RegistrationStatus == status)">@status</option> }</select></div>
+                                    <div class="col-md-8"><label class="form-label">Decision reason</label><input name="reviewReason" value="@item.ReviewReason" class="form-control" maxlength="2000" /></div>
+                                    <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input type="checkbox" name="isActive" value="true" checked="@(item.IsActive || item.RegistrationStatus == SupplierRegistrationStatus.Pending)" class="form-check-input" id="activeSupplier-@item.Id" /><label class="form-check-label" for="activeSupplier-@item.Id">Active after approval</label></div></div>
+                                </form>
+
+                                <section data-supplier-step="2" hidden>
+                                <hr class="my-4" />
+                                <h3 class="h5">Registration documents</h3>
+                                @if (documents.Count == 0) { <p class="text-secondary">No registration documents uploaded.</p> }
+                                @foreach (var document in documents)
+                                {
+                                    <div class="border rounded-3 p-3 my-2" data-document-card="@document.Id">
+                                        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><a asp-action="DownloadSupplierDocument" asp-route-id="@document.Id" target="_blank" rel="noopener">@document.DocumentType: @document.FileName</a><span class="badge text-bg-light border" data-document-status>@document.VerificationStatus</span></div>
+                                        <form asp-action="ReviewSupplierDocument" method="post" class="d-flex flex-wrap gap-2" data-supplier-ajax-form data-supplier-action="verify">
+                                            @Html.AntiForgeryToken()<input type="hidden" name="id" value="@document.Id" /><input type="hidden" name="page" value="@currentPage" /><input type="hidden" name="search" value="@ViewBag.Search" />
+                                            <input name="notes" value="@document.VerificationNotes" maxlength="1000" class="form-control flex-grow-1" style="min-width:220px" placeholder="Review notes" />
+                                            <button class="btn btn-sm btn-outline-success" name="status" value="Verified">Verify</button><button class="btn btn-sm btn-outline-danger" name="status" value="Rejected">Reject</button>
+                                        </form>
+                                    </div>
+                                }
+                                </section>
+
+                                <section data-supplier-step="3" hidden>
+                                <hr class="my-4" />
+                                <h3 class="h5">Categories</h3>
+                                <div class="d-flex flex-wrap gap-2 mb-3" data-supplier-categories="@item.Id" data-remove-url="@Url.Action("RemoveSupplierCategory", "AdminCatalog")">
+                                @foreach (var link in links)
+                                {
+                                    <form asp-action="RemoveSupplierCategory" method="post" class="d-inline-flex align-items-center gap-2 border rounded-pill px-3 py-1" data-supplier-ajax-form data-supplier-action="remove" data-category-chip="@link.CategoryId">
+                                        @Html.AntiForgeryToken()<input type="hidden" name="supplierId" value="@item.Id" /><input type="hidden" name="categoryId" value="@link.CategoryId" /><input type="hidden" name="page" value="@currentPage" /><input type="hidden" name="search" value="@ViewBag.Search" />
+                                        <span>@categories.First(x => x.Id == link.CategoryId).Name</span><button type="submit" class="btn btn-sm btn-link text-danger p-0">Remove</button>
+                                    </form>
+                                }
+                                <span class="text-secondary" data-no-categories hidden="@(links.Count > 0)">No categories assigned.</span>
+                                </div>
+                                <form asp-action="AddSupplierCategory" method="post" class="d-flex flex-wrap gap-2" data-supplier-ajax-form data-supplier-action="add">
+                                    @Html.AntiForgeryToken()<input type="hidden" name="supplierId" value="@item.Id" /><input type="hidden" name="page" value="@currentPage" /><input type="hidden" name="search" value="@ViewBag.Search" />
+                                    <select name="categoryId" class="form-select" style="max-width:320px" required><option value="">Choose category</option>@foreach (var category in categories.Where(x => links.All(y => y.CategoryId != x.Id))) { <option value="@category.Id">@category.Name</option> }</select>
+                                    <button type="submit" class="btn btn-outline-primary">Add category</button>
+                                </form>
+                                </section>
+                            </div>
+                            <div class="modal-footer justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary" data-supplier-back hidden>Back</button>
+                                <div class="d-flex gap-2 ms-auto"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" data-supplier-next>Next</button><button type="submit" class="btn btn-primary" form="supplier-edit-form-@item.Id" data-supplier-save hidden>Save supplier</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        </div>
+
+        @if (Model.Count == 0) { <div class="alert alert-light border mt-3">No suppliers found.</div> }
+        @if (totalPages > 1)
+        {
+            <nav class="mt-4" aria-label="Supplier pages"><ul class="pagination justify-content-center flex-wrap">
+                <li class="page-item @(currentPage == 1 ? "disabled" : null)"><a class="page-link" asp-action="Suppliers" asp-route-search="@ViewBag.Search" asp-route-page="@(currentPage - 1)">Previous</a></li>
+                @for (var number = 1; number <= totalPages; number++) { <li class="page-item @(number == currentPage ? "active" : null)"><a class="page-link" asp-action="Suppliers" asp-route-search="@ViewBag.Search" asp-route-page="@number">@number</a></li> }
+                <li class="page-item @(currentPage == totalPages ? "disabled" : null)"><a class="page-link" asp-action="Suppliers" asp-route-search="@ViewBag.Search" asp-route-page="@(currentPage + 1)">Next</a></li>
+            </ul></nav>
+        }
+    </div>
 </div>
+
+@section Scripts {
+<script>
+    (function () {
+        function showStep(wizard, step) {
+            wizard.dataset.currentStep = String(step);
+            wizard.querySelectorAll('[data-supplier-step]').forEach(panel => panel.hidden = Number(panel.dataset.supplierStep) !== step);
+            wizard.querySelectorAll('[data-supplier-step-indicator]').forEach(indicator => indicator.classList.toggle('is-active', Number(indicator.dataset.supplierStepIndicator) === step));
+            var back = wizard.querySelector('[data-supplier-back]');
+            var next = wizard.querySelector('[data-supplier-next]');
+            var save = wizard.querySelector('[data-supplier-save]');
+            if (back) back.hidden = step === 1;
+            if (next) next.hidden = step === 3;
+            if (save) save.hidden = step !== 3;
+            wizard.closest('.modal')?.querySelector('.modal-body')?.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showFeedback(wizard, message, success) {
+            var target = wizard.querySelector('[data-supplier-feedback]');
+            if (!target) return;
+            target.innerHTML = '';
+            var alert = document.createElement('div');
+            alert.className = 'alert ' + (success ? 'alert-success' : 'alert-danger');
+            alert.textContent = message;
+            target.appendChild(alert);
+        }
+
+        function hiddenInput(name, value) {
+            var input = document.createElement('input');
+            input.type = 'hidden'; input.name = name; input.value = value || '';
+            return input;
+        }
+
+        function updateCategoryCount(supplierId, container) {
+            var count = container.querySelectorAll('[data-category-chip]').length;
+            var badge = document.querySelector('[data-supplier-category-count="' + supplierId + '"]');
+            if (badge) badge.textContent = count + (count === 1 ? ' category' : ' categories');
+            var empty = container.querySelector('[data-no-categories]');
+            if (empty) empty.hidden = count > 0;
+        }
+
+        document.addEventListener('show.bs.modal', function (event) {
+            var wizard = event.target.querySelector('[data-supplier-wizard]');
+            if (wizard) showStep(wizard, 1);
+        });
+
+        document.addEventListener('click', function (event) {
+            var next = event.target.closest('[data-supplier-next]');
+            var back = event.target.closest('[data-supplier-back]');
+            var button = next || back;
+            if (!button) return;
+            var wizard = button.closest('[data-supplier-wizard]');
+            if (!wizard) return;
+            var step = Number(wizard.dataset.currentStep || 1);
+            if (next && step === 1) {
+                var informationForm = wizard.querySelector('[data-supplier-step="1"]');
+                if (informationForm && !informationForm.reportValidity()) return;
+            }
+            showStep(wizard, Math.max(1, Math.min(3, step + (next ? 1 : -1))));
+        });
+
+        document.addEventListener('submit', async function (event) {
+            var form = event.target.closest('[data-supplier-ajax-form]');
+            if (!form) return;
+            event.preventDefault();
+            var wizard = form.closest('[data-supplier-wizard]');
+            var submitter = event.submitter;
+            var data = new FormData(form);
+            if (submitter && submitter.name) data.append(submitter.name, submitter.value);
+            form.querySelectorAll('button').forEach(button => button.disabled = true);
+            try {
+                var response = await fetch(form.action, { method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                var result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.message || 'The action could not be completed.');
+
+                if (form.dataset.supplierAction === 'verify') {
+                    var status = form.closest('[data-document-card]')?.querySelector('[data-document-status]');
+                    if (status) status.textContent = result.status;
+                }
+
+                if (form.dataset.supplierAction === 'add') {
+                    var supplierId = String(result.supplierId);
+                    var container = wizard.querySelector('[data-supplier-categories="' + supplierId + '"]');
+                    var select = form.querySelector('[name="categoryId"]');
+                    var token = form.querySelector('[name="__RequestVerificationToken"]')?.value || '';
+                    var chip = document.createElement('form');
+                    chip.method = 'post'; chip.action = container.dataset.removeUrl;
+                    chip.className = 'd-inline-flex align-items-center gap-2 border rounded-pill px-3 py-1';
+                    chip.dataset.supplierAjaxForm = ''; chip.dataset.supplierAction = 'remove'; chip.dataset.categoryChip = result.categoryId;
+                    chip.append(hiddenInput('__RequestVerificationToken', token), hiddenInput('supplierId', supplierId), hiddenInput('categoryId', result.categoryId), hiddenInput('page', form.querySelector('[name="page"]')?.value), hiddenInput('search', form.querySelector('[name="search"]')?.value));
+                    var label = document.createElement('span'); label.textContent = result.categoryName;
+                    var remove = document.createElement('button'); remove.type = 'submit'; remove.className = 'btn btn-sm btn-link text-danger p-0'; remove.textContent = 'Remove';
+                    chip.append(label, remove); container.appendChild(chip);
+                    select.querySelector('option[value="' + result.categoryId + '"]')?.remove(); select.value = '';
+                    updateCategoryCount(supplierId, container);
+                }
+
+                if (form.dataset.supplierAction === 'remove') {
+                    var supplierId = String(result.supplierId);
+                    var container = wizard.querySelector('[data-supplier-categories="' + supplierId + '"]');
+                    form.remove();
+                    var select = wizard.querySelector('form[data-supplier-action="add"] select[name="categoryId"]');
+                    if (select && !select.querySelector('option[value="' + result.categoryId + '"]')) {
+                        var option = document.createElement('option'); option.value = result.categoryId; option.textContent = result.categoryName; select.appendChild(option);
+                    }
+                    updateCategoryCount(supplierId, container);
+                }
+                showFeedback(wizard, result.message, true);
+            } catch (error) {
+                showFeedback(wizard, error.message || 'The action could not be completed.', false);
+            } finally {
+                if (form.isConnected) form.querySelectorAll('button').forEach(button => button.disabled = false);
+            }
+        });
+    })();
+</script>
+}
