@@ -1,0 +1,9 @@
+﻿@{
+    // Identity pages (Profile, Password, Biometrics...) render inside the supplier portal for suppliers,
+    // and inside the normal site layout for everyone else.
+    Layout = User.IsInRole("Supplier") ? "/Views/Suppliers/_SupplierLayout.cshtml" : "/Views/Shared/_Layout.cshtml";
+}
+@RenderBody()
+@section Scripts {
+    @RenderSection("Scripts", required: false)
+}

@@ -1,3 +1,7 @@
 ﻿@{
-    Layout = "/Views/Shared/_Layout.cshtml";
+    // Suppliers manage their account inside the supplier portal (sidebar + theme).
+    // Every other role keeps the original site layout.
+    var supplierPortal = User.IsInRole("Supplier");
+    Layout = supplierPortal ? "/Views/Suppliers/_SupplierLayout.cshtml" : "/Views/Shared/_Layout.cshtml";
+    if (supplierPortal) { ViewData["ParentLayout"] = "/Views/Suppliers/_SupplierLayout.cshtml"; }
 }
