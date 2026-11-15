@@ -54,14 +54,10 @@
     // message and in the console to make the real cause visible.
     function friendly(error) {
         console.error('Biometric error:', error);
-        var detail = error && error.name
-            ? ' [' + error.name + (error.message ? ': ' + error.message : '') + ']'
-            : '';
+        var detail = '';   // the technical name stays in the console, not on the page
         if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
-            return new Error('The fingerprint request was cancelled or timed out. Try again and choose your fingerprint, face or PIN. ' +
-                'If nothing appears, this device has no Windows Hello set up: open Windows Settings > Accounts > Sign-in options ' +
-                'and add a fingerprint, face or PIN, or choose "Use a phone or tablet" in the prompt and scan the QR code. ' +
-                'You can always sign in with your password.' + detail);
+            return new Error('The fingerprint step was cancelled or timed out. Press the button and try again. ' +
+                'On the phone, tap Continue and confirm with its fingerprint. You can always sign in with your password.' + detail);
         }
         if (error && error.name === 'SecurityError') {
             return new Error('This web address cannot be used for fingerprint sign-in. Open the site from the same address you ' +
@@ -185,6 +181,10 @@
         if (opts.phone) {
             options.authenticatorSelection = Object.assign({}, options.authenticatorSelection, { authenticatorAttachment: 'cross-platform' });
             options.hints = ['hybrid'];
+        }
+        if (opts.device) {
+            options.authenticatorSelection = Object.assign({}, options.authenticatorSelection, { authenticatorAttachment: 'platform' });
+            options.hints = ['client-device'];
         }
 
         var credential;
@@ -508,6 +508,17 @@
             buttons.forEach(function (b) { if (b) { b.disabled = isBusy; } });
         }
 
+        try {
+            var flash = window.sessionStorage.getItem('stms.flash');
+            if (flash) { window.sessionStorage.removeItem('stms.flash'); setStatus(flash, 'success'); }
+        } catch (e) { /* ignore */ }
+
+        function deviceName() {
+            var ua = navigator.userAgent;
+            var browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+            return ('This computer (' + browser + ')').slice(0, 150);
+        }
+
         var faceOptions = { video: video, setStatus: setStatus, setHint: setHint };
         var allButtons = Array.prototype.slice.call(root.querySelectorAll('button'));
 
@@ -546,7 +557,7 @@
             if (diagBox) { diagBox.textContent = diagnosticsText(c); }
             // Without any WebAuthn support the buttons cannot work; say so instead of failing on click.
             if (!c.webauthn || !c.secure) {
-                ['btnPasskeyLogin', 'btnPasskeyLoginPhone', 'btnPasskeyRegister', 'btnPasskeyRegisterPhone'].forEach(function (id) {
+                ['btnPasskeyLogin', 'btnPasskeyRegister', 'btnPasskeyRegisterDevice'].forEach(function (id) {
                     var b = $(id);
                     if (b) { b.disabled = true; }
                 });
@@ -683,8 +694,11 @@
         if (passkeyLoginButton) {
             passkeyLoginButton.addEventListener('click', function () {
                 pauseConditionalLogin();
-                setStatus('Use your fingerprint, face or PIN when your device asks.');
-                guarded(function () { return passkeyLogin(returnUrl); }, 'Signed in.').then(function () {
+                // One button for everything. If the fingerprint is saved only on the phone, go straight to the QR code;
+                // otherwise this computer answers (PIN, fingerprint or Touch ID) with no phone and no QR code.
+                var phoneOnly = viaPhone();
+                setStatus(phoneOnly ? PHONE_STEPS : 'Confirm with your fingerprint or PIN when your device asks.');
+                guarded(function () { return passkeyLogin(returnUrl, phoneOnly ? { hints: ['hybrid'] } : {}); }, 'Signed in.').then(function () {
                     // If it did not sign in, bring the email-box suggestion back.
                     startConditionalLogin();
                 });
@@ -703,37 +717,50 @@
             });
         }
 
+        // ONE way to register: the fingerprint is confirmed on the person's phone (QR code), then this computer is added
+        // too (PIN, fingerprint or Touch ID), so next time signing in here needs no phone and no QR code.
         var passkeyRegisterButton = $('btnPasskeyRegister');
         if (passkeyRegisterButton) {
             passkeyRegisterButton.addEventListener('click', function () {
-                var label = ($('passkeyLabel').value || '').trim() || 'My device';
+                guarded(async function () {
+                    setStatus(PHONE_STEPS);
+                    await passkeyRegister('My phone', { phone: true });
+
+                    var via = 'phone';
+                    var note = 'Fingerprint registered on your phone.';
+                    if (caps && caps.platform) {
+                        setStatus('Step 2 of 2: confirm with your PIN or fingerprint on this computer, so you can sign in here without the phone.');
+                        try {
+                            await passkeyRegister(deviceName(), { device: true });
+                            via = 'both';
+                            note = 'Fingerprint registered. Next time just press Sign in with fingerprint.';
+                        } catch (e) {
+                            console.warn('This computer was not added:', e);
+                            note = 'Fingerprint registered on your phone. This computer was not added, so signing in will use your phone.';
+                        }
+                    }
+                    try { window.sessionStorage.setItem('stms.flash', note); } catch (e) { /* ignore */ }
+                    rememberVia(via);
+                    return { succeeded: true };
+                }, 'Fingerprint registered.').then(function (ok) {
+                    if (ok) { window.location.reload(); }
+                });
+            });
+        }
+
+        // For a computer that has its own fingerprint reader: register just this computer, no phone.
+        var passkeyRegisterDeviceButton = $('btnPasskeyRegisterDevice');
+        if (passkeyRegisterDeviceButton) {
+            passkeyRegisterDeviceButton.addEventListener('click', function (event) {
+                event.preventDefault();
                 setStatus('Use your fingerprint, face or PIN when your device asks.');
-                guarded(function () { return passkeyRegister(label); }, 'Device registered.').then(function (ok) {
-                    if (ok) { rememberVia('device'); window.location.reload(); }
+                guarded(function () { return passkeyRegister(deviceName(), { device: true }); }, 'Device registered.').then(function (ok) {
+                    if (ok) {
+                        rememberVia('device');
+                        try { window.sessionStorage.setItem('stms.flash', 'Fingerprint registered on this computer.'); } catch (e) { /* ignore */ }
+                        window.location.reload();
+                    }
                 });
-            });
-        }
-
-        // Register the fingerprint on the phone (QR code).
-        var passkeyRegisterPhoneButton = $('btnPasskeyRegisterPhone');
-        if (passkeyRegisterPhoneButton) {
-            passkeyRegisterPhoneButton.addEventListener('click', function () {
-                var label = ($('passkeyLabel').value || '').trim() || 'My phone';
-                setStatus(PHONE_STEPS);
-                guarded(function () { return passkeyRegister(label, { phone: true }); }, 'Phone registered.').then(function (ok) {
-                    if (ok) { rememberVia('phone'); window.location.reload(); }
-                });
-            });
-        }
-
-        // Sign in with the fingerprint saved on the phone (QR code).
-        var passkeyLoginPhoneButton = $('btnPasskeyLoginPhone');
-        if (passkeyLoginPhoneButton) {
-            passkeyLoginPhoneButton.addEventListener('click', function () {
-                pauseConditionalLogin();
-                setStatus(PHONE_STEPS);
-                guarded(function () { return passkeyLogin(returnUrl, { hints: ['hybrid'] }); }, 'Signed in.')
-                    .then(function () { startConditionalLogin(); });
             });
         }
 
