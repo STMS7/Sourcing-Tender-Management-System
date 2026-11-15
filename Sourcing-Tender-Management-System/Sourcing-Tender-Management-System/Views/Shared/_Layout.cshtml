@@ -15,6 +15,15 @@
     var isAdmin = InRole("Admin");
     var isAdminArea = isAdmin && (controller is "Admin" or "AdminCatalog" or "AdminCommittee");
 
+    // The olive heritage skin (css/heritage.css) is only for inner pages. Dashboards, the admin area, sign-in and the
+    // profile pages (no MVC controller) never get it, so they keep the look the team set.
+    var isDashboard = (controller, currentAction) is ("SourcingOfficer", "Index") or ("SourcingManager", "Index")
+        or ("TopCommittee", "Index") or ("EvaluationCommittee", "Index") or ("Suppliers", "Index") or ("Department", "Dashboard");
+    var heritage = controller != "" && controller is not ("Admin" or "AdminCatalog" or "AdminCommittee" or "Auth" or "Home");
+
+    // Tab bars get the glass look on every page of the cycle, dashboards included; admin, sign-in and home are left alone.
+    var glassTabs = controller != "" && controller is not ("Admin" or "AdminCatalog" or "AdminCommittee" or "Auth" or "Home");
+
     const string IconGrid = "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z";
     const string IconList = "M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01";
     const string IconDoc = "M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6";
@@ -34,7 +43,13 @@
 
     var links = new List<(string Label, string Href, string Icon, bool Active)>();
     if (InRole("Supplier"))
-        links.Add(("Supplier Dashboard", Url.Action("Index", "Suppliers")!, IconTruck, controller == "Suppliers"));
+    {
+        links.Add(("Supplier Dashboard", Url.Action("Index", "Suppliers")!, IconTruck, controller == "Suppliers" && currentAction == "Index"));
+        links.Add(("Invitations", Url.Action("Invitations", "Suppliers")!, IconDoc, controller == "Suppliers" && currentAction is "Invitations" or "Invitation"));
+        links.Add(("My offers", Url.Action("Offers", "Suppliers")!, IconList, controller == "Suppliers" && currentAction is "Offers" or "Offer" or "OfferDetails" or "Report"));
+        links.Add(("Questions", Url.Action("Questions", "Suppliers")!, IconChat, controller == "Suppliers" && currentAction == "Questions"));
+        links.Add(("Notifications", Url.Action("Notifications", "Suppliers")!, IconStar, controller == "Suppliers" && currentAction == "Notifications"));
+    }
     if (InRole("Admin"))
     {
         links.Add(("Dashboard", Url.Action("Index", "Admin")!, IconShield,
@@ -49,12 +64,17 @@
             controller == "AdminCatalog" && currentAction is "Suppliers" or "DownloadSupplierDocument" or "ReviewSupplierDocument" or "AddSupplierCategory" or "RemoveSupplierCategory"));
     }
     if (InRole("SourcingManager"))
+    {
         links.Add(("Manager Review", Url.Action("Index", "SourcingManager")!, IconCheck, controller == "SourcingManager"));
+        links.Add(("Reports", Url.Action("Index", "Reports")!, IconDoc, controller == "Reports"));
+    }
     if (isOfficer)
     {
         links.Add(("Sourcing", Url.Action("Index", "SourcingOfficer")!, IconGrid, controller == "SourcingOfficer" && currentAction == "Index"));
         links.Add(("Requests", Url.Action("Requests", "SourcingOfficer")!, IconList, controller == "SourcingOfficer" && currentAction is "Requests" or "RequestDetails" or "AcceptRequest"));
         links.Add(("Tenders", Url.Action("Tenders", "SourcingOfficer")!, IconDoc, controller == "SourcingOfficer" && currentAction is "Tenders" or "Details" or "Create" or "Edit" or "Offers"));
+        links.Add(("Messages", Url.Action("Messages", "SourcingOfficer")!, IconChat, controller == "SourcingOfficer" && currentAction is "Messages" or "Clarifications" or "AskClarification"));
+        links.Add(("Reports", Url.Action("Index", "Reports")!, IconDoc, controller == "Reports"));
     }
     if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative", "RequestingDepartment"))
         links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee"));
@@ -69,9 +89,18 @@
             controller == "AdminCatalog" && currentAction == "AuditLogs"));
     }
     if (InRole("TopCommittee"))
-        links.Add(("Top committee", Url.Action("Index", "TopCommittee")!, IconStar, controller == "TopCommittee"));
+    {
+        links.Add(("Top committee", Url.Action("Index", "TopCommittee")!, IconStar, controller == "TopCommittee" && currentAction is not ("History" or "Statistics")));
+        links.Add(("History", Url.Action("History", "TopCommittee")!, IconList, controller == "TopCommittee" && currentAction == "History"));
+        links.Add(("Statistics", Url.Action("Statistics", "TopCommittee")!, IconScale, controller == "TopCommittee" && currentAction == "Statistics"));
+        links.Add(("Reports", Url.Action("Index", "Reports")!, IconDoc, controller == "Reports"));
+    }
     if (InRole("DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment"))
-        links.Add(("Department", Url.Action("Dashboard", "Department")!, IconBuilding, controller == "Department"));
+    {
+        links.Add(("Department", Url.Action("Dashboard", "Department")!, IconBuilding, controller == "Department" && currentAction == "Dashboard"));
+        links.Add(("My requests", Url.Action("Index", "Department")!, IconList, controller == "Department" && currentAction is "Index" or "Details" or "Edit" or "Delete"));
+        links.Add(("New request", Url.Action("Create", "Department")!, IconDoc, controller == "Department" && currentAction == "Create"));
+    }
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -88,6 +117,12 @@
     <link rel="stylesheet" href="~/css/layout.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/content.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/login-celebration.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/heritage.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/cycle.css" asp-append-version="true" />
+    @if (isAdminArea)
+    {
+        <link rel="stylesheet" href="~/css/admin-palette.css" asp-append-version="true" />
+    }
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
 </head>
 <body class="zt-app @(isAdminArea ? "zt-admin" : null)">
@@ -171,7 +206,7 @@
             </div>
         </header>
         <div class="container-fluid px-0">
-            <main role="main" class="pb-3">
+            <main role="main" class="pb-3@(heritage ? " zt-heritage" : "")@(glassTabs ? " zt-glass-tabs" : "")@(isDashboard ? " zt-is-dash" : "")">
                 @RenderBody()
             </main>
         </div>
@@ -181,8 +216,6 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-    <script src="~/js/login-celebration.js" asp-append-version="true"></script>
-    <script src="~/js/home-session.js" asp-append-version="true"></script>
     <script src="~/js/sourcing-search.js" asp-append-version="true"></script>
     <script>
         // Phone width: the sidebar folds behind a menu button.
@@ -197,6 +230,10 @@
             });
         })();
     </script>
+    @if (heritage)
+    {
+        <script src="~/js/heritage.js" asp-append-version="true" defer></script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

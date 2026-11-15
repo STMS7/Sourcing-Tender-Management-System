@@ -6,29 +6,58 @@
     var preparing = draft && Model.EvaluationCriteriaLockedAt == null;
     var preApproved = ViewBag.PrePublicationApproved is true;
     var publication = (SourcingPublicationReadiness)ViewBag.PublicationReadiness;
-    var suppliers = (List<Supplier>)ViewBag.Suppliers;
-    var history = (List<WorkflowTransition>)ViewBag.History;
-    var handoff = (SourcingEvaluationReadiness)ViewBag.Handoff;
-    var canReadOffers = ViewBag.CanReadOffers is true;
     var cycleStep = Model.Status switch {
         TenderStatus.Draft => 1, TenderStatus.Published => 2, TenderStatus.Closed => 3,
         TenderStatus.Cancelled => -1, _ => 5 };
+    var suppliers = (List<Supplier>)ViewBag.Suppliers;
+    var history = (List<WorkflowTransition>)ViewBag.History;
+    var handoff = (SourcingEvaluationReadiness)ViewBag.Handoff;
     var agreedWeights = Sourcing_Tender_Management_System.Services.CommitteeWeighting.Agree(
         Sourcing_Tender_Management_System.Services.CommitteeWeighting.ReadProposals(Model.EvaluationCriteria));
     var preparationReasons = (List<string>)(ViewBag.PreparationWaitingReasons ?? new List<string>());
+    var canReadOffers = (bool)ViewBag.CanReadOffers;
+    var canClarify = Model.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation;
+    var showWorkflowBar = draft || (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow);
+    var longTerms = (Model.TermsAndConditions?.Length ?? 0) > 450;
+    // Status colours are never the only signal: every chip also carries the status text.
+    string Tone(string status) => status switch {
+        "Awarded" or "Approved" or "Accepted" or "CommitteeApproved" or "ManagerApproved" => "ok",
+        "Cancelled" or "Rejected" or "Declined" or "Expired" or "CommitteeRejected" or "ManagerRejected" => "bad",
+        "Draft" or "Invited" or "Pending" or "PendingManagerReview" or "PendingCommitteeDecision" or "AwaitingManagerReview" or "AwaitingCommitteeDecision" or "ReturnedForReview" => "warn",
+        _ => "info"
+    };
+    string Words(string value) => System.Text.RegularExpressions.Regex.Replace(value, "(?<=[a-z])(?=[A-Z])", " ");
+    const string svgOpen = "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"";
+    const string svgClose = "\"></path></svg>";
+    const string IconClock = "M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
+    const string IconOpen = "M3 9l9-6 9 6v11H3zM9 20v-6h6v6";
+    const string IconCoin = "M12 3v18M16 7.5c0-1.7-1.8-3-4-3s-4 1.1-4 2.8c0 3.9 8 1.9 8 5.8 0 1.8-1.8 3-4 3s-4-1.3-4-3";
+    const string IconTag = "M3 12V4h8l10 10-8 8zM7.5 7.5h.01";
+    const string IconScale = "M12 4v16M8 20h8M5 8h14M5 8l-3 6a3 3 0 006 0zM19 8l-3 6a3 3 0 006 0z";
+    const string IconChat = "M4 5h16v11H9l-5 4z";
+    const string IconDoc = "M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6";
+    const string IconTrack = "M3 12h4l3-8 4 16 3-8h4";
 }
+<link rel="stylesheet" href="~/css/officer-workspace.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/officer-tender.css" asp-append-version="true" />
 <div id="tender-details-search-results">
-<a asp-action="Tenders">Back to my tenders</a>
-<h1 class="mt-3">@Model.Title</h1>
-<details class="my-3"><summary>Record QR code and sharing link</summary>
-<partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "Tender", Model.TenderNumber)' />
-</details>
-<p>@Model.TenderNumber · <span class="status">@Model.Status</span></p>
+<div class="od" data-tender-id="@Model.Id">
+    <nav class="od-crumbs" aria-label="Breadcrumb"><a asp-action="Tenders">Tenders</a><span aria-hidden="true">/</span><span aria-current="page">Tender details</span></nav>
+
+    <header class="od-head">
+        <div class="od-head-main">
+            <h1>@Model.Title</h1>
+            <p class="od-ref"><span class="od-mono">@Model.TenderNumber</span><span class="od-chip" data-tone="@Tone(Model.Status.ToString())">@Words(Model.Status.ToString())</span></p>
+            <p class="od-lead">Prepare the tender, receive supplier offers, complete compliance review, then send the tender and eligible offers to the technical and financial evaluation committee.</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-action="Tenders">Back to my tenders</a>
+    </header>
+
 <partial name="_SourcingCycle" model="@cycleStep" />
 <section class="so-next" aria-labelledby="tender-next-heading">
 @if (draft) {
     <h2 id="tender-next-heading">Your next step: prepare the supplier invitation</h2>
-    <p>Complete the tender terms, dates and required documents, then <a href="#supplier-invitations">select suppliers matching @Model.Category.Name</a>. Publishing sends the prepared invitations.</p>
+    <p>Complete the tender terms, dates and required documents, then <a href="#suppliers" data-goto-tab="suppliers">select suppliers matching @Model.Category.Name</a>. Publishing sends the prepared invitations.</p>
     <div id="publication-readiness" class="so-readiness">
         <div><h3>Your remaining tasks</h3>
         @if (publication.OfficerTasks.Count == 0) { <p>Your tender preparation is complete.</p> }
@@ -45,7 +74,7 @@
 } else if (Model.Status == TenderStatus.Closed) {
     <h2 id="tender-next-heading">Your next step: @(canReadOffers ? handoff.Ready ? "send compliant offers to evaluation" : "finish compliance review" : "wait for the opening date")</h2>
     @if (canReadOffers) {
-        <p>Review each supplier offer, record compliance and resolve clarifications. Then <a href="#evaluation-handoff">send the compliant offers to evaluation</a>.</p>
+        <p>Review each supplier offer, record compliance and resolve clarifications. Then <a href="#evaluation" data-goto-tab="evaluation">send the compliant offers to evaluation</a>.</p>
         <div class="so-counts"><p>Submitted offers: <strong>@handoff.SubmittedOffers</strong></p><p>Compliant offers: <strong>@handoff.CompliantOffers</strong></p></div>
     } else {
         <p>Bidding is closed, but offers remain sealed until @(Model.OpeningDate?.ToString("dd MMM yyyy HH:mm") ?? "the permitted opening") UTC. You do not need to close bidding again.</p>
@@ -58,170 +87,287 @@
     <p>The evaluation committee and decision owners handle the next stage. Track the report below; you do not choose the winning supplier.</p>
 }
 </section>
-<div class="actions mb-4">
-@if (draft) {
-    @if (preparing) {
-    <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit draft</a>
-    <form asp-action="RequestWeightApproval" method="post" class="d-inline">
-        <input type="hidden" name="id" value="@Model.Id" />
-        <button class="btn btn-outline-warning" type="submit">Send to evaluation committee</button>
-    </form>
-    } else {
-    <form asp-action="ReopenPreparation" method="post" class="d-inline">
-        <input type="hidden" name="id" value="@Model.Id" />
-        <button class="btn btn-outline-secondary" type="submit">Reopen preparation</button>
-    </form>
-    }
-    <form asp-action="Publish" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit" disabled="@(!publication.Ready)" aria-describedby="publication-readiness">Publish and send invitations</button></form>
-}
-@if (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow) {
-    <form asp-action="Close" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Close bidding</button></form>
-}
-@if ((bool)ViewBag.CanReadOffers) {
-    <a class="btn btn-primary" asp-action="Offers" asp-route-id="@Model.Id">Compare offers and review compliance</a>
-}
-@if (Model.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation) {
-    <a class="btn btn-outline-primary" asp-action="Clarifications" asp-route-tenderId="@Model.Id">Clarify with evaluation committee</a>
-}
-</div>
-@if (Model.ProcurementRequestId != null && Model.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation) {
-    <p><a asp-action="RequestDetails" asp-route-id="@Model.ProcurementRequestId">Open source request and department chat</a></p>
-}
-@if (draft) { <p class="text-secondary">Prepare the terms, dates and required documents, then select suppliers in the tender category.</p> }
-@if (draft && preparationReasons.Count > 0) {
-    <div class="alert alert-info">
-        <strong>Before sending to the evaluation committee:</strong>
-        <ul class="mb-0">@foreach (var reason in preparationReasons) { <li>@reason</li> }</ul>
-    </div>
-}
-@if (Model.Status == TenderStatus.Published) { <p class="text-secondary">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
-@if (!draft && !preApproved) {
-    <p class="alert alert-warning">This historical tender has no verified approval recorded before publication. Do not change weights after receiving offers. Resolve it through the team's documented procedure before evaluation.</p>
-}
-<dl class="row">
-<dt class="col-sm-3">Source request</dt><dd class="col-sm-9">@(Model.ProcurementRequest?.RequestNumber ?? "Not linked")</dd>
-<dt class="col-sm-3">Category</dt><dd class="col-sm-9">@Model.Category.Name</dd>
-<dt class="col-sm-3">Submission deadline (device time)</dt><dd class="col-sm-9"><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></dd>
-<dt class="col-sm-3">Bid opening (device time)</dt><dd class="col-sm-9">@if (Model.OpeningDate is DateTime opening) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(opening, DateTimeKind.Utc).ToString("O")">@opening.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</dd>
-<dt class="col-sm-3">Estimated value</dt><dd class="col-sm-9">@Model.EstimatedValue.ToString("N2")</dd>
-</dl>
-<h2>Description and terms</h2><p class="preserve-lines">@Model.Description</p><p class="preserve-lines">@Model.TermsAndConditions</p>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "tender-details-search", ResultsId = "tender-details-search-results", Label = "Search items, suppliers, documents and history" })" />
-<h2>Tender items</h2>
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity / unit</th><th scope="col">Specifications</th></tr></thead><tbody>
-@foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3") @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
-</tbody></table></div>
-<h2>Required documents</h2>
-@if (Model.DocumentRequirements.Count == 0) { <p>No document requirements configured. Review whether your tender needs quality certificates or other mandatory documents.</p> }
-else {
-<ul class="list-group list-group-flush">
-@foreach (var requirement in Model.DocumentRequirements) {
-<li data-search-item class="list-group-item px-0"><strong>@requirement.DocumentType</strong> · @(requirement.IsMandatory ? "Mandatory" : "Optional")<p class="mb-1">@requirement.Description</p>
-@if (preparing) { <form asp-action="RemoveRequirement" method="post"><input type="hidden" name="id" value="@requirement.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@requirement.DocumentType</span></button></form> }
-</li>
-}
-</ul>
-}
-@if (preparing) {
-<details class="my-3"><summary>Add document requirement</summary><form asp-action="AddRequirement" method="post" class="form-panel mt-3">
-<input type="hidden" name="TenderId" value="@Model.Id" />
-<div class="mb-3"><label for="document-type" class="form-label">Document type</label><input id="document-type" name="DocumentType" maxlength="100" required class="form-control" /></div>
-<div class="mb-3"><label for="document-description" class="form-label">Description</label><textarea id="document-description" name="Description" maxlength="500" class="form-control"></textarea></div>
-<div class="form-check mb-3"><input id="mandatory-document" type="checkbox" name="IsMandatory" value="true" checked class="form-check-input" /><input type="hidden" name="IsMandatory" value="false" /><label for="mandatory-document" class="form-check-label">Mandatory</label></div>
-<button type="submit" class="btn btn-outline-primary">Add requirement</button></form></details>
-}
-<h2 id="supplier-invitations">Supplier invitations</h2>
-<p class="text-secondary">Only approved, active suppliers registered in this tender's category can be invited.</p>
-@if (Model.Invitations.Count == 0) { <p>No suppliers selected yet.</p> }
-else {
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Supplier</th><th scope="col">Invitation</th><th scope="col">Response</th>@if (draft) { <th scope="col">Action</th> }</tr></thead><tbody>
-@foreach (var invitation in Model.Invitations) {
-<tr data-search-item><td>@invitation.Supplier.CompanyName @if (!invitation.Supplier.IsActive || invitation.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved) { <span class="text-danger">No longer eligible</span> }</td><td>@(draft ? "Prepared — not sent" : invitation.Status.ToString())</td><td>@invitation.ResponseReason</td>@if (draft) { <td><form asp-action="RemoveInvitation" method="post"><input type="hidden" name="id" value="@invitation.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@invitation.Supplier.CompanyName</span></button></form></td> }</tr>
-}
-</tbody></table></div>
-}
-@if (draft && suppliers.Count > 0) {
-<form asp-action="Invite" method="post" class="form-panel"><input type="hidden" name="tenderId" value="@Model.Id" /><fieldset><legend class="fs-6">Select approved suppliers</legend>
-@foreach (var supplier in suppliers) { <div data-search-item class="form-check mb-2"><input class="form-check-input" id="supplier-@supplier.Id" type="checkbox" name="supplierIds" value="@supplier.Id" /><label class="form-check-label" for="supplier-@supplier.Id">@supplier.CompanyName</label></div> }
-</fieldset><button type="submit" class="btn btn-outline-primary mt-2">Add selected suppliers</button></form>
-}
-else if (draft && suppliers.Count == 0) { <p class="text-secondary">No additional approved, active suppliers match this category. Ask the supplier-registration owner to verify category assignments.</p> }
-<h2 id="evaluation-handoff">Evaluation tracking</h2>
-@if (Model.Status == TenderStatus.Closed) {
-    <h3>Send tender to the technical &amp; financial evaluation committee</h3>
-    @if ((bool)ViewBag.CanReadOffers) {
-        <p>Submitted offers: <strong>@handoff.SubmittedOffers</strong> · Compliant offers: <strong>@handoff.CompliantOffers</strong>.</p>
-    }
-    @if (handoff.Issues.Count != 0) {
-        <div class="alert alert-warning"><p class="mb-2">Complete these steps before sending:</p><ul class="mb-0">
-        @foreach (var issue in handoff.Issues) { <li>@issue</li> }
-        </ul></div>
-    }
-    @if (handoff.TeamDependencies.Count != 0) {
-        <div class="alert alert-info"><h3>Waiting on the responsible team</h3><ul class="mb-0">
-        @foreach (var dependency in handoff.TeamDependencies) { <li>@dependency</li> }
-        </ul></div>
-    }
-    <form asp-action="ForwardToEvaluation" method="post" class="mb-4">
-        <input type="hidden" name="id" value="@Model.Id" />
-        <button type="submit" class="btn btn-primary" disabled="@(!handoff.Ready)">Send tender and compliant offers to evaluation committee</button>
-    </form>
-}
-@if (ViewBag.EvaluationSentAt is DateTime sentAt) {
-    <p role="status">Sent to the evaluation committee on <strong>@sentAt.ToString("dd MMM yyyy HH:mm") UTC</strong>. Assigned technical and financial members receive a link to their evaluation page.</p>
-}
-<p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; you forward it to the sourcing manager, who sends it to the Top Committee.</p>
-@if (ViewBag.ResultReport is EvaluationReport resultReport && ViewBag.ResultStep is Sourcing_Tender_Management_System.Services.TenderResultFlow.Step resultStep) {
-<section class="form-panel mb-4" aria-labelledby="result-cycle-heading">
-<h3 id="result-cycle-heading" class="h5">Result cycle — report round @resultReport.Round</h3>
-<p>Chosen bid: <strong>@resultReport.RecommendedBid?.Supplier.CompanyName (@resultReport.RecommendedBid?.BidNumber)</strong></p>
-@switch (resultStep) {
-    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToForward:
-        <p>The evaluation committee sent you its report and chosen bid. Forward it to the sourcing manager.</p>
-        <form asp-action="ForwardReportToManager" method="post"><input type="hidden" name="id" value="@Model.Id" />
-        <button type="submit" class="btn btn-primary">Forward report to sourcing manager</button></form>
-        break;
-    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtManagerReview:
-        <p role="status">Waiting for the sourcing manager's decision.</p>
-        break;
-    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtTopCommittee:
-        <p role="status">Waiting for the Top Committee's vote.</p>
-        break;
-    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtManagerToForwardDecision:
-        <p role="status">The Top Committee decided (@resultReport.Status). Waiting for the sourcing manager to forward the decision to you.</p>
-        break;
-    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToAnnounce:
-        @if (resultReport.Status == RecommendationStatus.CommitteeApproved) {
-            <p>The Top Committee approved the award. Send the winning message to the chosen supplier and a "not selected" message to the other bidders.</p>
-        } else {
-            <p>The Top Committee rejected the recommendation and the tender is cancelled. Tell every bidder that no offer was awarded.</p>
-        }
-        <form asp-action="AnnounceResult" method="post"><input type="hidden" name="id" value="@Model.Id" />
-        <button type="submit" class="btn btn-success">Send result to suppliers</button></form>
-        break;
-    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToSendBack:
-        <p>The Top Committee asked for further details. Send the tender back to the evaluation committee for a new round.</p>
-        <form asp-action="SendBackToCommittee" method="post"><input type="hidden" name="id" value="@Model.Id" />
-        <button type="submit" class="btn btn-outline-primary">Send back to evaluation committee</button></form>
-        break;
-    case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.Done:
-        <p role="status">This round is finished: the result was sent to the suppliers, or the tender went back to the committee.</p>
-        break;
-}
-</section>
-}
-@foreach (var report in Model.EvaluationReports.OrderByDescending(r => r.Round)) {
-<p>Report round @report.Round: <span class="status">@report.Status</span> · @(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? "Not submitted")</p>
-@if (report.RecommendedBid is { } chosenBid) {
-<p>Chosen bid: <strong>@chosenBid.Supplier.CompanyName (@chosenBid.BidNumber)</strong> · @chosenBid.TotalAmount.ToString("N2") @chosenBid.Currency</p>
-}
-@if (!string.IsNullOrWhiteSpace(report.Summary)) {
-<details class="mb-3"><summary>Committee report round @report.Round</summary><pre class="preserve-lines">@report.Summary</pre>
-@if (!string.IsNullOrWhiteSpace(report.RecommendationReason)) { <p>@report.RecommendationReason</p> }</details>
-}
-}
-<h2>Workflow history</h2>
-@if (history.Count == 0) { <p>No workflow events recorded.</p> }
-else { <ol>@foreach (var entry in history) { <li data-search-item class="mb-2"><strong>@entry.FromStage → @entry.ToStage</strong> · @entry.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC<br />@entry.Reason</li> }</ol> }
 
+    @if (showWorkflowBar) {
+    <section class="od-workflow" aria-label="Tender workflow actions">
+        <div class="actions">
+        @if (draft) {
+            @if (preparing) {
+            <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit draft</a>
+            <form asp-action="RequestWeightApproval" method="post" class="d-inline">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button class="btn btn-outline-warning" type="submit">Send to evaluation committee</button>
+            </form>
+            } else {
+            <form asp-action="ReopenPreparation" method="post" class="d-inline">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button class="btn btn-outline-secondary" type="submit">Reopen preparation</button>
+            </form>
+            }
+            <form asp-action="Publish" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit" disabled="@(!publication.Ready)" aria-describedby="publication-readiness">Publish and send invitations</button></form>
+        }
+        @if (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow) {
+            <form asp-action="Close" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Close bidding</button></form>
+        }
+        </div>
+    </section>
+    }
+
+    @if (draft) { <p class="od-note">Prepare the terms, dates and required documents, then select suppliers in the tender category.</p> }
+    @if (draft && preparationReasons.Count > 0) {
+        <div class="alert alert-info">
+            <strong>Before sending to the evaluation committee:</strong>
+            <ul class="mb-0">@foreach (var reason in preparationReasons) { <li>@reason</li> }</ul>
+        </div>
+    }
+    @if (Model.Status == TenderStatus.Published) { <p class="od-note">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
+    @if (!draft && !preApproved) {
+        <p class="alert alert-warning od-warning" role="note"><strong>Historical tender.</strong> This historical tender has no verified approval recorded before publication. Do not change weights after receiving offers. Resolve it through the team's documented procedure before evaluation.</p>
+    }
+
+    <div class="od-qr"><partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "Tender", Model.TenderNumber)' /></div>
+
+    <ul class="od-stats" aria-label="Tender summary">
+        <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconClock + svgClose)</span><span class="od-stat-label">Submission deadline</span><strong class="od-stat-value"><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></strong><span class="od-stat-note">Shown in your device time</span></li>
+        <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconOpen + svgClose)</span><span class="od-stat-label">Bid opening</span><strong class="od-stat-value">@if (Model.OpeningDate is DateTime openingDate) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(openingDate, DateTimeKind.Utc).ToString("O")">@openingDate.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</strong><span class="od-stat-note">Shown in your device time</span></li>
+        <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconCoin + svgClose)</span><span class="od-stat-label">Estimated value</span><strong class="od-stat-value">@Model.EstimatedValue.ToString("N2")</strong><span class="od-stat-note">As entered for this tender</span></li>
+        <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconTag + svgClose)</span><span class="od-stat-label">Tender category</span><strong class="od-stat-value">@Model.Category.Name</strong><span class="od-stat-note">Suppliers are invited from it</span></li>
+    </ul>
+
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "tender-details-search", ResultsId = "tender-details-search-results", Label = "Search items, suppliers, documents and history" })" />
+
+    <nav class="od-tabs" role="tablist" aria-label="Tender sections" data-od-tabs hidden>
+        <button type="button" role="tab" id="tab-overview-btn" aria-controls="tab-overview" aria-selected="true" data-tab="overview">Overview</button>
+        <button type="button" role="tab" id="tab-items-btn" aria-controls="tab-items" aria-selected="false" data-tab="items" tabindex="-1">Tender items <span class="od-count">@Model.Items.Count</span></button>
+        <button type="button" role="tab" id="tab-documents-btn" aria-controls="tab-documents" aria-selected="false" data-tab="documents" tabindex="-1">Documents <span class="od-count">@Model.DocumentRequirements.Count</span></button>
+        <button type="button" role="tab" id="tab-suppliers-btn" aria-controls="tab-suppliers" aria-selected="false" data-tab="suppliers" tabindex="-1">Suppliers <span class="od-count">@Model.Invitations.Count</span></button>
+        <button type="button" role="tab" id="tab-evaluation-btn" aria-controls="tab-evaluation" aria-selected="false" data-tab="evaluation" tabindex="-1">Evaluation</button>
+        <button type="button" role="tab" id="tab-activity-btn" aria-controls="tab-activity" aria-selected="false" data-tab="activity" tabindex="-1">Activity history <span class="od-count">@history.Count</span></button>
+    </nav>
+
+    @* ---------------- Overview ---------------- *@
+    <section class="od-panel" id="tab-overview" role="tabpanel" aria-labelledby="tab-overview-btn" data-panel="overview">
+        <div class="od-split">
+            <article class="od-card" aria-labelledby="overview-title">
+                <header class="od-card-head"><h2 id="overview-title">Tender overview</h2></header>
+                <dl class="od-facts">
+                    <div><dt>Tender number</dt><dd class="od-mono">@Model.TenderNumber</dd></div>
+                    <div><dt>Source request</dt><dd>@(Model.ProcurementRequest?.RequestNumber ?? "Not linked")
+                        @if (Model.ProcurementRequestId != null && Model.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation) {
+                            <a class="od-inline-link" asp-action="RequestDetails" asp-route-id="@Model.ProcurementRequestId">Open source request and department chat</a>
+                        }</dd></div>
+                    <div><dt>Category</dt><dd>@Model.Category.Name</dd></div>
+                    <div><dt>Submission deadline (device time)</dt><dd><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></dd></div>
+                    <div><dt>Bid opening (device time)</dt><dd>@if (Model.OpeningDate is DateTime opening) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(opening, DateTimeKind.Utc).ToString("O")">@opening.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</dd></div>
+                    <div><dt>Estimated value</dt><dd>@Model.EstimatedValue.ToString("N2")</dd></div>
+
+                </dl>
+            </article>
+
+            <aside class="od-card" aria-labelledby="quick-title">
+                <header class="od-card-head"><h2 id="quick-title">Quick actions</h2></header>
+                <ul class="od-actions">
+                    <li>
+                    @if (canReadOffers) {
+                        <a class="od-action" asp-action="Offers" asp-route-id="@Model.Id"><span class="od-action-icon">@Html.Raw(svgOpen + IconScale + svgClose)</span><strong>Compare offers and review compliance</strong><span>Open the offer comparison</span></a>
+                    } else {
+                        <div class="od-action is-off"><span class="od-action-icon">@Html.Raw(svgOpen + IconScale + svgClose)</span><strong>Compare offers</strong><span>Available once bidding has closed</span></div>
+                    }
+                    </li>
+                    <li>
+                    @if (canClarify) {
+                        <a class="od-action" asp-action="Clarifications" asp-route-tenderId="@Model.Id"><span class="od-action-icon">@Html.Raw(svgOpen + IconChat + svgClose)</span><strong>Clarify with evaluation committee</strong><span>Ask or answer questions</span></a>
+                    } else {
+                        <div class="od-action is-off"><span class="od-action-icon">@Html.Raw(svgOpen + IconChat + svgClose)</span><strong>Clarify with evaluation committee</strong><span>Available after bidding closes</span></div>
+                    }
+                    </li>
+                    <li><a class="od-action" href="#documents" data-goto-tab="documents"><span class="od-action-icon">@Html.Raw(svgOpen + IconDoc + svgClose)</span><strong>View documents</strong><span>@Model.DocumentRequirements.Count required @(Model.DocumentRequirements.Count == 1 ? "document" : "documents")</span></a></li>
+                    <li><a class="od-action" href="#evaluation" data-goto-tab="evaluation"><span class="od-action-icon">@Html.Raw(svgOpen + IconTrack + svgClose)</span><strong>Track progress</strong><span>Stage: @Words(Model.Status.ToString())</span></a></li>
+                </ul>
+            </aside>
+        </div>
+
+        <article class="od-card" aria-labelledby="terms-title">
+            <header class="od-card-head"><h2 id="terms-title">Description and terms</h2></header>
+            <div class="od-prose">
+                <p class="preserve-lines">@Model.Description</p>
+                @if (!string.IsNullOrWhiteSpace(Model.TermsAndConditions)) {
+                    <details class="od-more" open="@(!longTerms)"><summary>Terms and conditions</summary><p class="preserve-lines">@Model.TermsAndConditions</p></details>
+                }
+            </div>
+        </article>
+    </section>
+
+    @* ---------------- Items ---------------- *@
+    <section class="od-panel" id="tab-items" role="tabpanel" aria-labelledby="tab-items-btn" data-panel="items">
+        <article class="od-card" aria-labelledby="items-title">
+            <header class="od-card-head"><h2 id="items-title">Tender items</h2><span class="od-count">@Model.Items.Count</span></header>
+            <div class="table-responsive"><table class="table"><caption class="visually-hidden">Tender items</caption><thead><tr><th scope="col">Item</th><th scope="col">Quantity / unit</th><th scope="col">Specifications</th></tr></thead><tbody>
+            @foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3") @item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
+            </tbody></table></div>
+        </article>
+    </section>
+
+    @* ---------------- Documents ---------------- *@
+    <section class="od-panel" id="tab-documents" role="tabpanel" aria-labelledby="tab-documents-btn" data-panel="documents">
+        <article class="od-card" aria-labelledby="docs-title">
+            <header class="od-card-head"><h2 id="docs-title">Required documents</h2><span class="od-count">@Model.DocumentRequirements.Count</span></header>
+            @if (Model.DocumentRequirements.Count == 0) { <p class="od-empty">No document requirements configured. Review whether your tender needs quality certificates or other mandatory documents.</p> }
+            else {
+            <ul class="od-list">
+            @foreach (var requirement in Model.DocumentRequirements) {
+            <li data-search-item><div><strong>@requirement.DocumentType</strong> <span class="od-chip" data-tone="@(requirement.IsMandatory ? "warn" : "info")">@(requirement.IsMandatory ? "Mandatory" : "Optional")</span><p class="mb-0">@requirement.Description</p></div>
+            @if (preparing) { <form asp-action="RemoveRequirement" method="post"><input type="hidden" name="id" value="@requirement.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@requirement.DocumentType</span></button></form> }
+            </li>
+            }
+            </ul>
+            }
+            @if (preparing) {
+            <details class="od-more od-add"><summary>Add document requirement</summary><form asp-action="AddRequirement" method="post" class="form-panel mt-3">
+            <input type="hidden" name="TenderId" value="@Model.Id" />
+            <div class="mb-3"><label for="document-type" class="form-label">Document type</label><input id="document-type" name="DocumentType" maxlength="100" required class="form-control" /></div>
+            <div class="mb-3"><label for="document-description" class="form-label">Description</label><textarea id="document-description" name="Description" maxlength="500" class="form-control"></textarea></div>
+            <div class="form-check mb-3"><input id="mandatory-document" type="checkbox" name="IsMandatory" value="true" checked class="form-check-input" /><input type="hidden" name="IsMandatory" value="false" /><label for="mandatory-document" class="form-check-label">Mandatory</label></div>
+            <button type="submit" class="btn btn-outline-primary">Add requirement</button></form></details>
+            }
+        </article>
+    </section>
+
+    @* ---------------- Suppliers ---------------- *@
+    <section class="od-panel" id="tab-suppliers" role="tabpanel" aria-labelledby="tab-suppliers-btn" data-panel="suppliers">
+        <article class="od-card" aria-labelledby="inv-title">
+            <header class="od-card-head"><h2 id="inv-title">Supplier invitations</h2><span class="od-count">@Model.Invitations.Count</span></header>
+            <p class="od-note">Only approved, active suppliers registered in this tender's category can be invited.</p>
+            @if (Model.Invitations.Count == 0) { <p class="od-empty">No suppliers selected yet.</p> }
+            else {
+            <div class="table-responsive"><table class="table"><caption class="visually-hidden">Supplier invitations</caption><thead><tr><th scope="col">Supplier</th><th scope="col">Invitation</th><th scope="col">Response</th>@if (draft) { <th scope="col">Action</th> }</tr></thead><tbody>
+            @foreach (var invitation in Model.Invitations) {
+            <tr data-search-item><td>@invitation.Supplier.CompanyName @if (!invitation.Supplier.IsActive || invitation.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved) { <span class="od-chip" data-tone="bad">No longer eligible</span> }</td><td>@if (draft) { <span class="od-chip" data-tone="warn">Prepared — not sent</span> } else { <span class="od-chip" data-tone="@Tone(invitation.Status.ToString())">@invitation.Status</span> }</td><td>@invitation.ResponseReason</td>@if (draft) { <td><form asp-action="RemoveInvitation" method="post"><input type="hidden" name="id" value="@invitation.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@invitation.Supplier.CompanyName</span></button></form></td> }</tr>
+            }
+            </tbody></table></div>
+            }
+            @if (draft && suppliers.Count > 0) {
+            <form asp-action="Invite" method="post" class="form-panel od-invite"><input type="hidden" name="tenderId" value="@Model.Id" /><fieldset><legend class="fs-6">Select approved suppliers</legend>
+            @foreach (var supplier in suppliers) { <div data-search-item class="form-check mb-2"><input class="form-check-input" id="supplier-@supplier.Id" type="checkbox" name="supplierIds" value="@supplier.Id" /><label class="form-check-label" for="supplier-@supplier.Id">@supplier.CompanyName</label></div> }
+            </fieldset><button type="submit" class="btn btn-outline-primary mt-2">Add selected suppliers</button></form>
+            }
+            else if (draft && suppliers.Count == 0) { <p class="od-note">No additional approved, active suppliers match this category. Ask the supplier-registration owner to verify category assignments.</p> }
+        </article>
+    </section>
+
+    @* ---------------- Evaluation ---------------- *@
+    <section class="od-panel" id="tab-evaluation" role="tabpanel" aria-labelledby="tab-evaluation-btn" data-panel="evaluation">
+        <article class="od-card" aria-labelledby="eval-title">
+            <header class="od-card-head"><h2 id="eval-title">Evaluation tracking</h2><span class="od-chip" data-tone="@Tone(Model.Status.ToString())">@Words(Model.Status.ToString())</span></header>
+            @if (Model.Status == TenderStatus.Closed) {
+                <h3 class="od-sub">Send tender to the technical &amp; financial evaluation committee</h3>
+                @if (canReadOffers) {
+                    <p>Submitted offers: <strong>@handoff.SubmittedOffers</strong> · Compliant offers: <strong>@handoff.CompliantOffers</strong>.</p>
+                }
+                @if (handoff.Issues.Count != 0) {
+                    <div class="alert alert-warning"><p class="mb-2">Complete these steps before sending:</p><ul class="mb-0">
+                    @foreach (var issue in handoff.Issues) { <li>@issue</li> }
+                    </ul></div>
+                }
+                @if (handoff.TeamDependencies.Count != 0) {
+                    <div class="alert alert-info"><h3>Waiting on the responsible team</h3><ul class="mb-0">
+                    @foreach (var dependency in handoff.TeamDependencies) { <li>@dependency</li> }
+                    </ul></div>
+                }
+                <form asp-action="ForwardToEvaluation" method="post" class="mb-4">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" class="btn btn-primary" disabled="@(!handoff.Ready)">Send tender and compliant offers to evaluation committee</button>
+                </form>
+            }
+            @if (ViewBag.EvaluationSentAt is DateTime sentAt) {
+                <p role="status">Sent to the evaluation committee on <strong>@sentAt.ToString("dd MMM yyyy HH:mm") UTC</strong>. Assigned technical and financial members receive a link to their evaluation page.</p>
+            }
+            <p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; you forward it to the sourcing manager, who sends it to the Top Committee.</p>
+        </article>
+
+        @if (ViewBag.ResultReport is EvaluationReport resultReport && ViewBag.ResultStep is Sourcing_Tender_Management_System.Services.TenderResultFlow.Step resultStep) {
+        <section class="od-card od-result" aria-labelledby="result-cycle-heading">
+        <header class="od-card-head"><h2 id="result-cycle-heading">Result cycle — report round @resultReport.Round</h2></header>
+        <p>Chosen bid: <strong>@resultReport.RecommendedBid?.Supplier.CompanyName (@resultReport.RecommendedBid?.BidNumber)</strong></p>
+        @switch (resultStep) {
+            case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToForward:
+                <p>The evaluation committee sent you its report and chosen bid. Forward it to the sourcing manager.</p>
+                <form asp-action="ForwardReportToManager" method="post"><input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="btn btn-primary">Forward report to sourcing manager</button></form>
+                break;
+            case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtManagerReview:
+                <p role="status">Waiting for the sourcing manager's decision.</p>
+                break;
+            case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtTopCommittee:
+                <p role="status">Waiting for the Top Committee's vote.</p>
+                break;
+            case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtManagerToForwardDecision:
+                <p role="status">The Top Committee decided (@resultReport.Status). Waiting for the sourcing manager to forward the decision to you.</p>
+                break;
+            case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToAnnounce:
+                @if (resultReport.Status == RecommendationStatus.CommitteeApproved) {
+                    <p>The Top Committee approved the award. Send the winning message to the chosen supplier and a "not selected" message to the other bidders.</p>
+                } else {
+                    <p>The Top Committee rejected the recommendation and the tender is cancelled. Tell every bidder that no offer was awarded.</p>
+                }
+                <form asp-action="AnnounceResult" method="post"><input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="btn btn-success">Send result to suppliers</button></form>
+                break;
+            case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToSendBack:
+                <p>The Top Committee asked for further details. Send the tender back to the evaluation committee for a new round.</p>
+                <form asp-action="SendBackToCommittee" method="post"><input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="btn btn-outline-primary">Send back to evaluation committee</button></form>
+                break;
+            case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.Done:
+                <p role="status">This round is finished: the result was sent to the suppliers, or the tender went back to the committee.</p>
+                break;
+        }
+        </section>
+        }
+
+        @if (Model.EvaluationReports.Count > 0) {
+        <article class="od-card" aria-labelledby="reports-title">
+            <header class="od-card-head"><h2 id="reports-title">Committee reports</h2><span class="od-count">@Model.EvaluationReports.Count</span></header>
+            <ul class="od-reports">
+            @foreach (var report in Model.EvaluationReports.OrderByDescending(r => r.Round)) {
+            <li>
+                <div class="od-report-head"><strong>Report round @report.Round</strong><span class="od-chip" data-tone="@Tone(report.Status.ToString())">@Words(report.Status.ToString())</span><span class="od-muted">@(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? "Not submitted")</span></div>
+                @if (report.RecommendedBid is { } chosenBid) {
+                <p class="mb-0">Chosen bid: <strong>@chosenBid.Supplier.CompanyName (@chosenBid.BidNumber)</strong> · @chosenBid.TotalAmount.ToString("N2") @chosenBid.Currency</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(report.Summary)) {
+                <details class="od-more"><summary>Committee report round @report.Round</summary><pre class="preserve-lines">@report.Summary</pre>
+                @if (!string.IsNullOrWhiteSpace(report.RecommendationReason)) { <p>@report.RecommendationReason</p> }</details>
+                }
+            </li>
+            }
+            </ul>
+        </article>
+        }
+    </section>
+
+    @* ---------------- Activity ---------------- *@
+    <section class="od-panel" id="tab-activity" role="tabpanel" aria-labelledby="tab-activity-btn" data-panel="activity">
+        <article class="od-card" aria-labelledby="history-title">
+            <header class="od-card-head"><h2 id="history-title">Workflow history</h2><span class="od-count">@history.Count</span></header>
+            @if (history.Count == 0) { <p class="od-empty">No workflow events recorded.</p> }
+            else {
+            <ol class="od-timeline">
+            @for (var i = 0; i < history.Count; i++) {
+                var entry = history[i];
+                <li data-search-item class="@(i == 0 ? "is-latest" : null)">
+                    <span class="od-dot" aria-hidden="true"></span>
+                    <div class="od-event">
+                        <div class="od-event-top"><strong>@Words(entry.FromStage.ToString()) → @Words(entry.ToStage.ToString())</strong><span class="od-chip" data-tone="@Tone(entry.Action.ToString())">@Words(entry.Action.ToString())</span></div>
+                        <p class="od-muted mb-1">@(entry.PerformedByUser?.FullName ?? "System") · <time datetime="@DateTime.SpecifyKind(entry.CreatedAt, DateTimeKind.Utc).ToString("O")">@entry.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC</time></p>
+                        @if (!string.IsNullOrWhiteSpace(entry.Reason)) { <p class="mb-0">@entry.Reason</p> }
+                    </div>
+                </li>
+            }
+            </ol>
+            }
+        </article>
+    </section>
 </div>
+</div>
+@section Scripts { <script src="~/js/officer-tender-tabs.js" asp-append-version="true"></script> }

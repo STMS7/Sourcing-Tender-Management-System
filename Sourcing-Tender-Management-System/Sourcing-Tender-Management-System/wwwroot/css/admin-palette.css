@@ -1,0 +1,71 @@
+/*
+ * Admin area: colours and card look only.
+ * Loaded by _Layout when the admin area is shown (body.zt-admin). It changes no layout, spacing, fonts, markup or behaviour,
+ * so the admin logic and structure stay exactly as the team wrote them. Palette: Bustan Al-Zaytoun
+ * (cream F5F0E1, olive 6B7B3A, deep olive 3D4A2A, gold C9A84C, plus the supporting tones).
+ */
+body.zt-app.zt-admin {
+  --zt-ink: #3D4A2A; --zt-ink-deep: #2E3920; --zt-bg: #F5F0E1; --zt-card: #FFFDF7; --zt-lime: #C9A84C;
+  --zt-sage-soft: #E8EBD9; --zt-sage: #D5DABF; --zt-yellow: #E4DCC8; --zt-olive: #6B7B3A; --zt-muted: #5C6149;
+  --zt-line: rgba(61, 74, 42, .16);
+  background:
+    radial-gradient(60% 50% at 88% 6%, rgba(201, 168, 76, .26), transparent 70%),
+    radial-gradient(55% 55% at 6% 96%, rgba(107, 123, 58, .20), transparent 70%),
+    radial-gradient(45% 40% at 62% 62%, rgba(228, 220, 200, .8), transparent 75%),
+    #F5F0E1;
+  background-attachment: fixed;
+}
+
+/* frame */
+.zt-admin .zt-nav a.is-active { background: rgba(245, 240, 225, .12); }
+.zt-admin .zt-mark rect { fill: #5A6A30; }
+.zt-admin .zt-mark path:first-of-type { fill: #C9A84C; }
+.zt-admin .zt-mark path:last-of-type { stroke: #2E3920; }
+.zt-admin .zt-pill { background: #FFFDF7; color: #3D4A2A; }
+.zt-admin .zt-avatar { background: #C9A84C; color: #2E3920; }
+
+/* controls that carry hard-coded greens in the shared css */
+.zt-admin .zt-search-shell:focus-within { box-shadow: 0 0 0 3px rgba(201, 168, 76, .45); }
+.zt-admin .zt-search-shell { background: #FFFDF7; border-color: rgba(61, 74, 42, .24); }
+.zt-admin .btn-primary { --bs-btn-bg: #3D4A2A; --bs-btn-border-color: #3D4A2A; --bs-btn-hover-bg: #2E3920; --bs-btn-hover-border-color: #2E3920; --bs-btn-active-bg: #2E3920; --bs-btn-color: #F5F0E1; --bs-btn-hover-color: #F5F0E1; }
+.zt-admin .btn-outline-primary { --bs-btn-color: #3D4A2A; --bs-btn-border-color: #3D4A2A; --bs-btn-hover-bg: #3D4A2A; --bs-btn-hover-border-color: #3D4A2A; --bs-btn-hover-color: #F5F0E1; }
+.zt-admin .btn-success { --bs-btn-bg: #5A6A30; --bs-btn-border-color: #5A6A30; --bs-btn-hover-bg: #465225; --bs-btn-hover-border-color: #465225; --bs-btn-color: #F5F0E1; --bs-btn-hover-color: #F5F0E1; }
+.zt-admin .btn-outline-secondary { --bs-btn-color: #3F4733; --bs-btn-border-color: rgba(63, 71, 51, .45); --bs-btn-hover-bg: #E8EBD9; --bs-btn-hover-color: #3D4A2A; --bs-btn-hover-border-color: #6B7B3A; }
+.zt-admin .form-control:focus, .zt-admin .form-select:focus { border-color: #6B7B3A; box-shadow: 0 0 0 .22rem rgba(107, 123, 58, .25); }
+.zt-admin .form-check-input:checked { background-color: #3D4A2A; border-color: #3D4A2A; }
+.zt-admin .page-link { color: #3D4A2A; }
+.zt-admin .active > .page-link, .zt-admin .page-link.active { background: #3D4A2A; border-color: #3D4A2A; color: #F5F0E1; }
+
+/* card look: frosted glass, hairline edge and a soft shadow */
+.zt-admin .zt-tile {
+  border: 1px solid rgba(255, 255, 255, .8); border-radius: 6px 34px 6px 34px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 0 0 1px rgba(61, 74, 42, .07), 0 22px 40px -26px rgba(46, 57, 32, .5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+}
+.zt-admin .zt-bento > :nth-child(5n+1) .zt-tile, .zt-admin .zt-tile.is-lime   { background: linear-gradient(150deg, rgba(201, 168, 76, .78), rgba(201, 168, 76, .45)); }
+.zt-admin .zt-bento > :nth-child(5n+2) .zt-tile, .zt-admin .zt-tile.is-yellow { background: linear-gradient(150deg, rgba(228, 220, 200, .92), rgba(228, 220, 200, .6)); }
+.zt-admin .zt-bento > :nth-child(5n+3) .zt-tile, .zt-admin .zt-tile.is-sage   { background: linear-gradient(150deg, rgba(232, 235, 217, .92), rgba(232, 235, 217, .6)); }
+.zt-admin .zt-bento > :nth-child(5n+4) .zt-tile, .zt-admin .zt-tile.is-cream  { background: linear-gradient(150deg, rgba(255, 253, 247, .85), rgba(255, 253, 247, .55)); }
+.zt-admin .zt-bento > :nth-child(5n+5) .zt-tile, .zt-admin .zt-tile.is-dark   { background: linear-gradient(150deg, rgba(61, 74, 42, .98), rgba(61, 74, 42, .92)); color: #F5F0E1; }
+.zt-admin .zt-tile::after { background: rgba(107, 123, 58, .16); }
+.zt-admin .zt-tile.is-dark::after, .zt-admin .zt-bento > :nth-child(5n+5) .zt-tile::after { background: rgba(201, 168, 76, .22); }
+.zt-admin .zt-tile.is-alert { box-shadow: inset 0 0 0 3px #3D4A2A; }
+
+.zt-admin .card, .zt-admin .zt-admin-table, .zt-admin .zt-contact-card, .zt-admin .table-responsive {
+  background: linear-gradient(150deg, rgba(255, 253, 247, .8), rgba(255, 253, 247, .55));
+  border: 1px solid rgba(255, 255, 255, .8); border-radius: 6px 34px 6px 34px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 0 0 1px rgba(61, 74, 42, .07), 0 22px 40px -26px rgba(46, 57, 32, .5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  overflow: hidden;
+}
+.zt-admin .zt-admin-table .table, .zt-admin .table-responsive .table { --bs-table-bg: transparent; }
+.zt-admin .table > thead > tr > * { background: rgba(232, 235, 217, .7); color: #3D4A2A; }
+.zt-admin .table-hover > tbody > tr:hover > * { background: rgba(232, 235, 217, .6); }
+.zt-admin .zt-contact-avatar { background: #C9A84C; color: #2E3920; }
+.zt-admin .badge.text-bg-success { background: #5A6A30 !important; color: #F5F0E1 !important; }
+.zt-admin .badge.text-bg-warning { background: #E4DCC8 !important; color: #3D4A2A !important; }
+
+/* without backdrop-filter support the cards stay solid so text keeps its contrast */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .zt-admin .card, .zt-admin .zt-admin-table, .zt-admin .zt-contact-card, .zt-admin .table-responsive { background: #FFFDF7; }
+}

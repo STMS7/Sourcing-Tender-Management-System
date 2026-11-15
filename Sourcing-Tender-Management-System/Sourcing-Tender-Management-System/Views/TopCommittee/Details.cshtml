@@ -27,13 +27,45 @@
     <p>@Model.Description</p>
 }
 
+@* ---------- Who has voted ---------- *@
+@if (Model.CommitteeVotes.Count > 0)
+{
+    var voted = Model.CommitteeVotes.Count(v => v.Decision != CommitteeDecision.Pending);
+    <section class="tc-seats" aria-label="Committee voting progress">
+        <div class="tc-seats-head">
+            <span class="tc-kicker">Committee voting</span>
+            <strong>@voted of @Model.CommitteeVotes.Count voted</strong>
+        </div>
+        <ul>
+        @foreach (var seat in Model.CommitteeVotes)
+        {
+            var (seatClass, seatText) = seat.Decision switch
+            {
+                CommitteeDecision.Approved => ("is-approved", "Approved"),
+                CommitteeDecision.Rejected => ("is-rejected", "Rejected"),
+                CommitteeDecision.ReturnedForRevision => ("is-returned", "Asked for details"),
+                _ => ("is-pending", "Waiting")
+            };
+            <li class="tc-seat @seatClass">
+                <span class="tc-seat-role">@(string.IsNullOrWhiteSpace(seat.Position) ? "Member" : seat.Position)</span>
+                <span class="tc-seat-name">@seat.MemberName</span>
+                <span class="tc-seat-state">@seatText</span>
+            </li>
+        }
+        </ul>
+    </section>
+}
+
 @* ---------- Vote ---------- *@
 @if (Model.Report.IsAwaitingDecision && Model.MyVote == CommitteeDecision.Pending)
 {
     var recommended = Model.Bids.FirstOrDefault(b => b.IsRecommended);
-    <div class="card border-primary mb-4">
-        <div class="card-header bg-primary text-white">Your decision</div>
-        <div class="card-body">
+    <section class="tc-decision" aria-labelledby="decision-title">
+        <div class="tc-decision-head">
+            <span class="tc-kicker">Your vote</span>
+            <h2 id="decision-title">Your decision</h2>
+        </div>
+        <div class="tc-decision-body">
             <p class="mb-3">
                 The evaluation committee recommends
                 <strong>@(recommended?.SupplierName ?? "no supplier")</strong>@(recommended is null ? "" : $" ({recommended.TotalAmount:N2} {recommended.Currency})").
@@ -41,18 +73,18 @@
             </p>
             <form asp-action="Vote" method="post">
                 <input type="hidden" name="EvaluationReportId" value="@Model.Report.EvaluationReportId" />
-                <div class="mb-3">
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="Decision" id="dApprove" value="@((int)CommitteeDecision.Approved)" required>
-                        <label class="form-check-label" for="dApprove">Approve the recommended supplier</label>
+                <div class="tc-choices" role="radiogroup" aria-label="Your decision">
+                    <div class="tc-choice is-approve">
+                        <input type="radio" name="Decision" id="dApprove" value="@((int)CommitteeDecision.Approved)" required>
+                        <label for="dApprove"><strong>Approve</strong><span>Award the recommended supplier</span></label>
                     </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="Decision" id="dReject" value="@((int)CommitteeDecision.Rejected)">
-                        <label class="form-check-label" for="dReject">Reject the recommendation</label>
+                    <div class="tc-choice is-reject">
+                        <input type="radio" name="Decision" id="dReject" value="@((int)CommitteeDecision.Rejected)">
+                        <label for="dReject"><strong>Reject</strong><span>Do not accept the recommendation</span></label>
                     </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="Decision" id="dReturn" value="@((int)CommitteeDecision.ReturnedForRevision)">
-                        <label class="form-check-label" for="dReturn">Ask for more details (return the tender)</label>
+                    <div class="tc-choice is-return">
+                        <input type="radio" name="Decision" id="dReturn" value="@((int)CommitteeDecision.ReturnedForRevision)">
+                        <label for="dReturn"><strong>Ask for more details</strong><span>Return the tender to the committee</span></label>
                     </div>
                 </div>
                 <div class="mb-3">
@@ -65,7 +97,7 @@
                 </button>
             </form>
         </div>
-    </div>
+    </section>
 }
 else if (Model.MyVote is { } mine && mine != CommitteeDecision.Pending)
 {
@@ -115,7 +147,7 @@ else if (Model.MyVote is null)
         <tbody>
         @foreach (var b in Model.Bids)
         {
-            <tr data-search-item class="@(b.IsRecommended ? "table-primary" : "")">
+            <tr data-search-item class="@(b.IsRecommended ? "tc-recommended" : "")">
                 <td>
                     <div class="fw-semibold">@b.SupplierName</div>
                     <div class="small text-muted">@b.BidNumber | @b.DocumentCount documents</div>
@@ -137,7 +169,7 @@ else if (Model.MyVote is null)
                 </td>
                 <td>
                     @if (b.IsAwarded) { <span class="badge text-bg-success">Awarded</span> }
-                    else if (b.IsRecommended) { <span class="badge text-bg-primary">Recommended</span> }
+                    else if (b.IsRecommended) { <span class="tc-tag">Recommended</span> }
                 </td>
             </tr>
         }

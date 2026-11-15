@@ -348,7 +348,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         ViewBag.EvaluationSentAt = await db.WorkflowTransitions.Where(w => w.TenderId == id &&
             w.FromStage == WorkflowStage.Compliance && w.ToStage == WorkflowStage.Evaluation &&
             w.Action == WorkflowAction.Forwarded).MaxAsync(w => (DateTime?)w.CreatedAt);
-        ViewBag.History = await db.WorkflowTransitions.AsNoTracking().Where(w => w.TenderId == id)
+        ViewBag.History = await db.WorkflowTransitions.AsNoTracking().Include(w => w.PerformedByUser).Where(w => w.TenderId == id)
             .OrderByDescending(w => w.CreatedAt).Take(30).ToListAsync();
         var (resultReport, resultStep) = await CurrentResultStep(id);
         ViewBag.ResultReport = resultReport;
@@ -748,7 +748,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         if (conversationId != null)
         {
             selected = await threads.Include(c => c.AskedByUser).Include(c => c.RecipientUser)
-                .Include(c => c.ProcurementRequest).Include(c => c.Tender).Include(c => c.Bid).ThenInclude(b => b!.Supplier)
+                .Include(c => c.ProcurementRequest).ThenInclude(r => r!.Department).Include(c => c.Tender).Include(c => c.Bid).ThenInclude(b => b!.Supplier)
                 .Include(c => c.Responses).ThenInclude(r => r.RespondedByUser).AsSplitQuery()
                 .FirstOrDefaultAsync(c => c.Id == conversationId);
             if (selected == null) return null;
