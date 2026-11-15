@@ -14,136 +14,227 @@
         ClarificationStatus.Answered => "Answered",
         _ => "Resolved"
     };
+    string Counterpart(Clarification c) => Model.Group == "EvaluationCommittee" ? "Evaluation committee"
+        : (c.AskedByUserId == userId ? c.RecipientUser?.FullName : c.AskedByUser?.FullName) ?? "Participant";
+    string Initial(string? name) => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+    string State(Clarification c) => c.Status switch { ClarificationStatus.Pending => "pending", ClarificationStatus.Answered => "answered", _ => "resolved" };
+    var composeOpen = Model.Context != null || !ViewData.ModelState.IsValid;
+    var pendingCount = Model.Conversations.Count(c => c.Status == ClarificationStatus.Pending);
+    var answeredCount = Model.Conversations.Count(c => c.Status == ClarificationStatus.Answered);
+    var resolvedCount = Model.Conversations.Count(c => c.Status == ClarificationStatus.Resolved);
+    const string svgOpen = "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"";
+    const string svgClose = "\"></path></svg>";
 }
-<div id="officer-message-search-results">
-<h1>Messages</h1>
-<p class="text-secondary">Ask questions, request missing information and keep responses with the relevant purchase request, bid or tender.</p>
-<nav class="sourcing-nav message-groups mt-4" aria-label="Message participants">
-    <a class="@(Model.Group == "RequestingDepartment" ? "active" : "")" aria-current="@(Model.Group == "RequestingDepartment" ? "page" : null)" asp-action="Messages" asp-route-group="RequestingDepartment">Requesting department</a>
-    <a class="@(Model.Group == "Supplier" ? "active" : "")" aria-current="@(Model.Group == "Supplier" ? "page" : null)" asp-action="Messages" asp-route-group="Supplier">Supplier</a>
-    <a class="@(Model.Group == "EvaluationCommittee" ? "active" : "")" aria-current="@(Model.Group == "EvaluationCommittee" ? "page" : null)" asp-action="Messages" asp-route-group="EvaluationCommittee">Evaluation committee</a>
-</nav>
-<div asp-validation-summary="All" class="text-danger mt-3" role="alert"></div>
-<details class="message-compose my-4" open="@(selected == null || Model.Context != null)">
-    <summary class="fs-5 fw-semibold">New message to @groupLabel</summary>
-    @if (Model.Group == "Supplier") {
-        <p class="small text-secondary mt-3">Choose a submitted offer after bidding closes. Only accounts belonging to that supplier are available.</p>
-    } else if (Model.Group == "EvaluationCommittee") {
-        <p class="small text-secondary mt-3">Choose a tender in compliance, evaluation or manager review. Your message goes to its authorized evaluation committee without selecting individual members.</p>
-    } else {
-        <p class="small text-secondary mt-3">Choose a request available for your review, returned for changes, or linked to an active tender you manage. The request owner is the recipient.</p>
-    }
-    @if (Model.Contexts.Count == 0) {
-        <p class="alert alert-info mt-3">No eligible transactions are available at this stage. You can still read existing conversations below.</p>
-    } else {
-        <form asp-action="Messages" method="get" class="form-panel mt-3" data-message-context>
-            <input type="hidden" name="group" value="@Model.Group" />
-            <label for="message-context" class="form-label">Related transaction</label>
-            <div class="d-flex gap-2">
-                <select id="message-context" name="context" class="form-select" required>
-                    <option value="">Choose a related transaction</option>
-                    @foreach (var context in Model.Contexts) {
-                        <option value="@context.Key" selected="@(context.Key == Model.Context)">@context.Label</option>
-                    }
-                </select>
-                <button class="btn btn-outline-primary" type="submit">Choose</button>
-            </div>
-        </form>
-    }
-    @if (Model.Context != null) {
-        @if (Model.Recipients.Count == 0) {
-            <p class="alert alert-info mt-3">No active recipients are assigned to this transaction. Ask the responsible team member to check the account or committee assignment.</p>
-        } else {
-            <form asp-action="@(Model.Group == "EvaluationCommittee" ? "SendCommitteeMessage" : "AskClarification")" method="post" class="form-panel mt-3">
-                <input name="ProcurementRequestId" value="@Model.Form.ProcurementRequestId" type="hidden" />
-                <input name="TenderId" value="@Model.Form.TenderId" type="hidden" />
-                <input name="BidId" value="@Model.Form.BidId" type="hidden" />
-                @if (Model.Group != "EvaluationCommittee") {
-                <div class="mb-3">
-                    <label for="message-recipient" class="form-label">Recipient</label>
-                    <select id="message-recipient" name="RecipientUserId" class="form-select" required>
-                        <option value="">Choose an authorized participant</option>
-                        @foreach (var recipient in Model.Recipients) {
-                            <option value="@recipient.Id" selected="@(recipient.Id == Model.Form.RecipientUserId)">@recipient.FullName</option>
-                        }
-                    </select>
-                </div>
-                }
-                <div class="mb-3"><label for="message-subject" class="form-label">Subject</label><input id="message-subject" name="Subject" value="@Model.Form.Subject" class="form-control" required maxlength="200" /></div>
-                <div class="mb-3"><label for="message-question" class="form-label">Message</label><textarea id="message-question" name="Question" class="form-control" rows="4" required maxlength="2000">@Model.Form.Question</textarea></div>
-                <button type="submit" class="btn btn-primary">Send message</button>
-            </form>
-        }
-    }
-</details>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "officer-message-search", ResultsId = "officer-message-search-results", Label = "Search conversation subjects and participants" })" />
-<div class="row g-4">
-    <aside class="col-lg-4">
-        <h2 class="mt-0">Conversations</h2>
-        <p class="small text-secondary">Latest 100 conversations with @groupLabel.</p>
-        @if (Model.Conversations.Count == 0) {
-            <p class="empty-state">No conversations in this category yet. Choose a related transaction above to start one.</p>
-        } else {
-            <ul class="list-group message-list">
-                @foreach (var conversation in Model.Conversations) {
-                    var counterpart = Model.Group == "EvaluationCommittee" ? "Evaluation committee" : conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName;
-                    <li data-search-item class="list-group-item p-0">
-                        <a class="message-link @(conversation.Id == selected?.Id ? "selected" : "")" aria-current="@(conversation.Id == selected?.Id ? "page" : null)"
-                           asp-action="Messages" asp-route-group="@Model.Group" asp-route-conversationId="@conversation.Id">
-                            <strong>@conversation.Subject</strong>
-                            <span>@counterpart</span>
-                            <span class="small">@DisplayStatus(conversation)</span>
-                            <time class="small" datetime="@conversation.AskedAt.ToString("O")">@conversation.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
-                        </a>
-                    </li>
-                }
-            </ul>
-        }
-    </aside>
-    <section class="col-lg-8" aria-label="Selected conversation">
-        @if (selected == null) {
-            <div class="empty-state"><h2 class="mt-0">Select a conversation</h2><p class="mb-0">Read questions and responses, reply, or resolve a completed clarification.</p></div>
-        } else {
-            <h2 class="mt-0">@selected.Subject</h2>
-            <p><span class="status">@DisplayStatus(selected)</span></p>
-            <p class="small text-secondary">
-                @if (selected.Bid != null) { <span>Offer @selected.Bid.BidNumber · @selected.Bid.Supplier.CompanyName</span> }
-                else if (selected.ProcurementRequest != null) { <span>Request @selected.ProcurementRequest.RequestNumber · @selected.ProcurementRequest.Title</span> }
-                else if (selected.Tender != null) { <span>Tender @selected.Tender.TenderNumber · @selected.Tender.Title</span> }
-            </p>
-            <ol class="message-thread list-unstyled" data-message-thread tabindex="0" aria-label="Message history">
-                <li class="message-entry @(selected.AskedByUserId == userId ? "outgoing" : "")">
-                    <strong>@(selected.AskedByUserId == userId ? "You" : Model.Group == "EvaluationCommittee" ? "Evaluation committee" : selected.AskedByUser.FullName)</strong>
-                    <time class="small" datetime="@selected.AskedAt.ToString("O")">@selected.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
-                    <p class="preserve-lines mb-0">@selected.Question</p>
-                </li>
-                @foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt)) {
-                    <li class="message-entry @(response.RespondedByUserId == userId ? "outgoing" : "")">
-                        <strong>@(response.RespondedByUserId == userId ? "You" : Model.Group == "EvaluationCommittee" ? "Evaluation committee" : response.RespondedByUser?.FullName ?? "Participant")</strong>
-                        <time class="small" datetime="@response.RespondedAt.ToString("O")">@response.RespondedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
-                        <p class="preserve-lines mb-0">@response.ResponseText</p>
-                    </li>
-                }
-            </ol>
-            @if (Model.CanReply) {
-                <form asp-controller="Messages" asp-action="Reply" method="post">
-                    <input type="hidden" name="id" value="@selected.Id" />
-                    <label for="message-response" class="form-label">Your response</label>
-                    <textarea id="message-response" name="response" class="form-control mb-3" rows="3" required maxlength="3000"></textarea>
-                    <button type="submit" class="btn btn-primary">Send response</button>
-                </form>
-            } else {
-                <p class="alert alert-info">@(selected.Status == ClarificationStatus.Resolved ? "This conversation is resolved. Its history remains available." : "This transaction is no longer at a stage that permits a response, or the participant is no longer eligible. Its history remains available.")</p>
-            }
-            @if (selected.AskedByUserId == userId && selected.Status == ClarificationStatus.Answered) {
-                <form asp-action="Resolve" method="post" class="mt-3">
-                    <input type="hidden" name="id" value="@selected.Id" />
-                    <button type="submit" class="btn btn-outline-secondary">Mark resolved</button>
-                </form>
-            }
-        }
-    </section>
-</div>
+<link rel="stylesheet" href="~/css/officer-workspace.css" asp-append-version="true" />
+<div class="ow">
+    <header class="ow-head">
+        <div>
+            <p class="ow-kicker">Communication</p>
+            <h1>Messages</h1>
+            <p>Ask questions, request missing information and keep responses with the relevant purchase request, bid or tender.</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-open-compose aria-haspopup="dialog" aria-controls="compose-dialog">New message</button>
+    </header>
 
+    <nav class="sourcing-nav message-groups ow-seg" aria-label="Message participants">
+        <a class="@(Model.Group == "RequestingDepartment" ? "active" : "")" aria-current="@(Model.Group == "RequestingDepartment" ? "page" : null)" asp-action="Messages" asp-route-group="RequestingDepartment">Requesting department</a>
+        <a class="@(Model.Group == "Supplier" ? "active" : "")" aria-current="@(Model.Group == "Supplier" ? "page" : null)" asp-action="Messages" asp-route-group="Supplier">Supplier</a>
+        <a class="@(Model.Group == "EvaluationCommittee" ? "active" : "")" aria-current="@(Model.Group == "EvaluationCommittee" ? "page" : null)" asp-action="Messages" asp-route-group="EvaluationCommittee">Evaluation committee</a>
+    </nav>
+
+    <dialog class="ow-dialog" id="compose-dialog" aria-labelledby="compose-title" data-compose-dialog data-open="@(composeOpen ? "true" : "false")">
+        <div class="ow-dialog-head">
+            <h2 id="compose-title">New message to @groupLabel</h2>
+            <button type="button" class="ow-dialog-close" data-close-compose aria-label="Close new message">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+            </button>
+        </div>
+        <div class="ow-dialog-body">
+            <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+            @if (Model.Group == "Supplier") {
+                <p class="small text-secondary">Choose a submitted offer after bidding closes. Only accounts belonging to that supplier are available.</p>
+            } else if (Model.Group == "EvaluationCommittee") {
+                <p class="small text-secondary">Choose a tender in compliance, evaluation or manager review. Your message goes to its authorized evaluation committee without selecting individual members.</p>
+            } else {
+                <p class="small text-secondary">Choose a request available for your review, returned for changes, or linked to an active tender you manage. The request owner is the recipient.</p>
+            }
+            @if (Model.Contexts.Count == 0) {
+                <p class="alert alert-info">No eligible transactions are available at this stage. You can still read existing conversations.</p>
+            } else {
+                <form asp-action="Messages" method="get" class="form-panel" data-message-context>
+                    <input type="hidden" name="group" value="@Model.Group" />
+                    <label for="message-context" class="form-label">Related transaction</label>
+                    <div class="d-flex gap-2">
+                        <select id="message-context" name="context" class="form-select" required>
+                            <option value="">Choose a related transaction</option>
+                            @foreach (var context in Model.Contexts) {
+                                <option value="@context.Key" selected="@(context.Key == Model.Context)">@context.Label</option>
+                            }
+                        </select>
+                        <button class="btn btn-outline-primary" type="submit">Choose</button>
+                    </div>
+                </form>
+            }
+            @if (Model.Context != null) {
+                @if (Model.Recipients.Count == 0) {
+                    <p class="alert alert-info mt-3">No active recipients are assigned to this transaction. Ask the responsible team member to check the account or committee assignment.</p>
+                } else {
+                    <form asp-action="@(Model.Group == "EvaluationCommittee" ? "SendCommitteeMessage" : "AskClarification")" method="post" class="form-panel mt-3">
+                        <input name="ProcurementRequestId" value="@Model.Form.ProcurementRequestId" type="hidden" />
+                        <input name="TenderId" value="@Model.Form.TenderId" type="hidden" />
+                        <input name="BidId" value="@Model.Form.BidId" type="hidden" />
+                        @if (Model.Group != "EvaluationCommittee") {
+                        <div class="mb-3">
+                            <label for="message-recipient" class="form-label">Recipient</label>
+                            <select id="message-recipient" name="RecipientUserId" class="form-select" required>
+                                <option value="">Choose an authorized participant</option>
+                                @foreach (var recipient in Model.Recipients) {
+                                    <option value="@recipient.Id" selected="@(recipient.Id == Model.Form.RecipientUserId)">@recipient.FullName</option>
+                                }
+                            </select>
+                        </div>
+                        }
+                        <div class="mb-3"><label for="message-subject" class="form-label">Subject</label><input id="message-subject" name="Subject" value="@Model.Form.Subject" class="form-control" required maxlength="200" /></div>
+                        <div class="mb-3"><label for="message-question" class="form-label">Message</label><textarea id="message-question" name="Question" class="form-control" rows="4" required maxlength="2000">@Model.Form.Question</textarea></div>
+                        <div class="d-flex flex-wrap justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary" data-close-compose>Cancel</button>
+                            <button type="submit" class="btn btn-primary">Send message</button>
+                        </div>
+                    </form>
+                }
+            }
+        </div>
+    </dialog>
+    <noscript><style>.ow-dialog { display: block; position: static; width: 100%; margin-bottom: 1rem; }</style></noscript>
+
+    <div id="officer-message-search-results">
+        <div class="ow-workspace">
+            <aside class="ow-pane ow-inbox" aria-label="Conversation inbox">
+                <div class="ow-pane-head">
+                    <h2>Inbox</h2>
+                    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "officer-message-search", ResultsId = "officer-message-search-results", Label = "Search conversations" })" />
+                    <div class="ow-filters" role="group" aria-label="Filter conversations">
+                        <button type="button" class="ow-filter" data-filter="all" aria-pressed="true">All<small>@Model.Conversations.Count</small></button>
+                        <button type="button" class="ow-filter" data-filter="pending" aria-pressed="false">Pending reply<small>@pendingCount</small></button>
+                        <button type="button" class="ow-filter" data-filter="answered" aria-pressed="false">Answered<small>@answeredCount</small></button>
+                        <button type="button" class="ow-filter" data-filter="resolved" aria-pressed="false">Resolved<small>@resolvedCount</small></button>
+                    </div>
+                </div>
+                @if (Model.Conversations.Count == 0) {
+                    <p class="ow-filter-empty empty-state">No conversations in this category yet. Use New message to start one.</p>
+                } else {
+                    <ul class="ow-inbox-list" data-inbox-list>
+                        @foreach (var conversation in Model.Conversations) {
+                            var counterpart = Counterpart(conversation);
+                            var mineWaiting = conversation.Status == ClarificationStatus.Pending && conversation.RecipientUserId == userId;
+                            <li data-search-item data-state="@State(conversation)">
+                                <a class="ow-conv @(conversation.Id == selected?.Id ? "is-selected" : "")" aria-current="@(conversation.Id == selected?.Id ? "page" : null)"
+                                   asp-action="Messages" asp-route-group="@Model.Group" asp-route-conversationId="@conversation.Id">
+                                    <span class="ow-avatar" aria-hidden="true">@Initial(counterpart)</span>
+                                    <span class="ow-conv-top"><span class="ow-conv-name">@counterpart</span><time datetime="@conversation.AskedAt.ToString("O")">@conversation.AskedAt.ToString("dd MMM HH:mm")</time></span>
+                                    <span class="ow-conv-subject">@conversation.Subject</span>
+                                    <span class="ow-conv-preview">@conversation.Question</span>
+                                    <span class="ow-conv-foot">
+                                        @if (mineWaiting) { <span class="ow-dot" aria-hidden="true"></span> }
+                                        <span class="ow-chip @(mineWaiting ? "is-gold" : conversation.Status == ClarificationStatus.Resolved ? "is-quiet" : null)">@DisplayStatus(conversation)</span>
+                                    </span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                    <p class="ow-filter-empty" data-filter-empty hidden>No conversations match this filter.</p>
+                }
+            </aside>
+
+            <section class="ow-pane ow-convo" aria-label="Selected conversation">
+                @if (selected == null) {
+                    <div class="ow-empty-pane">
+                        <span class="ow-empty-icon">@Html.Raw(svgOpen + "M4 5h16v11H9l-5 4z" + svgClose)</span>
+                        <h2>Select a conversation</h2>
+                        <p>Read questions and responses, reply, or resolve a completed clarification.</p>
+                        <button type="button" class="btn btn-outline-primary" data-open-compose aria-haspopup="dialog" aria-controls="compose-dialog">New message</button>
+                    </div>
+                } else {
+                    <div class="ow-convo-head">
+                        <span class="ow-avatar" aria-hidden="true">@Initial(Counterpart(selected))</span>
+                        <div>
+                            <h2>@selected.Subject</h2>
+                            <p>@Counterpart(selected) · <span class="ow-chip">@DisplayStatus(selected)</span></p>
+                        </div>
+                        @if (selected.AskedByUserId == userId && selected.Status == ClarificationStatus.Answered) {
+                            <form asp-action="Resolve" method="post">
+                                <input type="hidden" name="id" value="@selected.Id" />
+                                <button type="submit" class="btn btn-outline-secondary">Mark resolved</button>
+                            </form>
+                        }
+                    </div>
+                    <ol class="ow-thread" data-message-thread tabindex="0" aria-label="Message history">
+                        <li class="ow-bubble-row @(selected.AskedByUserId == userId ? "is-mine" : "")">
+                            <div class="ow-bubble-meta"><strong>@(selected.AskedByUserId == userId ? "You" : Model.Group == "EvaluationCommittee" ? "Evaluation committee" : selected.AskedByUser.FullName)</strong><time datetime="@selected.AskedAt.ToString("O")">@selected.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time></div>
+                            <div class="ow-bubble">@selected.Question</div>
+                        </li>
+                        @foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt)) {
+                            <li class="ow-bubble-row @(response.RespondedByUserId == userId ? "is-mine" : "")">
+                                <div class="ow-bubble-meta"><strong>@(response.RespondedByUserId == userId ? "You" : Model.Group == "EvaluationCommittee" ? "Evaluation committee" : response.RespondedByUser?.FullName ?? "Participant")</strong><time datetime="@response.RespondedAt.ToString("O")">@response.RespondedAt.ToString("dd MMM yyyy HH:mm") UTC</time></div>
+                                <div class="ow-bubble">@response.ResponseText</div>
+                            </li>
+                        }
+                    </ol>
+                    <div class="ow-composer">
+                        @if (Model.CanReply) {
+                            <form asp-controller="Messages" asp-action="Reply" method="post">
+                                <input type="hidden" name="id" value="@selected.Id" />
+                                <label for="message-response">Your response</label>
+                                <textarea id="message-response" name="response" class="form-control" rows="3" required maxlength="3000"></textarea>
+                                <div class="ow-composer-actions"><button type="submit" class="btn btn-primary">Send response</button></div>
+                            </form>
+                        } else {
+                            <p class="ow-note">@(selected.Status == ClarificationStatus.Resolved ? "This conversation is resolved. Its history remains available." : "This transaction is no longer at a stage that permits a response, or the participant is no longer eligible. Its history remains available.")</p>
+                        }
+                    </div>
+                }
+            </section>
+
+            <aside class="ow-pane ow-details" aria-label="Transaction details">
+                <div class="ow-pane-head"><h2>Transaction details</h2></div>
+                <div class="ow-details-body">
+                    @if (selected == null) {
+                        <p class="ow-note mt-3">Select a conversation to see the request, tender or offer it belongs to.</p>
+                    } else if (selected.Bid != null) {
+                        <dl class="ow-facts">
+                            <div><dt>Type</dt><dd>Supplier offer</dd></div>
+                            <div><dt>Reference</dt><dd>@selected.Bid.BidNumber</dd></div>
+                            <div><dt>Supplier</dt><dd>@selected.Bid.Supplier.CompanyName</dd></div>
+                            <div><dt>Offer status</dt><dd>@selected.Bid.Status</dd></div>
+                            @if (selected.Tender != null) { <div><dt>Tender</dt><dd>@selected.Tender.TenderNumber · @selected.Tender.Title</dd></div> }
+                        </dl>
+                        <a class="btn btn-outline-primary" asp-action="Offers" asp-route-id="@selected.Bid.TenderId">Open offer comparison</a>
+                    } else if (selected.ProcurementRequest != null) {
+                        <dl class="ow-facts">
+                            <div><dt>Type</dt><dd>Purchase request</dd></div>
+                            <div><dt>Reference</dt><dd>@selected.ProcurementRequest.RequestNumber</dd></div>
+                            <div><dt>Title</dt><dd>@selected.ProcurementRequest.Title</dd></div>
+                            <div><dt>Status</dt><dd>@selected.ProcurementRequest.Status</dd></div>
+                            @if (selected.ProcurementRequest.Department != null) { <div><dt>Department</dt><dd>@selected.ProcurementRequest.Department.Name</dd></div> }
+                            @if (selected.ProcurementRequest.RequiredByDate != null) { <div><dt>Required by</dt><dd>@selected.ProcurementRequest.RequiredByDate.Value.ToString("dd MMM yyyy")</dd></div> }
+                        </dl>
+                        <a class="btn btn-outline-primary" asp-action="RequestDetails" asp-route-id="@selected.ProcurementRequest.Id">Open request</a>
+                    } else if (selected.Tender != null) {
+                        <dl class="ow-facts">
+                            <div><dt>Type</dt><dd>Tender</dd></div>
+                            <div><dt>Reference</dt><dd>@selected.Tender.TenderNumber</dd></div>
+                            <div><dt>Title</dt><dd>@selected.Tender.Title</dd></div>
+                            <div><dt>Status</dt><dd>@selected.Tender.Status</dd></div>
+                            <div><dt>Deadline</dt><dd><time class="device-local-time" datetime="@DateTime.SpecifyKind(selected.Tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@selected.Tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></dd></div>
+                        </dl>
+                        <a class="btn btn-outline-primary" asp-action="Details" asp-route-id="@selected.Tender.Id">Open tender</a>
+                    }
+                </div>
+            </aside>
+        </div>
+    </div>
 </div>
-@section Scripts { <script src="~/js/sourcing-messages.js" asp-append-version="true"></script> }
+@section Scripts {
+    <script src="~/js/sourcing-messages.js" asp-append-version="true"></script>
+    <script src="~/js/officer-messages-ui.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,73 @@
+/*
+ * Top Committee and Reports pages.
+ * Builds on the shared Zaytouna tokens from layout.css (--zt-ink, --zt-bg, --zt-sage-soft, --zt-line, --zt-olive, --zt-lime)
+ * and only replaces the places where Bootstrap's default blue still showed through. Nothing here touches other modules.
+ */
+.zt-app {
+  --tc-approve: #2F6B2F;
+  --tc-reject: #9A2E1C;
+  --tc-return: #A66A00;
+  --tc-wait: #7A8A7E;
+}
+
+.tc-kicker {
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--zt-olive, #4E6B2F);
+}
+
+/* ---------- the member's decision ---------- */
+.tc-decision { background: #fff; border: 1px solid var(--zt-line, rgba(23,64,42,.14)); border-radius: 22px; overflow: hidden; margin-bottom: 1.5rem; }
+.tc-decision-head { background: var(--zt-ink, #17402A); color: var(--zt-bg, #FBF3DF); padding: 18px 24px; }
+.tc-decision-head .tc-kicker { color: var(--zt-lime, #DCEB4B); display: block; margin-bottom: 4px; }
+.tc-decision-head h2 { margin: 0; font-size: 1.25rem; color: inherit; }
+.tc-decision-body { padding: 22px 24px 26px; }
+.tc-decision-body > p { max-width: 70ch; }
+
+.tc-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 1.25rem; }
+.tc-choice { position: relative; }
+.tc-choice input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.tc-choice label {
+  display: block; height: 100%; padding: 14px 16px 14px 48px; position: relative; cursor: pointer;
+  border: 2px solid var(--zt-line, rgba(23,64,42,.14)); border-radius: 16px; background: #fff;
+  transition: border-color .2s ease, background-color .2s ease, transform .2s ease;
+}
+.tc-choice label::before {
+  content: ''; position: absolute; left: 16px; top: 17px; width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--tc-wait); background: #fff; box-sizing: border-box;
+}
+.tc-choice strong { display: block; font-size: 1rem; }
+.tc-choice span { display: block; font-size: .85rem; color: var(--zt-muted, #5B6B5F); margin-top: 2px; }
+.tc-choice:hover label { transform: translateY(-1px); border-color: rgba(23,64,42,.35); }
+.tc-choice input:focus-visible + label { outline: 3px solid var(--zt-olive, #4E6B2F); outline-offset: 3px; }
+.tc-choice input:checked + label { background: var(--zt-sage-soft, #EEF0DC); }
+.tc-choice input:checked + label::before { background: currentColor; box-shadow: inset 0 0 0 4px #fff; }
+.tc-choice.is-approve input:checked + label { border-color: var(--tc-approve); color: var(--tc-approve); }
+.tc-choice.is-reject  input:checked + label { border-color: var(--tc-reject);  color: var(--tc-reject); }
+.tc-choice.is-return  input:checked + label { border-color: var(--tc-return);  color: var(--tc-return); }
+.tc-choice input:checked + label strong, .tc-choice input:checked + label span { color: var(--zt-ink, #17402A); }
+
+/* ---------- who has voted ---------- */
+.tc-seats { background: #fff; border: 1px solid var(--zt-line, rgba(23,64,42,.14)); border-radius: 22px; padding: 18px 22px; margin: 1rem 0 1.5rem; }
+.tc-seats-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.tc-seats ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.tc-seat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 16px; background: var(--zt-sage-soft, #EEF0DC); border-left: 5px solid var(--tc-wait); }
+.tc-seat-role { font-weight: 700; font-size: .95rem; }
+.tc-seat-name { font-size: .85rem; color: var(--zt-muted, #5B6B5F); }
+.tc-seat-state { font-family: 'DM Mono', ui-monospace, monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+.tc-seat.is-approved { border-left-color: var(--tc-approve); } .tc-seat.is-approved .tc-seat-state { color: var(--tc-approve); }
+.tc-seat.is-rejected { border-left-color: var(--tc-reject); }  .tc-seat.is-rejected .tc-seat-state { color: var(--tc-reject); }
+.tc-seat.is-returned { border-left-color: var(--tc-return); }  .tc-seat.is-returned .tc-seat-state { color: var(--tc-return); }
+.tc-seat.is-pending  .tc-seat-state { color: var(--tc-wait); }
+
+/* ---------- recommended bid row ---------- */
+.zt-app .table > tbody > tr.tc-recommended > * { background: var(--zt-sage-soft, #EEF0DC); --bs-table-bg: var(--zt-sage-soft, #EEF0DC); }
+.zt-app .table > tbody > tr.tc-recommended > :first-child { box-shadow: inset 5px 0 0 var(--zt-olive, #4E6B2F); }
+.tc-tag { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--zt-ink, #17402A); color: var(--zt-bg, #FBF3DF); font-size: 12px; font-weight: 700; }
+
+/* ---------- report charts ---------- */
+.tc-bar { background: var(--zt-ink, #17402A); border-radius: 999px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-choice label { transition: none; }
+  .tc-choice:hover label { transform: none; }
+}
