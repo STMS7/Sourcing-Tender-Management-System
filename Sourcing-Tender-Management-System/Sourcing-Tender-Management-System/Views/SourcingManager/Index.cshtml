@@ -13,6 +13,12 @@
     <div class="text-end"><span class="badge text-bg-primary fs-6">@Model.PendingReports.Count awaiting review</span></div>
 </div>
 
+<ul class="zt-bento" aria-label="Manager summary">
+    <li><div class="zt-tile @(Model.PendingReports.Count > 0 ? "is-alert" : "")"><span class="zt-tile-label">Reports awaiting your decision</span><span class="zt-tile-value">@Model.PendingReports.Count</span></div></li>
+    <li><div class="zt-tile @(Model.TopDecisionsToForward.Count > 0 ? "is-alert" : "")"><span class="zt-tile-label">Top Committee decisions to forward</span><span class="zt-tile-value">@Model.TopDecisionsToForward.Count</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Recent decisions</span><span class="zt-tile-value">@Model.RecentReports.Count</span><span class="zt-tile-note">Latest 10 shown below</span></div></li>
+</ul>
+
 @if (TempData["Message"] is string message)
 {
     <div class="alert alert-success" role="status">@message</div>

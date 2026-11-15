@@ -1,0 +1,98 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Sourcing_Tender_Management_System</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Sourcing_Tender_Management_System</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        @* <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                        </li>
+                        *@
+                        @if (User.IsInRole("Supplier"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Suppliers" asp-action="Index">Supplier Dashboard</a>
+                            </li>
+                        }
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Admin</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="AdminCommittee" asp-action="Index">Committees</a>
+                            </li>
+                        }
+                        @if (User.IsInRole("SourcingManager"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="SourcingManager" asp-action="Index">Manager Review</a>
+                            </li>
+                        }
+                        @if (User.IsInRole("ProcurementOfficer") || User.IsInRole("SourcingOfficer"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="SourcingOfficer" asp-action="Index">Sourcing</a>
+                            </li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Requests">Requests</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Tenders">Tenders</a></li>
+                        }
+                        @if (User.IsInRole("TechnicalRepresentative") || User.IsInRole("FinancialRepresentative") ||
+                            User.IsInRole("SourcingManager") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="EvaluationCommittee" asp-action="Index">Evaluation</a>
+                            </li>
+                        }
+                        @if (User.Identity?.IsAuthenticated == true && !User.IsInRole("ProcurementOfficer") && !User.IsInRole("SourcingOfficer"))
+                        {
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Messages" asp-action="Index">Messages</a></li>
+                        }
+                        @if (User.IsInRole("TopCommittee"))
+                        {
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="TopCommittee" asp-action="Index">Top committee</a></li>
+                        }
+                        @if (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
+                        {
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Department" asp-action="Dashboard">Department</a></li>
+                        }
+                    </ul>
+                    <partial name="_LoginPartial" />
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2026 - Sourcing_Tender_Management_System - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/sourcing-search.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

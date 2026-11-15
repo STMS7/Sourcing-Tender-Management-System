@@ -8,6 +8,11 @@
 <div class="sourcing-workspace py-4">
 <h1>Tender preparation and evaluation</h1>
 <p class="text-secondary">Technical and financial members approve criteria and weights while the tender is a draft. After bidding and compliance, all four members evaluate the compliant offers.</p>
+<ul class="zt-bento" aria-label="Committee summary">
+    <li><div class="zt-tile"><span class="zt-tile-label">Assigned tenders</span><span class="zt-tile-value">@Model.Count</span></div></li>
+    <li><div class="zt-tile @(Model.Any(r => r.ActionNeeded) ? "is-alert" : "")"><span class="zt-tile-label">Your action needed</span><span class="zt-tile-value">@Model.Count(r => r.ActionNeeded)</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Under evaluation</span><span class="zt-tile-value">@Model.Count(r => r.Tender.Status == TenderStatus.UnderEvaluation)</span></div></li>
+</ul>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "evaluation-search", ResultsId = "evaluation-search-results", Label = "Search assigned preparation and evaluation tenders" })" />

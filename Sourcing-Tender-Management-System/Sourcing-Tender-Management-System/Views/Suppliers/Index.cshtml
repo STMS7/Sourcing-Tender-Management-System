@@ -14,32 +14,11 @@
     <div class="alert alert-warning" role="status">Your registration is pending. Access is temporarily enabled for development testing.</div>
 }
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-dashboard-search", ResultsId = "supplier-dashboard-search-results", Label = "Search dashboard summaries and company profile" })" />
-<div class="row g-3 mb-4">
-    <div data-search-item class="col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6 text-muted">Tender invitations</h2>
-            <p class="display-6 mb-2">@Model.Invitations</p>
-            <p class="small text-muted mb-0">All tender invitations sent to your company.</p>
-            <a asp-action="Invitations" class="btn btn-outline-primary mt-3">View invitations</a>
-        </div></div>
-    </div>
-    <div data-search-item class="col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6 text-muted">My offers</h2>
-            <p class="display-6 mb-2">@Model.Offers</p>
-            <p class="small text-muted mb-0">All offers submitted or saved by your company.</p>
-            <a asp-action="Offers" class="btn btn-outline-primary mt-3">My offers</a>
-        </div></div>
-    </div>
-    <div data-search-item class="col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6 text-muted">Pending clarifications</h2>
-            <p class="display-6 mb-2">@Model.Questions</p>
-            <p class="small text-muted mb-0">Clarification requests awaiting your response.</p>
-            <a asp-action="Questions" class="btn btn-outline-primary mt-3">Clarifications</a>
-        </div></div>
-    </div>
-</div>
+<ul class="zt-bento" aria-label="Supplier summary">
+    <li data-search-item><a class="zt-tile" asp-action="Invitations"><span class="zt-tile-label">Tender invitations</span><span class="zt-tile-value">@Model.Invitations</span><span class="zt-tile-note">All tender invitations sent to your company.</span></a></li>
+    <li data-search-item><a class="zt-tile" asp-action="Offers"><span class="zt-tile-label">My offers</span><span class="zt-tile-value">@Model.Offers</span><span class="zt-tile-note">All offers submitted or saved by your company.</span></a></li>
+    <li data-search-item><a class="zt-tile" asp-action="Questions"><span class="zt-tile-label">Pending clarifications</span><span class="zt-tile-value">@Model.Questions</span><span class="zt-tile-note">Clarification requests awaiting your response.</span></a></li>
+</ul>
 <div data-search-item class="card mb-4"><div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
     <div><h2 class="h5 mb-1">Notifications</h2><p class="text-muted mb-0">Unread notifications: <strong>@Model.UnreadNotifications</strong></p></div>
     <a asp-action="Notifications" class="btn btn-outline-primary">My notifications</a>
