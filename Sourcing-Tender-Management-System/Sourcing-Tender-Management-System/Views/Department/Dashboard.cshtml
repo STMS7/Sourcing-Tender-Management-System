@@ -22,7 +22,7 @@
 <div class="department-dashboard-grid"><section class="department-panel department-dashboard-card"><div class="department-section-heading"><div class="department-section-title"><span class="department-section-icon" aria-hidden="true">▱</span><div><h2>Recent requests</h2><p>The latest purchase requests from your department.</p></div></div><a asp-action="Index">View all requests <span aria-hidden="true">→</span></a></div><ul class="department-activity-list">
 @foreach (var r in Model)
 {
-    <li data-search-item><a asp-action="Details" asp-route-id="@r.Id"><span class="department-row-icon" aria-hidden="true">▣</span><span><strong>@r.Title</strong></span><span class="department-status">@r.Status</span></a></li>
+    <li data-search-item><a asp-action="Details" asp-route-id="@r.Id"><span><strong>@r.Title</strong></span><span class="department-status">@r.Status</span></a></li>
 }
 </ul></section>
 <section class="department-panel department-dashboard-card"><div class="department-section-heading"><div class="department-section-title"><span class="department-section-icon" aria-hidden="true">♧</span><div><h2>Latest notifications</h2><p>Updates and responses related to your requests.</p></div></div></div><ul class="department-notification-list">

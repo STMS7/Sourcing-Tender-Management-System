@@ -1,14 +1,14 @@
 @model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @using Sourcing_Tender_Management_System.Models
 @{ ViewData["Title"] = "Request Details"; }
-<div id="department-details-search-results" class="department-workspace">
-<header class="department-page-header department-page-header-compact"><div><span class="department-eyebrow">@Model.RequestNumber</span><h1>@Model.Title</h1><p>Review request details, sourcing feedback and the current progress.</p></div><div class="department-page-actions"><a class="btn btn-outline-primary" asp-action="Index">All requests</a>
+<div id="department-details-search-results" class="department-workspace department-details-page">
+<header class="department-page-header department-page-header-compact department-details-header"><div><span class="department-eyebrow">@Model.RequestNumber</span><h1>@Model.Title</h1><p>Review request details, sourcing feedback and the current progress.</p></div><div class="department-page-actions"><a class="btn btn-outline-primary" asp-action="Index">All requests</a>
 @if (Model.Status == ProcurementRequestStatus.Draft || Model.Status == ProcurementRequestStatus.Returned) { <a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit request</a> }</div></header>
 <section class="department-detail-overview"><div class="department-status-card"><span>Current status</span><strong>@Model.Status</strong></div><dl class="department-detail-list">
 <div><dt>Priority</dt><dd>@Model.Priority</dd></div><div><dt>Required date</dt><dd>@Model.RequiredByDate?.ToString("yyyy-MM-dd")</dd></div><div><dt>Estimated budget</dt><dd>@Model.EstimatedBudget</dd></div><div><dt>Request number</dt><dd>@Model.RequestNumber</dd></div></dl></section>
-<section class="department-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Request brief</span><h2>Description / reason</h2></div></div><p class="department-description">@Model.Description</p></section>
+<section class="department-panel department-details-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Request brief</span><h2>Description / reason</h2></div></div><p class="department-description">@Model.Description</p></section>
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-details-search", ResultsId = "department-details-search-results", Label = "Search request items and review notes" })" />
-<section class="department-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Requested goods or services</span><h2>Items</h2></div></div><div class="table-responsive"><table class="table department-table">
+<section class="department-panel department-details-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Requested goods or services</span><h2>Items</h2></div></div><div class="table-responsive"><table class="table department-table">
 <thead><tr><th>Item</th><th>Specifications</th><th>Quantity</th><th>Unit</th><th>Estimated unit price</th></tr></thead>
 <tbody>
 @foreach (var i in Model.Items)
@@ -16,13 +16,13 @@
     <tr data-search-item><td>@i.ItemName</td><td>@i.Specifications</td><td>@i.Quantity</td><td>@i.Unit</td><td>@i.EstimatedUnitPrice</td></tr>
 }
 </tbody></table></div></section>
-<section class="department-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Sourcing feedback</span><h2>Review notes</h2></div></div><ul class="department-timeline">
+<section class="department-panel department-details-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Sourcing feedback</span><h2>Review notes</h2></div></div><ul class="department-timeline">
 @foreach (var r in Model.Reviews.OrderByDescending(r => r.ReviewedAt))
 {
     <li data-search-item><time>@r.ReviewedAt.ToLocalTime().ToString("MMM dd, yyyy · HH:mm")</time><div><strong>@r.Decision</strong><span>@r.Reason</span><small>@r.ReviewerUser?.FullName</small></div></li>
 }
 </ul></section>
-<section class="department-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Progress</span><h2>Related tenders</h2></div></div><ul class="department-activity-list">@foreach (var t in Model.Tenders) { <li data-search-item><span><strong>@t.TenderNumber</strong></span><span class="department-status">@t.Status</span></li> }</ul></section>
+<section class="department-panel department-details-panel"><div class="department-section-heading"><div><span class="department-eyebrow">Progress</span><h2>Related tenders</h2></div></div><ul class="department-activity-list">@foreach (var t in Model.Tenders) { <li data-search-item><span><strong>@t.TenderNumber</strong></span><span class="department-status">@t.Status</span></li> }</ul></section>
 @if (Model.Status == ProcurementRequestStatus.Draft || Model.Status == ProcurementRequestStatus.Returned)
 {
     <section class="department-callout"><div><strong>Ready to send?</strong><span>Submitting sends the request to the sourcing team for review.</span></div><form asp-action="Submit" asp-route-id="@Model.Id" method="post"><button type="submit" class="btn btn-primary">Submit / resubmit</button></form></section>
