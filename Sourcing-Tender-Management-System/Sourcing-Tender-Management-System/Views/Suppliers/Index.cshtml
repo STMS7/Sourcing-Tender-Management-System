@@ -1,67 +1,178 @@
 @model SupplierDashboardViewModel
+@using Microsoft.EntityFrameworkCore
+@inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
 @{
-    ViewData["Title"] = "Supplier Dashboard";
-    var statusClass = Model.Supplier.RegistrationStatus == SupplierRegistrationStatus.Approved ? "bg-success"
-        : Model.Supplier.RegistrationStatus == SupplierRegistrationStatus.Pending ? "bg-warning text-dark" : "bg-danger";
-}
-<div id="supplier-dashboard-search-results">
-<div class="mb-4">
-    <h1 class="h2">Supplier Dashboard</h1>
-    <p class="text-muted">Welcome, @Model.Supplier.CompanyName. Here is an overview of your supplier account.</p>
-</div>
-@if (ViewBag.DevelopmentBypass == true)
-{
-    <div class="alert alert-warning" role="status">Your registration is pending. Access is temporarily enabled for development testing.</div>
-}
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-dashboard-search", ResultsId = "supplier-dashboard-search-results", Label = "Search dashboard summaries and company profile" })" />
-<div class="row g-3 mb-4">
-    <div data-search-item class="col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6 text-muted">Tender invitations</h2>
-            <p class="display-6 mb-2">@Model.Invitations</p>
-            <p class="small text-muted mb-0">All tender invitations sent to your company.</p>
-            <a asp-action="Invitations" class="btn btn-outline-primary mt-3">View invitations</a>
-        </div></div>
-    </div>
-    <div data-search-item class="col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6 text-muted">My offers</h2>
-            <p class="display-6 mb-2">@Model.Offers</p>
-            <p class="small text-muted mb-0">All offers submitted or saved by your company.</p>
-            <a asp-action="Offers" class="btn btn-outline-primary mt-3">My offers</a>
-        </div></div>
-    </div>
-    <div data-search-item class="col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6 text-muted">Pending clarifications</h2>
-            <p class="display-6 mb-2">@Model.Questions</p>
-            <p class="small text-muted mb-0">Clarification requests awaiting your response.</p>
-            <a asp-action="Questions" class="btn btn-outline-primary mt-3">Clarifications</a>
-        </div></div>
-    </div>
-</div>
-<div data-search-item class="card mb-4"><div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
-    <div><h2 class="h5 mb-1">Notifications</h2><p class="text-muted mb-0">Unread notifications: <strong>@Model.UnreadNotifications</strong></p></div>
-    <a asp-action="Notifications" class="btn btn-outline-primary">My notifications</a>
-</div></div>
-<div data-search-item class="card mb-4">
-    <div class="card-header"><h2 class="h5 mb-0">Company profile</h2></div>
-    <div class="card-body">
-        <dl class="row mb-0">
-            <dt class="col-sm-4">Company name</dt><dd class="col-sm-8">@Model.Supplier.CompanyName</dd>
-            <dt class="col-sm-4">Registration number</dt><dd class="col-sm-8">@Model.Supplier.RegistrationNumber</dd>
-            <dt class="col-sm-4">Company email</dt><dd class="col-sm-8">@Model.Supplier.Email</dd>
-            <dt class="col-sm-4">Phone number</dt><dd class="col-sm-8">@(Model.Supplier.PhoneNumber ?? "Not provided")</dd>
-            <dt class="col-sm-4">Address</dt><dd class="col-sm-8">@(Model.Supplier.Address ?? "Not provided")</dd>
-            <dt class="col-sm-4">Registration status</dt><dd class="col-sm-8"><span class="badge @statusClass">@Model.Supplier.RegistrationStatus</span></dd>
-            <dt class="col-sm-4">Legal verification</dt><dd class="col-sm-8">@Model.Supplier.LegalVerificationStatus</dd>
-            <dt class="col-sm-4">Registered on (UTC)</dt><dd class="col-sm-8">@Model.Supplier.RegisteredAt.ToString("dd MMM yyyy HH:mm")</dd>
-        </dl>
-        @if (!string.IsNullOrWhiteSpace(Model.Supplier.ReviewReason))
-        {
-            <div class="alert alert-info mt-3 mb-0"><strong>Administrator note:</strong> @Model.Supplier.ReviewReason</div>
-        }
-    </div>
-</div>
+    ViewData["Title"] = "Dashboard";
+    var s = Model.Supplier;
+    var (statusClass, statusText) = s.RegistrationStatus switch
+    {
+        SupplierRegistrationStatus.Approved => ("ok", "Approved"),
+        SupplierRegistrationStatus.Pending => ("wait", "Pending approval"),
+        SupplierRegistrationStatus.Rejected => ("bad", "Rejected"),
+        _ => ("bad", s.RegistrationStatus.ToString())
+    };
+    var invitations = await Db.TenderInvitations.AsNoTracking().Include(i => i.Tender)
+        .Where(i => i.SupplierId == s.Id && i.Tender.Status != TenderStatus.Draft)
+        .OrderByDescending(i => i.InvitedAt).Take(5).ToListAsync();
+    var offers = await Db.Bids.AsNoTracking().Include(b => b.Tender)
+        .Where(b => b.SupplierId == s.Id)
+        .OrderByDescending(b => b.SubmittedAt).Take(5).ToListAsync();
+    var hour = DateTime.Now.Hour;
+    var greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
+    static (string css, string text) InviteChip(InvitationStatus st) => st switch
+    {
+        InvitationStatus.Invited => ("wait", "Awaiting reply"),
+        InvitationStatus.Accepted => ("ok", "Accepted"),
+        InvitationStatus.Declined => ("bad", "Declined"),
+        _ => ("info", st.ToString())
+    };
+    static (string css, string text) BidChip(BidStatus st) => st switch
+    {
+        BidStatus.Draft => ("info", "Draft"),
+        BidStatus.Submitted or BidStatus.UnderReview or BidStatus.UnderEvaluation => ("wait", st == BidStatus.Submitted ? "Submitted" : "Under review"),
+        BidStatus.Compliant or BidStatus.Accepted => ("ok", st.ToString()),
+        BidStatus.Withdrawn => ("info", "Withdrawn"),
+        _ => ("bad", st.ToString())
+    };
+}
+<style>
+.sd-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px}
+.sd-head .sp-chip{font-size:12px;padding:6px 13px}
+.sd-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px}
+.sd-stat{position:relative;overflow:hidden;display:flex;flex-direction:column;min-height:168px;padding:20px 22px;border-radius:24px;border:1px solid var(--sp-beige);background:var(--sp-white);color:var(--sp-deep);text-decoration:none;transition:transform .25s,box-shadow .25s}
+.sd-stat:hover{transform:translateY(-3px);box-shadow:0 26px 40px -30px rgba(61,74,42,.7);color:var(--sp-deep)}
+.sd-stat small{font:500 11.5px 'DM Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--sp-grey)}
+.sd-stat b{margin-top:auto;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:52px;line-height:1}
+.sd-stat span{margin-top:6px;font-size:13px;color:var(--sp-grey)}
+.sd-stat::after{content:"";position:absolute;right:-30px;bottom:-40px;width:130px;height:130px;border-radius:60% 0 60% 0;background:currentColor;opacity:.07;transform:rotate(-20deg)}
+.sd-stat.gold{background:linear-gradient(150deg,#D9BE6A,var(--sp-gold));border-color:transparent}.sd-stat.gold small,.sd-stat.gold span{color:#4F4214}
+.sd-stat.sage{background:#EDEADB}.sd-stat.mint{background:#E6EBD5}
+.sd-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start}
+.sd-col{display:grid;gap:18px}
+.sd-dead{font-family:'DM Mono',monospace;font-size:12px;color:var(--sp-grey)}.sd-dead.soon{color:var(--sp-red);font-weight:500}
+.sd-profile dl{margin:0;display:grid;gap:12px}
+.sd-profile dl div{display:flex;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:1px dashed var(--sp-beige)}
+.sd-profile dl div:last-child{border:0;padding:0}
+.sd-profile dt{font-size:13px;color:var(--sp-grey);font-weight:500}.sd-profile dd{margin:0;font-weight:600;font-size:14px;text-align:right;color:var(--sp-ink);word-break:break-word;max-width:62%}
+.sd-note{margin-top:16px;padding:13px 16px;border-radius:14px;background:#F6EACB;color:#6A5414;font-size:14px}
+.sd-steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.sd-steps li{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:center;font-size:14.5px;color:var(--sp-grey)}
+.sd-steps i{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1.5px solid var(--sp-beige);font:600 12px 'DM Mono',monospace;font-style:normal}
+.sd-steps li.done{color:var(--sp-ink)}.sd-steps li.done i{background:var(--sp-deep);border-color:var(--sp-deep);color:var(--sp-gold)}
+.sd-steps li.now i{border-color:var(--sp-gold);color:var(--sp-deep);background:#F6EACB}
+.sd-steps b{display:block;color:inherit;font-weight:600}.sd-steps small{font-size:12.5px;color:var(--sp-grey)}
+@@media (max-width:1180px){.sd-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.sd-grid{grid-template-columns:1fr}}
+@@media (max-width:560px){.sd-stats{grid-template-columns:1fr}.sp-table th:nth-child(3),.sp-table td:nth-child(3){display:none}}
+</style>
+
+<div id="supplier-dashboard-search-results">
+    <div class="sd-head">
+        <div>
+            <span class="sp-eyebrow">@greeting</span>
+            <h1 class="sp-h1">@s.CompanyName</h1>
+            <p class="sp-sub">Here is what is waiting for you today.</p>
+        </div>
+        <span class="sp-chip @statusClass"><i></i>@statusText</span>
+    </div>
+
+    @if (ViewBag.DevelopmentBypass == true)
+    {
+        <div class="sp-alert wait" role="status">Your registration is pending. Access is temporarily enabled for development testing.</div>
+    }
+
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-dashboard-search", ResultsId = "supplier-dashboard-search-results", Label = "Search dashboard summaries and company profile" })" />
+
+    <div class="sd-stats">
+        <a data-search-item class="sd-stat gold" asp-action="Invitations"><small>Tender invitations</small><b>@Model.Invitations</b><span>Sent to your company</span></a>
+        <a data-search-item class="sd-stat sage" asp-action="Offers"><small>My offers</small><b>@Model.Offers</b><span>Submitted or saved</span></a>
+        <a data-search-item class="sd-stat mint" asp-controller="Messages" asp-action="Index"><small>Messages</small><b>@Model.Questions</b><span>@(Model.Questions > 0 ? "Waiting for your reply" : "Nothing to answer")</span></a>
+        <a data-search-item class="sd-stat" asp-action="Notifications"><small>Notifications</small><b>@Model.UnreadNotifications</b><span>Unread</span></a>
+    </div>
+
+    <div class="sd-grid">
+        <div class="sd-col">
+            <section data-search-item class="sp-card" aria-labelledby="sd-inv">
+                <div class="sp-card-h"><h2 id="sd-inv">Latest invitations</h2><a class="sp-link" asp-action="Invitations">View all &rarr;</a></div>
+                @if (invitations.Count == 0)
+                {
+                    <div class="sp-empty">No invitations yet. When Zaytouna invites you to a tender, it will appear here.</div>
+                }
+                else
+                {
+                    <div class="table-responsive"><table class="sp-table">
+                        <thead><tr><th>Tender</th><th>Deadline</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var i in invitations)
+                        {
+                            var chip = InviteChip(i.Status);
+                            var daysLeft = (i.Tender.SubmissionDeadline - DateTime.UtcNow).TotalDays;
+                            <tr>
+                                <td><b>@i.Tender.Title</b><small>@i.Tender.TenderNumber</small></td>
+                                <td><time class="device-local-time" datetime="@i.Tender.SubmissionDeadline.ToString("o")">@i.Tender.SubmissionDeadline.ToString("dd MMM yyyy")</time>
+                                    <small class="sd-dead @(daysLeft is >= 0 and < 3 ? "soon" : "")">@(daysLeft < 0 ? "Closed" : Math.Ceiling(daysLeft) + " days left")</small></td>
+                                <td><span class="sp-chip @chip.css"><i></i>@chip.text</span></td>
+                                <td class="sp-num"><a class="sp-btn ghost" asp-action="Invitation" asp-route-id="@i.Id">Open</a></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table></div>
+                }
+            </section>
+
+            <section data-search-item class="sp-card" aria-labelledby="sd-off">
+                <div class="sp-card-h"><h2 id="sd-off">My recent offers</h2><a class="sp-link" asp-action="Offers">View all &rarr;</a></div>
+                @if (offers.Count == 0)
+                {
+                    <div class="sp-empty">You haven&rsquo;t submitted an offer yet. Open an invitation to start one.</div>
+                }
+                else
+                {
+                    <div class="table-responsive"><table class="sp-table">
+                        <thead><tr><th>Offer</th><th class="sp-num">Total</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var b in offers)
+                        {
+                            var chip = BidChip(b.Status);
+                            <tr>
+                                <td><b>@b.BidNumber</b><small>@b.Tender.Title</small></td>
+                                <td class="sp-num"><b>@b.TotalAmount.ToString("N2")</b><small>@b.Currency</small></td>
+                                <td><span class="sp-chip @chip.css"><i></i>@chip.text</span></td>
+                                <td class="sp-num"><a class="sp-btn ghost" asp-action="OfferDetails" asp-route-id="@b.Id">Details</a></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table></div>
+                }
+            </section>
+        </div>
+
+        <div class="sd-col">
+            <section data-search-item class="sp-card" aria-labelledby="sd-journey">
+                <div class="sp-card-h"><h2 id="sd-journey">Your journey</h2></div>
+                <ol class="sd-steps">
+                    <li class="done"><i>&#10003;</i><span><b>Registered</b><small>@s.RegisteredAt.ToString("dd MMM yyyy")</small></span></li>
+                    <li class="@(s.RegistrationStatus == SupplierRegistrationStatus.Approved ? "done" : "now")"><i>@(s.RegistrationStatus == SupplierRegistrationStatus.Approved ? "✓" : "2")</i><span><b>Approved by Zaytouna</b><small>@(s.RegistrationStatus == SupplierRegistrationStatus.Approved ? "You can bid on tenders" : "Waiting for administrator review")</small></span></li>
+                    <li class="@(Model.Invitations > 0 ? "done" : (s.RegistrationStatus == SupplierRegistrationStatus.Approved ? "now" : ""))"><i>@(Model.Invitations > 0 ? "✓" : "3")</i><span><b>First invitation</b><small>@(Model.Invitations > 0 ? Model.Invitations + " received" : "We invite suppliers by category")</small></span></li>
+                    <li class="@(Model.Offers > 0 ? "done" : (Model.Invitations > 0 ? "now" : ""))"><i>@(Model.Offers > 0 ? "✓" : "4")</i><span><b>First offer</b><small>@(Model.Offers > 0 ? Model.Offers + " submitted" : "Reply to an invitation with your best offer")</small></span></li>
+                </ol>
+            </section>
+
+            <section data-search-item class="sp-card sd-profile" aria-labelledby="sd-prof">
+                <div class="sp-card-h"><h2 id="sd-prof">Company profile</h2></div>
+                <dl>
+                    <div><dt>Registration no.</dt><dd>@s.RegistrationNumber</dd></div>
+                    <div><dt>Email</dt><dd>@s.Email</dd></div>
+                    <div><dt>Phone</dt><dd>@(s.PhoneNumber ?? "Not provided")</dd></div>
+                    <div><dt>Address</dt><dd>@(s.Address ?? "Not provided")</dd></div>
+                    <div><dt>Legal verification</dt><dd>@s.LegalVerificationStatus</dd></div>
+                    <div><dt>Registered</dt><dd><time class="device-local-time" datetime="@s.RegisteredAt.ToString("o")">@s.RegisteredAt.ToString("dd MMM yyyy HH:mm")</time></dd></div>
+                </dl>
+                @if (!string.IsNullOrWhiteSpace(s.ReviewReason))
+                {
+                    <div class="sd-note"><strong>Administrator note:</strong> @s.ReviewReason</div>
+                }
+            </section>
+        </div>
+    </div>
 </div>

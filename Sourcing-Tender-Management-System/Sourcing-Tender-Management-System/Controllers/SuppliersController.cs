@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -34,9 +35,17 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
     }
 
     [AllowAnonymous, HttpGet]
-    public IActionResult Register()
+    public async Task<IActionResult> Register()
     {
-        if (User.Identity?.IsAuthenticated == true) return RedirectToAction("Index", "Home");
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            // A signed-in supplier already has an account: send it to its dashboard.
+            if (User.IsInRole("Supplier")) return RedirectToAction(nameof(Index));
+            // Any other signed-in account (staff testing the site) is signed out,
+            // so the public "Supplier Registration" link always opens the form.
+            await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            return RedirectToAction(nameof(Register));
+        }
         ViewBag.DevelopmentBypass = DevelopmentBypass;
         return View(new SupplierRegisterViewModel());
     }
