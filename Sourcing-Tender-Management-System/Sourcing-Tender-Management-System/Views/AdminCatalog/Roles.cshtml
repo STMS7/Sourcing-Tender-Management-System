@@ -1,31 +1,87 @@
 @model IReadOnlyList<Microsoft.AspNetCore.Identity.IdentityRole>
-@{ ViewData["Title"] = "Roles"; }
-<div id="role-search-results">
-<h1>Roles</h1>
-<p>Assign a role from the user edit page.</p>
-@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
-@if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
-<form asp-action="CreateRole" method="post" class="d-flex gap-2 mb-4">
-    @Html.AntiForgeryToken()
-    <input name="name" class="form-control" style="max-width:300px" placeholder="New role name" required maxlength="100" />
-    <button class="btn btn-primary" type="submit">Add role</button>
-</form>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "role-search", ResultsId = "role-search-results", Label = "Search roles" })" />
-<table class="table table-striped"><thead><tr><th>Role</th><th>Action</th></tr></thead><tbody>
-@foreach (var role in Model)
-{
-    <tr data-search-item><td>@role.Name</td><td>
-        @if (role.Name is not ("Admin" or "ProcurementOfficer" or "EvaluationCommittee" or "TopCommittee" or "Supplier"))
-        {
-            <form asp-action="DeleteRole" method="post" onsubmit="return confirm('Delete this unused role?');">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="id" value="@role.Id" />
-                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
-            </form>
-        }
-        else { <span>Core role</span> }
-    </td></tr>
+@{
+    ViewData["Title"] = "Roles";
+    var currentPage = ViewBag.CurrentPage is int page ? page : 1;
+    var totalPages = ViewBag.TotalPages is int pages ? pages : 1;
+    var totalCount = ViewBag.TotalCount is int count ? count : Model.Count;
+    const int pageSize = 4;
+    var firstResult = totalCount == 0 ? 0 : ((currentPage - 1) * pageSize) + 1;
+    var lastResult = Math.Min(currentPage * pageSize, totalCount);
+    var coreRoles = ViewBag.CoreRoles as HashSet<string> ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 }
-</tbody></table>
 
+<div class="py-4">
+    <a class="btn btn-sm btn-outline-primary mb-3" asp-controller="Admin" asp-action="Users">← Back to users</a>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+        <div>
+            <h1 class="mb-1">Roles</h1>
+            <p class="text-secondary mb-0">Create system roles and assign them from the Users page.</p>
+        </div>
+        <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#add-role-modal">Add role</button>
+    </div>
+    @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
+    @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
+
+    <div class="modal fade" id="add-role-modal" tabindex="-1" aria-labelledby="add-role-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div><h2 class="modal-title h4 mb-1" id="add-role-title">Add role</h2><p class="small text-secondary mb-0">Create a new role that can be assigned to users.</p></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form asp-action="CreateRole" method="post">
+                    <div class="modal-body">
+                        @Html.AntiForgeryToken()
+                        <label class="form-label" for="new-role-name">Role name</label>
+                        <input id="new-role-name" name="name" class="form-control" placeholder="New role name" required maxlength="100" autofocus />
+                        <div class="form-text">Use letters, numbers or underscores only.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button class="btn btn-primary" type="submit">Add role</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "role-search", ResultsId = "role-results", Label = "Search roles", Placeholder = "Search by role name", Action = Url.Action("Roles", "AdminCatalog"), SearchValue = ViewBag.Search, Local = false })" />
+
+    <div id="role-results" aria-busy="false">
+    <span hidden data-result-count="@totalCount"></span>
+    <div class="d-flex justify-content-between px-1 mb-2 small text-secondary"><span>Showing @firstResult–@lastResult of @totalCount roles</span><span>Page @currentPage of @totalPages</span></div>
+    <div class="table-responsive shadow-sm rounded-4 zt-admin-table">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Role</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            @foreach (var role in Model)
+            {
+                var isCore = role.Name is not null && coreRoles.Contains(role.Name);
+                <tr>
+                    <td><strong>@role.Name</strong></td>
+                    <td><span class="badge rounded-pill @(isCore ? "text-bg-light border" : "text-bg-secondary")">@(isCore ? "Core role" : "Custom role")</span></td>
+                    <td class="text-end">
+                        @if (!isCore)
+                        {
+                            <form asp-action="DeleteRole" method="post" class="d-inline" onsubmit="return confirm('Delete this unused role?');">
+                                @Html.AntiForgeryToken()<input type="hidden" name="id" value="@role.Id" /><button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                            </form>
+                        }
+                        else { <span class="text-secondary small">Protected</span> }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Count == 0) { <div class="alert alert-light border mt-3">No roles found.</div> }
+    @if (totalPages > 1)
+    {
+        <nav class="mt-4" aria-label="Roles pages"><ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item @(currentPage == 1 ? "disabled" : null)"><a class="page-link" asp-action="Roles" asp-route-search="@ViewBag.Search" asp-route-page="@(currentPage - 1)">Previous</a></li>
+            @for (var number = 1; number <= totalPages; number++) { <li class="page-item @(number == currentPage ? "active" : null)"><a class="page-link" asp-action="Roles" asp-route-search="@ViewBag.Search" asp-route-page="@number">@number</a></li> }
+            <li class="page-item @(currentPage == totalPages ? "disabled" : null)"><a class="page-link" asp-action="Roles" asp-route-search="@ViewBag.Search" asp-route-page="@(currentPage + 1)">Next</a></li>
+        </ul></nav>
+    }
+    </div>
 </div>

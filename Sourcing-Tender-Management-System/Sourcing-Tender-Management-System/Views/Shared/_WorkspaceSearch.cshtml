@@ -4,20 +4,20 @@
         ["VoiceLanguageId"] = Model.Id + "-language"
     };
 }
-<form method="get" class="row g-3 align-items-end my-3" role="search"
-      data-live-search data-local-search data-results="@Model.ResultsId"
+<form method="get" action="@Model.Action" class="zt-search-toolbar my-3" role="search"
+      data-live-search data-local-search="@(Model.Local ? "" : null)" data-search-response="@(Model.Local ? null : "document")" data-results="@Model.ResultsId"
       data-row-selector="[data-search-item]" data-search-status="@(Model.Id)-status"
       data-empty-state="@(Model.Id)-empty" hidden>
-    <div class="col-md-6">
-        <label for="@Model.Id" class="form-label">@Model.Label</label>
-        <input id="@Model.Id" type="search" class="form-control" placeholder="@Model.Placeholder"
-               dir="auto" autocomplete="off" data-search-input />
+    <label for="@Model.Id" class="form-label">@Model.Label</label>
+    <div class="zt-search-line">
+        <div class="zt-search-shell">
+            <input id="@Model.Id" name="search" value="@Model.SearchValue" type="search" class="form-control zt-search-input" placeholder="@Model.Placeholder"
+                   dir="auto" autocomplete="off" data-search-input />
+            <partial name="_SearchVoiceTools" view-data="languageData" />
+        </div>
+        <button class="btn btn-primary zt-search-submit" type="submit">Search</button>
+        <button class="btn btn-outline-secondary zt-search-clear" type="button" data-search-reset>Clear</button>
     </div>
-    <div class="col-md-3"><partial name="_VoiceLanguage" view-data="languageData" /></div>
-    <div class="col-md-3 d-flex flex-wrap gap-2">
-        <button class="btn btn-outline-primary" type="button" data-voice-search aria-pressed="false">Search by voice</button>
-        <button class="btn btn-link" type="button" data-search-reset>Clear search</button>
-    </div>
-    <p class="col-12 small text-secondary mb-0" id="@(Model.Id)-status" role="status">Search the records loaded on this page.</p>
+    <p class="small text-secondary mb-0 mt-2" id="@(Model.Id)-status" role="status">Search the records loaded on this page.</p>
 </form>
 <p id="@(Model.Id)-empty" class="alert alert-info" data-search-empty hidden>No matching records. Clear the search to show all records.</p>

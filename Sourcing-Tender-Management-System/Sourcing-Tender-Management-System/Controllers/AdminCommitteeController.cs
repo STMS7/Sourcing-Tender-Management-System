@@ -13,8 +13,25 @@ namespace Sourcing_Tender_Management_System.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminCommitteeController(ApplicationDbContext db) : Controller
 {
-    public async Task<IActionResult> Index() => View(await db.Tenders.AsNoTracking()
-        .Include(t => t.CommitteeMembers).OrderByDescending(t => t.CreatedAt).ToListAsync());
+    public async Task<IActionResult> Index(string? search, int page = 1)
+    {
+        // Committee rows are taller because each tender shows its title and action;
+        // four rows keep the pager visible on a normal laptop viewport.
+        const int pageSize = 4;
+        search = search?.Trim();
+        var query = db.Tenders.AsNoTracking().Include(t => t.CommitteeMembers).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(t => t.TenderNumber.Contains(search) || t.Title.Contains(search));
+        var totalCount = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        ViewBag.Search = search;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = totalPages;
+        ViewBag.TotalCount = totalCount;
+        return View(await query.OrderByDescending(t => t.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync());
+    }
 
     public async Task<IActionResult> Details(int id)
     {
