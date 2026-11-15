@@ -20,10 +20,12 @@ async page => {
     await page.getByRole('button',{name:'Sign in',exact:true}).click();
     await page.waitForURL(base + '/SourcingOfficer');
     page.off('response',onResponse); page.off('request',onRequest);
-    check(confirmedAt && navigationAt && navigationAt - confirmedAt < 500, 'Workspace request begins without animation delay');
-    check(await page.locator('.zt-signin-olive').count() > 0, 'Olives continue after workspace opens');
-    check(!await page.locator('body').evaluate(el => el.inert), 'Workspace is usable during celebration');
-    await page.getByRole('button', { name: 'Logout', exact: true }).click();
+    // The success film plays on Login after the server confirms, then the workspace opens clean.
+    // 3.5 s is the hard ceiling in auth-login.js; allow a little for the navigation itself.
+    check(confirmedAt && navigationAt && navigationAt >= confirmedAt && navigationAt - confirmedAt < 4200, 'Workspace opens within the bounded success transition');
+    check(await page.locator('.zt-oil-success, .zt-signin-olive, .zt-signin-rain').count() === 0, 'Workspace opens without any leftover celebration');
+    check(!await page.locator('body').evaluate(el => el.inert), 'Workspace is usable on arrival');
+    await page.getByRole('button', { name: /^Log\s*out$/i }).click();
     await page.waitForURL(base + '/');
     await page.goto(base + '/Auth/Login');
     // Exercise a server returning its original HTML redirect, with genuine auth.
@@ -38,7 +40,7 @@ async page => {
     await page.waitForURL(base + '/SourcingOfficer');
     check(true, 'Original HTML redirect does not leave user stuck on Login');
     await page.unroute('**/Auth/Login');
-    await page.getByRole('button', { name: 'Logout', exact: true }).click();
+    await page.getByRole('button', { name: /^Log\s*out$/i }).click();
     await page.waitForURL(base + '/');
     await page.goto(base + '/Auth/Login');
     // A request that never resolves must release the form at its deadline.

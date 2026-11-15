@@ -2,7 +2,7 @@
 @{ Layout = "_AuthLayout"; ViewData["Title"] = "Sign in"; }
 <div class="auth-shell">
 <section class="auth-workspace" aria-labelledby="login-title">
-<header class="auth-header"><a class="auth-brand" asp-controller="Home" asp-action="Index" aria-label="Zaytouna home"><img src="~/landing/logo/zaytouna-emblem.svg" width="42" height="52" alt="" /><span class="auth-mini-tree" aria-hidden="true"><partial name="_LoginOliveTree" /></span><span>Zaytouna<small>Olive oil co.</small></span></a><a class="auth-back" asp-controller="Home" asp-action="Index"><span aria-hidden="true">↗</span> Back to home</a></header>
+<header class="auth-header"><a class="auth-brand" asp-controller="Home" asp-action="Index" aria-label="Zaytouna home"><img src="~/landing/logo/zaytouna-emblem.svg" width="42" height="52" alt="" /><span>Zaytouna<small>Olive oil co.</small></span></a><a class="auth-back" asp-controller="Home" asp-action="Index"><span aria-hidden="true">↗</span> Back to home</a></header>
 <div class="auth-form-area"><p class="auth-eyebrow">Your partner workspace</p><h1 id="login-title">Good to see <br />you again.</h1><p class="auth-intro">Sign in to your sourcing and tender workspace.</p>
 <form asp-controller="Auth" asp-action="Login" method="post" class="auth-form">
 <div asp-validation-summary="All" class="auth-validation" role="alert"></div><input asp-for="ReturnUrl" type="hidden" />
@@ -11,12 +11,17 @@
 <div class="auth-remember"><input asp-for="RememberMe" class="form-check-input" /><label asp-for="RememberMe">Keep me signed in</label></div>
 <button type="submit" class="auth-submit">Sign in <span aria-hidden="true">↗</span></button>
 </form>
-<div class="auth-alternatives"><div class="auth-divider"><span>Or sign in with</span></div><div class="auth-methods"><button type="button" data-auth-biometric="btnPasskeyLogin">Fingerprint</button><button type="button" data-auth-biometric="btnFaceLogin">Face recognition</button></div><button type="button" class="auth-device-help" data-auth-options>Device help & sign-in options</button></div>
+<div class="auth-alternatives"><div class="auth-divider"><span>Or sign in with</span></div><div class="auth-methods"><button type="button" data-auth-biometric="btnPasskeyLogin">Fingerprint</button><button type="button" data-auth-biometric="btnFaceLogin">Face recognition</button></div><button type="button" class="auth-device-help" data-auth-options>Fingerprint or face sign-in</button></div>
 <p class="auth-register">Joining us as a supplier? <a asp-controller="Suppliers" asp-action="Register">Register your company <span aria-hidden="true">↗</span></a></p>
 </div>
-<footer class="auth-footer"><span>© @DateTime.UtcNow.Year Zaytouna Olive Oil Co.</span><a asp-controller="Home" asp-action="Privacy">Privacy</a></footer>
+<footer class="auth-footer"><span>© @DateTime.UtcNow.Year Zaytouna Olive Oil Co.</span></footer>
 </section>
-<aside class="auth-story" aria-label="Zaytouna olive tree"><div class="auth-story-top"><span>From the grove.<br />For what comes next.</span><button type="button" class="auth-motion-control" data-auth-motion aria-pressed="false" aria-label="Pause decorative motion">Pause motion <span aria-hidden="true">Ⅱ</span></button></div><div class="auth-botanical" aria-hidden="true"><partial name="_LoginOliveTree" /></div><div class="auth-story-copy"><span class="auth-story-label">Rooted in care</span><h2>Good things grow<br />through <em>trust.</em></h2><p>One shared workspace.<br />From the first request to the next partnership.</p><div class="auth-story-rule"></div><span class="auth-story-caption">Zaytouna · Sourcing & tender management</span></div></aside>
+<aside class="auth-story" aria-label="Zaytouna olive oil"><figure class="auth-render" aria-hidden="true"><img src="~/login/cinema/olive-still-v2.webp" width="960" height="640" alt="" decoding="async" /></figure><div class="auth-story-copy"><span class="auth-story-label" data-after="And ends as oil.">It starts with one olive.</span><h2>Good things grow<br />through <em>trust.</em></h2></div></aside>
 </div>
-<dialog class="auth-options-dialog" id="auth-options-dialog" aria-labelledby="auth-options-title"><div class="auth-options-header"><div><span class="auth-eyebrow">Zaytouna workspace</span><h2 id="auth-options-title">Sign in your way.</h2></div><button type="button" class="auth-options-close" data-auth-close aria-label="Close sign-in options">×</button></div><p class="auth-options-intro">Fingerprint needs no email. Face recognition uses the email entered on the sign-in form.</p><partial name="~/Views/Biometric/_LoginOptions.cshtml" /><a class="auth-options-register" asp-controller="Suppliers" asp-action="Register">Register your company ↗</a></dialog>
-@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/auth-tree3d.js" asp-append-version="true"></script><script src="~/js/auth-login.js" asp-append-version="true"></script> }
+<dialog class="auth-options-dialog" id="auth-options-dialog" aria-labelledby="auth-options-title" aria-describedby="auth-options-description">
+<div class="auth-options-header"><h2 id="auth-options-title">Sign-in help</h2><button type="button" class="auth-options-close" data-auth-close aria-label="Close sign-in options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div>
+<p class="auth-options-intro" id="auth-options-description">Continue with your selected sign-in method.</p>
+<partial name="~/Views/Biometric/_LoginOptions.cshtml" />
+<div class="auth-options-footer"><button type="button" data-auth-use-password>Use my password instead</button><a asp-controller="Suppliers" asp-action="Register">New supplier? Register</a></div>
+</dialog>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/auth-login.js" asp-append-version="true"></script> }

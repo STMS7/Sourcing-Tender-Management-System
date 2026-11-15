@@ -57,7 +57,7 @@ async page => {
         await page.getByRole('button', { name: 'Sign in', exact: true }).click();
         await page.waitForURL(base + destination);
         check(new URL(page.url()).pathname === destination, `${user}: signs in to correct dashboard`);
-        await page.getByRole('button', { name: 'Logout', exact: true }).click();
+        await page.getByRole('button', { name: /^Log\s*out$/i }).click();
         await page.waitForURL(base + '/');
     }
     await page.goto(base + '/Auth/Login?returnUrl=%2FSourcingOfficer%2FRequests');
@@ -67,7 +67,7 @@ async page => {
     await page.waitForURL(base + '/SourcingOfficer/Requests');
     check(true, 'Deep link resumes after sign-in');
     check(await page.locator('link[href*="auth-login"]').count() === 0, 'Login stylesheet does not affect authenticated pages');
-    await page.getByRole('button', { name: 'Logout', exact: true }).click();
+    await page.getByRole('button', { name: /^Log\s*out$/i }).click();
     await page.waitForURL(base + '/');
     check(await page.locator('link[href*="auth-login"]').count() === 0, 'Home does not load Login styles');
     await page.goto(base + '/Auth/Login');

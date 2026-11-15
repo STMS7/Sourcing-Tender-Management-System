@@ -75,6 +75,8 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         ViewBag.CanCreateTender = await AvailableRequests().AnyAsync(r => r.Id == id);
         ViewBag.CanReview = await ReviewableRequests().AnyAsync(r => r.Id == id);
         ViewBag.CanChat = await CommunicationRequests().AnyAsync(r => r.Id == id);
+        ViewBag.LinkedTenderId = await MyTenders().Where(t => t.ProcurementRequestId == id)
+            .Select(t => (int?)t.Id).FirstOrDefaultAsync();
         ViewBag.RequestConversations = await db.Clarifications.AsNoTracking().Where(c => c.ProcurementRequestId == id &&
             c.BidId == null && (c.AskedByUserId == OfficerId || c.RecipientUserId == OfficerId))
             .OrderByDescending(c => c.AskedAt).Take(5).ToListAsync();
@@ -344,6 +346,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         ViewBag.PrePublicationApproved = await EvaluationPreparation.Approved(db, tender);
         ViewBag.PublicationReadiness = await PublicationReadiness(tender);
         ViewBag.PreparationWaitingReasons = await PreparationWaitingReasons(tender);
+        ViewBag.HasOffers = tender.Status == TenderStatus.Draft && await db.Bids.AnyAsync(b => b.TenderId == id);
         ViewBag.Handoff = await CheckEvaluationHandoff(tender);
         ViewBag.EvaluationSentAt = await db.WorkflowTransitions.Where(w => w.TenderId == id &&
             w.FromStage == WorkflowStage.Compliance && w.ToStage == WorkflowStage.Evaluation &&

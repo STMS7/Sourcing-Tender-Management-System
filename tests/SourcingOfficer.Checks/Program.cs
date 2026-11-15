@@ -216,8 +216,10 @@ try
     await Act(async c => {
         var result = await c.Details(tenderId);
         var waiting = (List<string>)c.ViewBag.PreparationWaitingReasons;
-        Check(waiting.Count == 2 && waiting.Any(r => r.Contains("Admin")) && waiting.Any(r => r.Contains("technical and financial")),
-            "Officer details identify Admin assignment and committee criteria as separate waiting dependencies");
+        var publication = (SourcingPublicationReadiness)c.ViewBag.PublicationReadiness;
+        Check(waiting.Any(r => r.Contains("Admin")) &&
+            publication.TeamDependencies.Any(r => r.Contains("preparation approval")),
+            "Officer details identify Admin eligibility and committee preparation as separate waiting dependencies");
         return result;
     });
     await Act(c => c.AddCriterion(new SourcingCriterionForm { TenderId = tenderId, Name = "__weight:TechnicalRepresentative:Technical", Type = CriterionType.Technical }));

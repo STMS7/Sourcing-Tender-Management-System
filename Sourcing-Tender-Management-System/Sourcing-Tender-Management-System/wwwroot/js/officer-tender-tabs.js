@@ -13,6 +13,8 @@
     function recall() { try { return sessionStorage.getItem(storeKey); } catch (e) { return null; } }
 
     function show(name, focus) {
+        if (name === 'evaluation-handoff') { name = 'evaluation'; }
+        if (name.indexOf('tab-') === 0) { name = name.substring(4); }
         if (!panels.some(function (p) { return p.getAttribute('data-panel') === name; })) { name = 'overview'; }
         tabs.forEach(function (tab) {
             var on = tab.getAttribute('data-tab') === name;
@@ -57,4 +59,5 @@
     tablist.hidden = false;
     var wanted = (location.hash || '').replace('#', '') || recall() || 'overview';
     show(wanted);
+    window.addEventListener('hashchange', function () { show((location.hash || '#overview').slice(1)); });
 })();

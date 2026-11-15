@@ -6,18 +6,24 @@
     var preparing = draft && Model.EvaluationCriteriaLockedAt == null;
     var preApproved = ViewBag.PrePublicationApproved is true;
     var publication = (SourcingPublicationReadiness)ViewBag.PublicationReadiness;
-    var cycleStep = Model.Status switch {
-        TenderStatus.Draft => 1, TenderStatus.Published => 2, TenderStatus.Closed => 3,
-        TenderStatus.Cancelled => -1, _ => 5 };
+    var resultAction = ViewBag.ResultStep is TenderResultFlow.Step resultActionStep ? resultActionStep : TenderResultFlow.Step.None;
+    var resultActionLabel = resultAction switch {
+        TenderResultFlow.Step.AtOfficerToForward => "Forward report to sourcing manager",
+        TenderResultFlow.Step.AtOfficerToAnnounce => "Send result to suppliers",
+        TenderResultFlow.Step.AtOfficerToSendBack => "Send back to evaluation committee",
+        _ => null };
     var suppliers = (List<Supplier>)ViewBag.Suppliers;
     var history = (List<WorkflowTransition>)ViewBag.History;
     var handoff = (SourcingEvaluationReadiness)ViewBag.Handoff;
     var agreedWeights = Sourcing_Tender_Management_System.Services.CommitteeWeighting.Agree(
         Sourcing_Tender_Management_System.Services.CommitteeWeighting.ReadProposals(Model.EvaluationCriteria));
     var preparationReasons = (List<string>)(ViewBag.PreparationWaitingReasons ?? new List<string>());
+    var canRequestPreparation = preparing && ViewBag.HasOffers is not true && preparationReasons.Count == 0 &&
+        Model.Items.Count > 0 && !string.IsNullOrWhiteSpace(Model.TermsAndConditions) &&
+        Model.SubmissionDeadline > DateTime.UtcNow && (Model.OpeningDate == null || Model.OpeningDate >= Model.SubmissionDeadline);
     var canReadOffers = (bool)ViewBag.CanReadOffers;
     var canClarify = Model.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation;
-    var showWorkflowBar = draft || (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow);
+    var showWorkflowBar = draft || Model.Status == TenderStatus.Published || canReadOffers || resultActionLabel != null;
     var longTerms = (Model.TermsAndConditions?.Length ?? 0) > 450;
     // Status colours are never the only signal: every chip also carries the status text.
     string Tone(string status) => status switch {
@@ -53,41 +59,6 @@
         <a class="btn btn-outline-secondary" asp-action="Tenders">Back to my tenders</a>
     </header>
 
-<partial name="_SourcingCycle" model="@cycleStep" />
-<section class="so-next" aria-labelledby="tender-next-heading">
-@if (draft) {
-    <h2 id="tender-next-heading">Your next step: prepare the supplier invitation</h2>
-    <p>Complete the tender terms, dates and required documents, then <a href="#suppliers" data-goto-tab="suppliers">select suppliers matching @Model.Category.Name</a>. Publishing sends the prepared invitations.</p>
-    <div id="publication-readiness" class="so-readiness">
-        <div><h3>Your remaining tasks</h3>
-        @if (publication.OfficerTasks.Count == 0) { <p>Your tender preparation is complete.</p> }
-        else { <ul>@foreach (var task in publication.OfficerTasks) { <li>@task</li> }</ul> }
-        </div>
-        <div><h3>Waiting on the responsible team</h3>
-        @if (publication.TeamDependencies.Count == 0) { <p>No external preparation blockers.</p> }
-        else { <ul>@foreach (var dependency in publication.TeamDependencies) { <li>@dependency</li> }</ul><p class="small text-secondary mt-2">These steps are outside your role. Refresh this page after the team completes them.</p> }
-        </div>
-    </div>
-} else if (Model.Status == TenderStatus.Published) {
-    <h2 id="tender-next-heading">Your next step: wait for supplier offers</h2>
-    <p>Invitations have been sent. Offers remain sealed until the submission deadline, bidding closure and opening date. After the deadline, use Close bidding.</p>
-} else if (Model.Status == TenderStatus.Closed) {
-    <h2 id="tender-next-heading">Your next step: @(canReadOffers ? handoff.Ready ? "send compliant offers to evaluation" : "finish compliance review" : "wait for the opening date")</h2>
-    @if (canReadOffers) {
-        <p>Review each supplier offer, record compliance and resolve clarifications. Then <a href="#evaluation" data-goto-tab="evaluation">send the compliant offers to evaluation</a>.</p>
-        <div class="so-counts"><p>Submitted offers: <strong>@handoff.SubmittedOffers</strong></p><p>Compliant offers: <strong>@handoff.CompliantOffers</strong></p></div>
-    } else {
-        <p>Bidding is closed, but offers remain sealed until @(Model.OpeningDate?.ToString("dd MMM yyyy HH:mm") ?? "the permitted opening") UTC. You do not need to close bidding again.</p>
-    }
-} else if (Model.Status == TenderStatus.Cancelled) {
-    <h2 id="tender-next-heading">This tender is cancelled</h2>
-    <p>No further supplier invitations or compliance actions are available. The history remains below.</p>
-} else {
-    <h2 id="tender-next-heading">Your handoff is complete</h2>
-    <p>The evaluation committee and decision owners handle the next stage. Track the report below; you do not choose the winning supplier.</p>
-}
-</section>
-
     @if (showWorkflowBar) {
     <section class="od-workflow" aria-label="Tender workflow actions">
         <div class="actions">
@@ -96,30 +67,56 @@
             <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit draft</a>
             <form asp-action="RequestWeightApproval" method="post" class="d-inline">
                 <input type="hidden" name="id" value="@Model.Id" />
-                <button class="btn btn-outline-warning" type="submit">Send to evaluation committee</button>
+                <button class="btn btn-outline-primary" type="submit" disabled="@(!canRequestPreparation)">Request pre-publication review</button>
             </form>
             } else {
             <form asp-action="ReopenPreparation" method="post" class="d-inline">
                 <input type="hidden" name="id" value="@Model.Id" />
-                <button class="btn btn-outline-secondary" type="submit">Reopen preparation</button>
+                <button class="btn btn-outline-secondary" type="submit" disabled="@(ViewBag.HasOffers is true)">Reopen preparation</button>
             </form>
             }
-            <form asp-action="Publish" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit" disabled="@(!publication.Ready)" aria-describedby="publication-readiness">Publish and send invitations</button></form>
+            <form asp-action="Publish" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit" disabled="@(!publication.Ready)" aria-describedby="@(!publication.Ready ? "publication-readiness" : null)">Publish and send invitations</button></form>
         }
         @if (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow) {
             <form asp-action="Close" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Close bidding</button></form>
         }
+        @if (draft) {
+            <a class="btn btn-outline-primary" href="#suppliers" data-goto-tab="suppliers">Manage supplier invitations</a>
+            <a class="btn btn-outline-secondary" href="#documents" data-goto-tab="documents">Manage required documents</a>
+        }
+        @if (canReadOffers) {
+            <a class="btn btn-primary" asp-action="Offers" asp-route-id="@Model.Id">Compare offers and review compliance</a>
+        }
+        @if (Model.Status == TenderStatus.Closed) {
+            <a class="btn btn-outline-primary" href="#evaluation" data-goto-tab="evaluation">Review evaluation handoff</a>
+        }
+        @if (resultActionLabel != null) {
+            <a class="btn btn-primary" href="#evaluation" data-goto-tab="evaluation">@resultActionLabel</a>
+        }
+        @if (canClarify) {
+            <a class="btn btn-outline-secondary" asp-action="Messages" asp-route-group="EvaluationCommittee" asp-route-context="@($"tender:{Model.Id}")">Message evaluation committee</a>
+        }
         </div>
+        @if (Model.Status == TenderStatus.Published && Model.SubmissionDeadline > DateTime.UtcNow) {
+            <p class="od-note mt-3 mb-0">Close bidding becomes available after the submission deadline. Supplier offers remain sealed.</p>
+        }
     </section>
     }
 
-    @if (draft) { <p class="od-note">Prepare the terms, dates and required documents, then select suppliers in the tender category.</p> }
-    @if (draft && preparationReasons.Count > 0) {
-        <div class="alert alert-info">
-            <strong>Before sending to the evaluation committee:</strong>
-            <ul class="mb-0">@foreach (var reason in preparationReasons) { <li>@reason</li> }</ul>
-        </div>
+    @if (draft && !publication.Ready) {
+    <section class="od-workflow" id="publication-readiness" aria-labelledby="publication-readiness-title">
+        <h2 id="publication-readiness-title">Before publication</h2>
+        @if (publication.OfficerTasks.Count > 0) {
+            <p class="mt-3 mb-1"><strong>Your remaining preparation</strong></p>
+            <ul>@foreach (var task in publication.OfficerTasks) { <li>@task</li> }</ul>
+        }
+        @if (publication.TeamDependencies.Count > 0) {
+            <p class="mt-3 mb-1"><strong>Waiting on the responsible team</strong></p>
+            <ul class="mb-0">@foreach (var dependency in publication.TeamDependencies) { <li>@dependency</li> }</ul>
+        }
+    </section>
     }
+    @if (draft) { <p class="od-note">Prepare the terms, dates and required documents, then select suppliers in the tender category.</p> }
     @if (Model.Status == TenderStatus.Published) { <p class="od-note">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
     @if (!draft && !preApproved) {
         <p class="alert alert-warning od-warning" role="note"><strong>Historical tender.</strong> This historical tender has no verified approval recorded before publication. Do not change weights after receiving offers. Resolve it through the team's documented procedure before evaluation.</p>
@@ -160,7 +157,13 @@
                     <div><dt>Submission deadline (device time)</dt><dd><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></dd></div>
                     <div><dt>Bid opening (device time)</dt><dd>@if (Model.OpeningDate is DateTime opening) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(opening, DateTimeKind.Utc).ToString("O")">@opening.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</dd></div>
                     <div><dt>Estimated value</dt><dd>@Model.EstimatedValue.ToString("N2")</dd></div>
-
+                    <div><dt>Evaluation split</dt><dd>
+                    @if (preApproved && agreedWeights != null) {
+                        <span>Technical @agreedWeights.Technical% / Financial @agreedWeights.Financial% — agreed by the evaluation committee</span>
+                    } else {
+                        <span>Awaiting the technical &amp; financial evaluation committee.</span>
+                    }
+                    </dd></div>
                 </dl>
             </article>
 
@@ -264,15 +267,13 @@
                 @if (canReadOffers) {
                     <p>Submitted offers: <strong>@handoff.SubmittedOffers</strong> · Compliant offers: <strong>@handoff.CompliantOffers</strong>.</p>
                 }
-                @if (handoff.Issues.Count != 0) {
+                @if (handoff.Issues.Count > 0) {
                     <div class="alert alert-warning"><p class="mb-2">Complete these steps before sending:</p><ul class="mb-0">
                     @foreach (var issue in handoff.Issues) { <li>@issue</li> }
                     </ul></div>
                 }
-                @if (handoff.TeamDependencies.Count != 0) {
-                    <div class="alert alert-info"><h3>Waiting on the responsible team</h3><ul class="mb-0">
-                    @foreach (var dependency in handoff.TeamDependencies) { <li>@dependency</li> }
-                    </ul></div>
+                @if (handoff.TeamDependencies.Count > 0) {
+                    <div class="alert alert-info"><p class="mb-2"><strong>Waiting on the responsible team</strong></p><ul class="mb-0">@foreach (var issue in handoff.TeamDependencies) { <li>@issue</li> }</ul></div>
                 }
                 <form asp-action="ForwardToEvaluation" method="post" class="mb-4">
                     <input type="hidden" name="id" value="@Model.Id" />
