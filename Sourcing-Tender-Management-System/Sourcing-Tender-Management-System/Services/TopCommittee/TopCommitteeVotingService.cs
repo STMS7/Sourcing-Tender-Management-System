@@ -141,6 +141,7 @@ public class TopCommitteeVotingService(ApplicationDbContext db) : ITopCommitteeV
                 tender.AwardedBidId = winner.Id;
                 tender.Status = TenderStatus.Awarded;
                 winner.Status = BidStatus.Accepted;
+                report.Status = RecommendationStatus.CommitteeApproved;
                 toStage = WorkflowStage.Awarded;
                 action = WorkflowAction.Awarded;
                 notificationType = NotificationType.Success;
@@ -150,6 +151,7 @@ public class TopCommitteeVotingService(ApplicationDbContext db) : ITopCommitteeV
 
             case CommitteeOutcome.Rejected:
                 tender.Status = TenderStatus.Cancelled;
+                report.Status = RecommendationStatus.CommitteeRejected;
                 toStage = WorkflowStage.Closed;
                 action = WorkflowAction.Rejected;
                 notificationType = NotificationType.Warning;
@@ -158,6 +160,9 @@ public class TopCommitteeVotingService(ApplicationDbContext db) : ITopCommitteeV
                 break;
 
             default:
+                // The tender stays with the Top Committee stage until the decision travels
+                // manager -> sourcing officer, who sends it back to the evaluation committee (TenderResultFlow).
+                report.Status = RecommendationStatus.ReturnedForReview;
                 toStage = WorkflowStage.Evaluation;
                 action = WorkflowAction.Returned;
                 notificationType = NotificationType.ActionRequired;
@@ -178,13 +183,13 @@ public class TopCommitteeVotingService(ApplicationDbContext db) : ITopCommitteeV
             CreatedAt = now
         });
 
-        // Tell the people who prepared and sent the tender: its creator, the report's author and the approvers.
+        // The decision goes back to the sourcing manager first, who forwards it to the sourcing officer.
+        // Fall back to the tender's creator only when no manager approval is on record.
         var approverIds = await db.Approvals
             .Where(a => a.TenderId == tender.Id && a.EvaluationReportId == report.Id)
             .Select(a => a.ApproverUserId)
             .ToListAsync();
-        var recipients = new[] { tender.CreatedByUserId, report.PreparedByUserId }
-            .Concat(approverIds)
+        var recipients = (approverIds.Count > 0 ? approverIds : [tender.CreatedByUserId])
             .Where(id => !string.IsNullOrEmpty(id))
             .Distinct();
 
@@ -194,8 +199,9 @@ public class TopCommitteeVotingService(ApplicationDbContext db) : ITopCommitteeV
             {
                 UserId = recipient,
                 Title = title,
-                Message = message,
+                Message = message + " Forward the decision to the sourcing officer.",
                 Type = notificationType,
+                Link = "/SourcingManager",
                 CreatedAt = now
             });
         }

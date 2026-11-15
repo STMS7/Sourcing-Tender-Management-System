@@ -18,7 +18,8 @@ namespace Sourcing_Tender_Management_System.Controllers;
 /// 3. Sourcing manager and department representative accept or deny that bid.
 ///    A deny clears the bid agreement so technical and financial choose again.
 /// 4. When all four accept, an EvaluationReport with the chosen bid is submitted to the
-///    sourcing officer and the manager-review stage (PendingManagerReview / AwaitingManagerReview).
+///    sourcing officer first (report Draft, tender AwaitingManagerReview); the officer forwards it to the
+///    sourcing manager (report PendingManagerReview).
 /// A round starts after the latest report; choices older than it no longer count, so a report
 /// the manager rejects or returns starts a fresh round of bid choices (agreed weights stay).
 /// </summary>
@@ -398,8 +399,10 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             TenderId = tender.Id, Round = reportRound, PreparedByUserId = UserId,
             Summary = Truncate(summary.ToString(), 4000),
             RecommendationReason = $"All four evaluation committee members agreed on {chosen.BidNumber} ({chosen.Supplier.CompanyName}).",
-            RecommendedBidId = chosen.Id, Status = RecommendationStatus.PendingManagerReview,
-            CreatedAt = now, SubmittedAt = now,
+            // Goes to the sourcing officer first: Draft + no SubmittedAt keeps it out of the manager's queue
+            // until the officer forwards it (see SourcingOfficerResults.ForwardReportToManager).
+            RecommendedBidId = chosen.Id, Status = RecommendationStatus.Draft,
+            CreatedAt = now, SubmittedAt = null,
             Bids = bids.Select(b => new EvaluationReportBid
             {
                 BidId = b.Id, IsCompliant = true,
@@ -432,10 +435,10 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         foreach (var officer in officers)
             db.Notifications.Add(new Notification { UserId = officer, Type = NotificationType.ActionRequired,
                 Title = "Evaluation report received",
-                Message = $"{tender.TenderNumber}: the committee chose {chosen.BidNumber} ({chosen.Supplier.CompanyName}). Report round {reportRound}.",
+                Message = $"{tender.TenderNumber}: the committee chose {chosen.BidNumber} ({chosen.Supplier.CompanyName}). Report round {reportRound}. Forward it to the sourcing manager.",
                 Link = $"/SourcingOfficer/Details/{tender.Id}" });
         await NotifyCommittee(tender.Id, AllMembers, "Evaluation report submitted",
-            $"{tender.TenderNumber}: all four members agreed on {chosen.BidNumber}. The report went to the sourcing officer and manager review.");
+            $"{tender.TenderNumber}: all four members agreed on {chosen.BidNumber}. The report went to the sourcing officer, who forwards it to the sourcing manager.");
         return report;
     }
 

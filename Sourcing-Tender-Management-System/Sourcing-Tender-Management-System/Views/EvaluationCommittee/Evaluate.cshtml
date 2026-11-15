@@ -31,7 +31,7 @@
 @if (Model.SubmittedReport is { } report) {
 <section class="mb-5">
 <div class="alert alert-success" role="status">All four members agreed. Report round @report.Round was sent to the sourcing officer
-@(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") + " UTC"). Chosen bid: <strong>@report.RecommendedBid?.Supplier.CompanyName (@report.RecommendedBid?.BidNumber)</strong>. Report status: @report.Status.</div>
+@(report.CreatedAt.ToString("dd MMM yyyy HH:mm") + " UTC"). Chosen bid: <strong>@report.RecommendedBid?.Supplier.CompanyName (@report.RecommendedBid?.BidNumber)</strong>. Report status: @report.Status.</div>
 <pre class="preserve-lines">@report.Summary</pre>
 </section>
 }

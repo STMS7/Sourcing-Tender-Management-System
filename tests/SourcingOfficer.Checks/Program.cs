@@ -96,11 +96,8 @@ IActionResult CycleAct(string userId, Func<CycleChatController, IActionResult> a
 }
 async Task<IActionResult> SubmitCommitteeWeights(string user, int id, decimal technical, decimal financial)
 {
-    await using var db = new ApplicationDbContext(options);
-    var type = user == "technical" ? CriterionType.Technical : CriterionType.Financial;
-    var rows = await db.EvaluationCriteria.Where(c => c.TenderId == id && c.Type == type && !c.Name.StartsWith("__weight:"))
-        .Select(c => new CommitteeCriterionWeightInput { CriterionId = c.Id, Weight = 100 }).ToListAsync();
-    return await EvaluatorAct(user, c => c.SubmitWeights(id, technical, financial, rows));
+    // Per-criterion weights were removed from SubmitWeights (commit 56d9851 "tep1"); only the overall split is submitted.
+    return await EvaluatorAct(user, c => c.SubmitWeights(id, technical, financial));
 }
 int requestId, categoryId, supplierId, tenderId, bidId, wrongSupplierId, unmappedSupplierId;
 try

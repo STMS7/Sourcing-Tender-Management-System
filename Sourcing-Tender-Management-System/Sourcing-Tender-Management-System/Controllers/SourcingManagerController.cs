@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
+using Sourcing_Tender_Management_System.Services;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
@@ -22,13 +23,59 @@ public class SourcingManagerController(ApplicationDbContext db) : Controller
                     x.Tender.Status == TenderStatus.AwaitingManagerReview)
                 .OrderBy(x => x.SubmittedAt)
                 .ToListAsync(),
+            // Draft reports are still with the sourcing officer and not yet the manager's business.
             RecentReports = await reports
-                .Where(x => x.Status != RecommendationStatus.PendingManagerReview)
+                .Where(x => x.Status != RecommendationStatus.PendingManagerReview && x.Status != RecommendationStatus.Draft)
                 .OrderByDescending(x => x.SubmittedAt ?? x.CreatedAt)
                 .Take(10)
+                .ToListAsync(),
+            TopDecisionsToForward = await reports
+                .Where(x => (x.Status == RecommendationStatus.CommitteeApproved || x.Status == RecommendationStatus.CommitteeRejected ||
+                        (x.Status == RecommendationStatus.ReturnedForReview && x.Votes.Any(v => v.CommitteeType == CommitteeType.Top))) &&
+                    !db.WorkflowTransitions.Any(w => w.TenderId == x.TenderId && w.Round == x.Round &&
+                        w.Reason == TenderResultFlow.TopDecisionForwarded))
+                .OrderBy(x => x.CreatedAt)
                 .ToListAsync()
         };
         return View(model);
+    }
+
+    /// <summary>Sends the Top Committee's decision on to the sourcing officer, who tells the suppliers.</summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ForwardTopDecision(int id)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId)) return Forbid();
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var report = await db.EvaluationReports.Include(x => x.Votes).Include(x => x.Tender)
+            .Include(x => x.RecommendedBid).ThenInclude(x => x!.Supplier).FirstOrDefaultAsync(x => x.Id == id);
+        if (report is null) return NotFound();
+        if (await TenderResultFlow.StepOf(db, report) != TenderResultFlow.Step.AtManagerToForwardDecision)
+        {
+            await transaction.RollbackAsync();
+            TempData["Error"] = "This Top Committee decision is not waiting to be forwarded.";
+            return RedirectToAction(nameof(Index));
+        }
+        var tender = report.Tender;
+        var outcome = report.Status switch
+        {
+            RecommendationStatus.CommitteeApproved => $"approved the award to {report.RecommendedBid?.Supplier.CompanyName} ({report.RecommendedBid?.BidNumber}). Send the result to the suppliers.",
+            RecommendationStatus.CommitteeRejected => "rejected the recommendation; the tender is cancelled. Tell the bidders.",
+            _ => "returned the recommendation for further details. Send it back to the evaluation committee."
+        };
+        db.WorkflowTransitions.Add(TenderResultFlow.Transition(report, tender, userId, WorkflowStage.ManagerReview,
+            WorkflowStage.Sourcing, WorkflowAction.Forwarded, TenderResultFlow.TopDecisionForwarded));
+        db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "ForwardTopDecisionToOfficer", EntityName = nameof(EvaluationReport),
+            EntityId = report.Id.ToString(), NewValues = JsonSerializer.Serialize(new { Status = report.Status.ToString() }) });
+        foreach (var officer in await TenderResultFlow.OfficersOf(db, tender))
+            db.Notifications.Add(new Notification { UserId = officer, Type = NotificationType.ActionRequired,
+                Title = $"Top Committee decision for {tender.TenderNumber}",
+                Message = $"The sourcing manager forwarded the decision: the Top Committee {outcome}",
+                Link = $"/SourcingOfficer/Details/{tender.Id}" });
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        TempData["Message"] = "Top Committee decision forwarded to the sourcing officer.";
+        return RedirectToAction(nameof(Index));
     }
 
     public async Task<IActionResult> Details(int id)

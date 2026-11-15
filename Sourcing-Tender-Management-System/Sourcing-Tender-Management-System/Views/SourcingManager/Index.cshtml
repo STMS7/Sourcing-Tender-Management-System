@@ -52,6 +52,39 @@
     </div>
 </section>
 
+<section class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Top Committee decisions to forward to the sourcing officer</h2></div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th>Tender</th><th>Report round</th><th>Top Committee decision</th><th>Chosen supplier</th><th></th></tr></thead>
+            <tbody>
+            @if (Model.TopDecisionsToForward.Count == 0)
+            {
+                <tr><td colspan="5" class="text-center text-secondary py-4">No Top Committee decisions are waiting to be forwarded.</td></tr>
+            }
+            else
+            {
+                @foreach (var report in Model.TopDecisionsToForward)
+                {
+                    <tr data-search-item>
+                        <td><strong>@report.Tender.TenderNumber</strong><div class="small text-secondary">@report.Tender.Title</div></td>
+                        <td>@report.Round</td>
+                        <td><span class="badge text-bg-info">@(report.Status switch { RecommendationStatus.CommitteeApproved => "Approved", RecommendationStatus.CommitteeRejected => "Rejected", _ => "Returned for details" })</span></td>
+                        <td>@(report.RecommendedBid?.Supplier.CompanyName ?? "—")</td>
+                        <td class="text-end">
+                            <form asp-action="ForwardTopDecision" method="post" class="d-inline">
+                                <input type="hidden" name="id" value="@report.Id" />
+                                <button type="submit" class="btn btn-primary btn-sm">Forward to sourcing officer</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <section class="card shadow-sm border-0">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Recent decisions</h2></div>
     <div class="table-responsive">
