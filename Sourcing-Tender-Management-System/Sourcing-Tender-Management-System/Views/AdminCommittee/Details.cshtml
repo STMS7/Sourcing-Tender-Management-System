@@ -5,7 +5,7 @@
     var candidates = (Dictionary<CommitteeMemberRole, List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>>)ViewBag.CommitteeCandidates;
     var canAssign = ViewBag.CanAssign is true;
 }
-<a asp-action="Index">Back to evaluation committees</a>
+<a class="btn btn-sm btn-outline-primary" asp-action="Index">← Back to evaluation committees</a>
 <h1 class="mt-3">Assign evaluation committee</h1>
 <p>@Model.TenderNumber · @Model.Title · <span class="badge bg-secondary">@Model.Status</span></p>
 @if (TempData["Error"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }

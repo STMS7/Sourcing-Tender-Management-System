@@ -3,15 +3,19 @@
     ViewData["Title"] = "Sourcing Manager";
 }
 
-<div id="manager-search-results">
+<div id="manager-search-results" class="manager-page">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
-    <div>
-        <p class="text-uppercase text-secondary small fw-semibold mb-1">Decision workspace</p>
-        <h1 class="h2 mb-1">Sourcing Manager</h1>
-        <p class="text-secondary mb-0">Review the committee's consolidated evaluation and record a traceable decision.</p>
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Sourcing Manager</h1>
     </div>
-    <div class="text-end"><span class="badge text-bg-primary fs-6">@Model.PendingReports.Count awaiting review</span></div>
+    <div class="text-end"><span class="badge fs-6">@Model.PendingReports.Count awaiting review</span></div>
 </div>
+
+<ul class="zt-bento" aria-label="Manager summary">
+    <li><div class="zt-tile @(Model.PendingReports.Count > 0 ? "is-alert" : "")"><span class="zt-tile-label">Reports awaiting your decision</span><span class="zt-tile-value">@Model.PendingReports.Count</span></div></li>
+    <li><div class="zt-tile @(Model.TopDecisionsToForward.Count > 0 ? "is-alert" : "")"><span class="zt-tile-label">Top Committee decisions to forward</span><span class="zt-tile-value">@Model.TopDecisionsToForward.Count</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Recent decisions</span><span class="zt-tile-value">@Model.RecentReports.Count</span><span class="zt-tile-note">Latest 10 shown below</span></div></li>
+</ul>
 
 @if (TempData["Message"] is string message)
 {
@@ -22,8 +26,10 @@
     <div class="alert alert-danger" role="alert">@error</div>
 }
 
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "manager-search", ResultsId = "manager-search-results", Label = "Search pending reports and recent decisions" })" />
-<section class="card shadow-sm border-0 mb-4">
+<section class="manager-search-panel mb-4" aria-label="Search manager reports">
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "manager-search", ResultsId = "manager-search-results", Label = "Search reports", Placeholder = "Tender, supplier, or decision" })" />
+</section>
+<section class="card manager-card mb-4">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Reports awaiting your decision</h2></div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -52,7 +58,7 @@
     </div>
 </section>
 
-<section class="card shadow-sm border-0 mb-4">
+<section class="card manager-card mb-4">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Top Committee decisions to forward to the sourcing officer</h2></div>
     <div class="table-responsive">
         <table class="table align-middle mb-0">
@@ -85,7 +91,7 @@
     </div>
 </section>
 
-<section class="card shadow-sm border-0">
+<section class="card manager-card">
     <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Recent decisions</h2></div>
     <div class="table-responsive">
         <table class="table align-middle mb-0">

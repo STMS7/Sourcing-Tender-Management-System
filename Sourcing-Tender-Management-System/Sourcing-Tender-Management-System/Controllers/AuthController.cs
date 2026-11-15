@@ -49,11 +49,9 @@ public class AuthController(
 
         user.LastLoginAt = DateTime.UtcNow;
         await userManager.UpdateAsync(user);
-        // Send each account to its own workspace: Admin panel, supplier portal, or the home page.
-        var home = await userManager.IsInRoleAsync(user, "Admin") ? "Admin"
-            : user.SupplierId is not null || await userManager.IsInRoleAsync(user, "Supplier") ? "Suppliers"
-            : "Home";
-        var destination = Url.IsLocalUrl(model.ReturnUrl) ? model.ReturnUrl! : Url.Action("Index", home)!;
+
+        var destination = Url.IsLocalUrl(model.ReturnUrl) ? model.ReturnUrl! :
+                   await LandingPage.For(userManager, user, Url);
         return LocalRedirect(destination);
     }
 

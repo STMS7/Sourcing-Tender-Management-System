@@ -1,0 +1,84 @@
+@model IReadOnlyList<ContactMessage>
+@{
+    ViewData["Title"] = "Contact Us";
+}
+
+<div class="py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h1 class="mb-1">Contact Us Messages</h1>
+            <p class="text-secondary mb-0">Messages submitted through the public Contact Us form.</p>
+        </div>
+        <span class="zt-pill">@Model.Count open</span>
+    </div>
+
+    @if (TempData["Message"] is string status)
+    {
+        <div class="alert alert-success" role="status">@status</div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <section class="card">
+            <div class="card-body p-4">
+                <h2 class="h5">No open contact messages</h2>
+                <p class="text-secondary mb-0">New messages from the Contact Us form will appear here.</p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <div class="zt-contact-grid">
+            @foreach (var message in Model)
+            {
+                var body = message.Message;
+                string? subject = null;
+                if (body.StartsWith('['))
+                {
+                    var subjectEnd = body.IndexOf(']');
+                    if (subjectEnd > 1)
+                    {
+                        subject = body[1..subjectEnd];
+                        body = body[(subjectEnd + 1)..].TrimStart();
+                    }
+                }
+                <article class="zt-contact-card">
+                    <header class="zt-contact-card-head">
+                        <span class="zt-contact-avatar" aria-hidden="true">
+                            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="8" r="4"></circle>
+                                <path d="M4 21c1-4.2 4-6.3 8-6.3s7 2.1 8 6.3"></path>
+                            </svg>
+                        </span>
+                        <div class="zt-contact-sender">
+                            <h2>@message.Name</h2>
+                            <a href="mailto:@message.Email">@message.Email</a>
+                        </div>
+                        <span class="badge text-bg-warning">Open</span>
+                    </header>
+
+                    <div class="zt-contact-card-body">
+                        @if (!string.IsNullOrWhiteSpace(subject))
+                        {
+                            <div class="zt-contact-subject">
+                                <span>Subject</span>
+                                <strong>@subject</strong>
+                            </div>
+                        }
+                        <p>@body</p>
+                    </div>
+
+                    <footer class="zt-contact-card-foot">
+                        <time datetime="@DateTime.SpecifyKind(message.CreatedAt, DateTimeKind.Utc).ToString("O")">
+                            @message.CreatedAt.ToString("dd MMM yyyy · HH:mm") UTC
+                        </time>
+                        <form asp-action="ResolveContactMessage" method="post">
+                            <input type="hidden" name="id" value="@message.Id" />
+                            <button type="submit" class="btn btn-primary btn-sm">Resolve</button>
+                        </form>
+                    </footer>
+                </article>
+            }
+        </div>
+    }
+</div>

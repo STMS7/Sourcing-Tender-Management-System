@@ -9,4 +9,4 @@
         _ => "text-bg-secondary"
     };
 }
-<span class="badge @css">@Model</span>
+<span class="badge @css">@System.Text.RegularExpressions.Regex.Replace(Model ?? string.Empty, "(?<!^)([A-Z])", m => " " + m.Value.ToLowerInvariant())</span>

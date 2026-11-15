@@ -19,9 +19,9 @@
         <div class="text-muted small">Generated @doc.GeneratedAt.ToString("yyyy-MM-dd HH:mm") UTC</div>
     </div>
     <div class="d-flex gap-2">
-        <a class="btn btn-success" asp-action="Excel" asp-route-kind="@doc.Kind" asp-route-From="@FromText" asp-route-To="@ToText"
+        <a class="btn btn-primary" asp-action="Excel" asp-route-kind="@doc.Kind" asp-route-From="@FromText" asp-route-To="@ToText"
            asp-route-DepartmentId="@DepartmentForLinks" asp-route-Status="@filter.Status" asp-route-Search="@filter.Search">Download Excel</a>
-        <a class="btn btn-danger" asp-action="Pdf" asp-route-kind="@doc.Kind" asp-route-From="@FromText" asp-route-To="@ToText"
+        <a class="btn btn-outline-primary" asp-action="Pdf" asp-route-kind="@doc.Kind" asp-route-From="@FromText" asp-route-To="@ToText"
            asp-route-DepartmentId="@DepartmentForLinks" asp-route-Status="@filter.Status" asp-route-Search="@filter.Search">Download PDF</a>
     </div>
 </div>

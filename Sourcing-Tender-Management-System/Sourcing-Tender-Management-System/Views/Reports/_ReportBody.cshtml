@@ -2,6 +2,7 @@
 @using Sourcing_Tender_Management_System.Services.Reports
 @model ReportDocument
 @{ var doc = Model; }
+<link rel="stylesheet" href="~/css/committee.css" asp-append-version="true" />
 
 <div class="row g-3 mb-4">
     @foreach (var tile in doc.Tiles)
@@ -30,7 +31,7 @@
                             var valueText = ReportExporter.FormatChartValue(point.Value, chart.Unit);
                             <div class="d-flex align-items-center gap-2 mb-1 small">
                                 <div class="text-truncate" style="width:34%" title="@point.Label">@point.Label</div>
-                                <div class="flex-grow-1 bg-light rounded"><div class="bg-primary rounded" style="width:@(percent)%;height:14px" role="img" aria-label="@point.Label: @valueText"></div></div>
+                                <div class="flex-grow-1 bg-light rounded"><div class="tc-bar" style="width:@(percent)%;height:14px" role="img" aria-label="@point.Label: @valueText"></div></div>
                                 <div class="text-end text-nowrap" style="min-width:72px">@valueText</div>
                             </div>
                         }
