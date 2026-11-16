@@ -1,4 +1,4 @@
-@model SourcingRecipientMessagesViewModel
+﻿@model SourcingRecipientMessagesViewModel
 @using System.Security.Claims
 @{
     ViewData["Title"] = "Messages";
@@ -132,49 +132,83 @@ if(ta)ta.addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.ctrlKey||
 }
 else
 {
-<div id="recipient-message-search-results">
-<link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
-<div class="sourcing-workspace py-4">
-<h1>Messages</h1>
-<p class="text-secondary">Read and respond to sourcing clarification requests addressed to your account.</p>
-@if (TempData["Error"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "recipient-message-search", ResultsId = "recipient-message-search-results", Label = "Search conversation subjects and participants" })" />
-<div class="row g-4 mt-2">
-<aside class="col-lg-4"><h2 class="mt-0">Conversations</h2>
-@if (Model.Conversations.Count == 0) { <p class="empty-state">No messages are addressed to you yet.</p> }
-else {
-<ul class="list-group message-list">
-@foreach (var conversation in Model.Conversations) {
-<li data-search-item class="list-group-item p-0"><a asp-action="Index" asp-route-conversationId="@conversation.Id" class="message-link @(conversation.Id == Model.Selected?.Id ? "selected" : "")">
-<strong>@conversation.Subject</strong><span>@(conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName)</span><span class="small">@conversation.Status · @conversation.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</span>
-</a></li>
-}
-</ul>
-}
-</aside>
-<section class="col-lg-8" aria-label="Selected conversation">
-@if (Model.Selected is not { } selected) { <p class="empty-state">Choose a conversation to read and respond.</p> }
-else {
-<h2 class="mt-0">@selected.Subject</h2><p><span class="status">@selected.Status</span></p>
-@if (selected.ProcurementRequestId is int requestId && (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))) {
-    <p><a asp-controller="Department" asp-action="Details" asp-route-id="@requestId">View request and review decision</a></p>
-}
-<ol class="message-thread list-unstyled" data-message-thread tabindex="0" aria-label="Message history">
-<li class="message-entry @(selected.AskedByUserId == userId ? "outgoing" : "")"><strong>@(selected.AskedByUserId == userId ? "You" : selected.AskedByUser.FullName)</strong><time class="small">@selected.AskedAt.ToString("dd MMM yyyy HH:mm") UTC</time><p class="preserve-lines mb-0">@selected.Question</p></li>
-@foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt)) {
-<li class="message-entry @(response.RespondedByUserId == userId ? "outgoing" : "")"><strong>@(response.RespondedByUserId == userId ? "You" : response.RespondedByUser?.FullName ?? "Participant")</strong><time class="small">@response.RespondedAt.ToString("dd MMM yyyy HH:mm") UTC</time><p class="preserve-lines mb-0">@response.ResponseText</p></li>
-}
-</ol>
-@if (Model.CanReply) {
-<form asp-action="Reply" method="post"><input name="id" value="@selected.Id" type="hidden" /><label for="recipient-response" class="form-label">Your response</label><textarea id="recipient-response" name="response" required maxlength="3000" rows="4" class="form-control mb-3"></textarea><button type="submit" class="btn btn-primary">Send response</button></form>
-}
-else { <p class="alert alert-info">This conversation is resolved or its participants/stage no longer permit a response. You can still read its history.</p> }
-}
+    string MsgCss(ClarificationStatus s) => s switch { ClarificationStatus.Pending => "is-returned", ClarificationStatus.Answered => "is-review", _ => "is-approved" };
+    string Initial(string? n) => string.IsNullOrWhiteSpace(n) ? "?" : n.Trim()[..1].ToUpperInvariant();
+    var waiting = Model.Conversations.Count(c => c.Status == ClarificationStatus.Pending && c.RecipientUserId == userId);
+<div id="recipient-message-search-results" class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Messages</h1>
+        <p class="manager-intro mb-0">@(waiting == 0 ? "Read and respond to sourcing clarification requests addressed to you." : waiting == 1 ? "One conversation is waiting for your reply." : $"{waiting} conversations are waiting for your reply.")</p>
+    </div>
+</div>
+@if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+<section class="manager-search-panel mb-4" aria-label="Search messages">
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "recipient-message-search", ResultsId = "recipient-message-search-results", Label = "Search conversation subjects and participants", Placeholder = "Subject or person" })" />
 </section>
+<div class="ms-wrap">
+    <aside class="card manager-card" aria-label="Conversations">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Conversations</h2><span class="badge">@Model.Conversations.Count</span></div>
+        @if (Model.Conversations.Count == 0) { <p class="empty-state">No messages are addressed to you yet.</p> }
+        else
+        {
+            <ul class="ms-list">
+            @foreach (var conversation in Model.Conversations)
+            {
+                var other = conversation.AskedByUserId == userId ? conversation.RecipientUser?.FullName : conversation.AskedByUser.FullName;
+                var on = conversation.Id == Model.Selected?.Id;
+                <li data-search-item><a asp-action="Index" asp-route-conversationId="@conversation.Id" class="ms-item @(on ? "is-on" : null)" aria-current="@(on ? "true" : null)">
+                    <span class="dp-avatar" aria-hidden="true">@Initial(other)</span>
+                    <span style="min-width:0"><b>@conversation.Subject</b><span class="ms-sub">@(other ?? "Participant")</span>
+                        <span class="ms-row"><time class="dp-meta device-local-time" datetime="@conversation.AskedAt.ToString("o")">@conversation.AskedAt.ToString("dd MMM HH:mm")</time><span class="dp-status @MsgCss(conversation.Status)">@conversation.Status</span></span></span>
+                </a></li>
+            }
+            </ul>
+        }
+    </aside>
+    <section class="card manager-card ms-thread" aria-label="Selected conversation">
+    @if (Model.Selected is not { } selected)
+    {
+        <div class="ms-pick"><div><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#6B7B3A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M8 9h8M8 13h5"/></svg><b>Choose a conversation</b>Pick a conversation to read it and reply.</div></div>
+    }
+    else
+    {
+        var otherSel = selected.AskedByUserId == userId ? selected.RecipientUser?.FullName : selected.AskedByUser.FullName;
+        <div class="card-header ms-head">
+            <span class="dp-avatar" aria-hidden="true">@Initial(otherSel)</span>
+            <div><h2 class="h5">@selected.Subject</h2><span class="dp-meta mt-0">with @(otherSel ?? "Participant")</span></div>
+            <span class="dp-status @MsgCss(selected.Status)">@selected.Status</span>
+        </div>
+        @if (selected.ProcurementRequestId is int requestId && (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment")))
+        {
+            <div class="px-4 pt-3"><a asp-controller="Department" asp-action="Details" asp-route-id="@requestId" class="dp-more fw-semibold">View request and review decision →</a></div>
+        }
+        <ol class="dp-thread list-unstyled mb-0" data-message-thread tabindex="0" aria-label="Message history">
+            <li class="dp-msg is-question @(selected.AskedByUserId == userId ? "is-mine" : null)">
+                <div class="dp-msg-head"><strong>@(selected.AskedByUserId == userId ? "You" : selected.AskedByUser.FullName)</strong><time class="device-local-time" datetime="@selected.AskedAt.ToString("o")">@selected.AskedAt.ToString("dd MMM yyyy HH:mm")</time></div>
+                <p>@selected.Question</p>
+            </li>
+            @foreach (var response in selected.Responses.OrderBy(r => r.RespondedAt))
+            {
+                <li class="dp-msg @(response.RespondedByUserId == userId ? "is-mine" : null)">
+                    <div class="dp-msg-head"><strong>@(response.RespondedByUserId == userId ? "You" : response.RespondedByUser?.FullName ?? "Participant")</strong><time class="device-local-time" datetime="@response.RespondedAt.ToString("o")">@response.RespondedAt.ToString("dd MMM yyyy HH:mm")</time></div>
+                    <p>@response.ResponseText</p>
+                </li>
+            }
+        </ol>
+        @if (Model.CanReply)
+        {
+            <form asp-action="Reply" method="post" class="ms-compose">
+                <input name="id" value="@selected.Id" type="hidden" />
+                <label for="recipient-response" class="visually-hidden">Your response</label>
+                <textarea id="recipient-response" name="response" required maxlength="3000" rows="2" class="form-control" placeholder="Write your response…"></textarea>
+                <button type="submit" class="btn btn-primary ms-send" aria-label="Send response"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
+            </form>
+        }
+        else { <p class="ms-closed">This conversation is resolved or its participants/stage no longer permit a response. You can still read its history.</p> }
+    }
+    </section>
 </div>
 </div>
-
-</div>
-
 }
 @section Scripts { <script src="~/js/sourcing-messages.js" asp-append-version="true"></script> }

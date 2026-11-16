@@ -1,8 +1,21 @@
 @model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @{ ViewData["Title"] = "Delete Draft"; }
-<h2>Delete Draft</h2>
-<p>Delete @Model.RequestNumber – @Model.Title? Only a Draft without related process records can be deleted.</p>
-<form asp-action="Delete" asp-route-id="@Model.Id" method="post">
-    <button type="submit" class="btn btn-danger">Confirm Delete</button>
-</form>
-<p><a asp-action="Index">Cancel</a></p>
+<div class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <a asp-action="Index" class="dp-crumb"><span aria-hidden="true">←</span> My requests</a>
+        <h1 class="manager-title mb-1">Delete draft</h1>
+    </div>
+</div>
+<section class="card manager-card mb-4" style="max-width:640px">
+    <div class="card-header"><h2 class="h5 mb-0">@Model.Title</h2></div>
+    <div class="card-body">
+        <span class="dp-num mb-3">@Model.RequestNumber</span>
+        <p>This permanently deletes the draft. Only a Draft without related process records can be deleted.</p>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="actions">
+            <button type="submit" class="btn btn-danger">Confirm delete</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</section>
+</div>

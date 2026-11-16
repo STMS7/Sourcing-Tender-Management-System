@@ -1,0 +1,16 @@
+@model Sourcing_Tender_Management_System.Models.ProcurementRequestStatus
+@using Sourcing_Tender_Management_System.Models
+@{
+    var (css, label) = Model switch
+    {
+        ProcurementRequestStatus.Draft => ("is-draft", "Draft"),
+        ProcurementRequestStatus.Submitted => ("is-review", "Submitted"),
+        ProcurementRequestStatus.UnderReview => ("is-review", "Under review"),
+        ProcurementRequestStatus.Returned => ("is-returned", "Returned"),
+        ProcurementRequestStatus.Rejected => ("is-rejected", "Rejected"),
+        ProcurementRequestStatus.Approved => ("is-approved", "Approved"),
+        ProcurementRequestStatus.ConvertedToTender => ("is-converted", "Converted to tender"),
+        _ => ("", Model.ToString())
+    };
+}
+<span class="dp-status @css">@label</span>
