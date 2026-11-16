@@ -1,48 +1,22 @@
 @model IEnumerable<Sourcing_Tender_Management_System.Models.Clarification>
-@using System.Security.Claims
-@{
-    ViewData["Title"] = "Clarification Inbox";
-    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-    string Other(Sourcing_Tender_Management_System.Models.Clarification c) =>
-        (c.AskedByUserId == userId ? c.RecipientUser?.FullName : c.AskedByUser?.FullName) is { } n && !string.IsNullOrWhiteSpace(n) ? n : "Participant";
-    string Context(Sourcing_Tender_Management_System.Models.Clarification c) =>
-        c.ProcurementRequestId.HasValue ? "Request #" + c.ProcurementRequestId : c.TenderId.HasValue ? "Tender #" + c.TenderId : "Bid #" + c.BidId;
-}
+@{ ViewData["Title"] = "Clarification Inbox"; }
 <div id="clarification-search-results">
-    <div class="sm-head-block">
-        <span class="sp-eyebrow">Communication</span>
-        <h1 class="sp-h1">Clarification inbox</h1>
-        <p class="sp-sub">Only conversations in which you are a participant are listed. Start from a request, tender or bid.</p>
-    </div>
-    <div class="sm-info"><span aria-hidden="true">&#128172;</span><span>Need to ask something new? Open the request, tender or bid it concerns and start the conversation there. <a asp-controller="Department" asp-action="Index">Department requests</a></span></div>
-    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "clarification-search", ResultsId = "clarification-search-results", Label = "Search your clarification conversations" })" />
+<h2>Clarification Inbox</h2>
+<p>Only conversations in which you are a participant are listed. Start from a request, tender or bid.</p>
+<p><a asp-controller="Department" asp-action="Index">Department Requests</a></p>
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "clarification-search", ResultsId = "clarification-search-results", Label = "Search your clarification conversations" })" />
+<table class="table table-bordered">
+<thead><tr><th>Subject</th><th>Context</th><th>From</th><th>To</th><th>Status</th><th>Created</th></tr></thead>
+<tbody>
+@foreach (var c in Model)
+{
+    <tr data-search-item>
+        <td><a asp-action="Thread" asp-route-id="@c.Id">@c.Subject</a></td>
+        <td>@(c.ProcurementRequestId.HasValue ? "Request #" + c.ProcurementRequestId : c.TenderId.HasValue ? "Tender #" + c.TenderId : "Bid #" + c.BidId)</td>
+        <td>@c.AskedByUser?.FullName</td><td>@c.RecipientUser?.FullName</td><td>@c.Status</td><td>@c.AskedAt.ToLocalTime()</td>
+    </tr>
+}
+</tbody>
+</table>
 
-    <div class="sm-wrap">
-        <aside class="sp-card sm-list" aria-label="Conversations">
-            @if (!Model.Any())
-            {
-                <div class="sp-empty">No conversations yet.</div>
-            }
-            @foreach (var c in Model)
-            {
-                var otherName = Other(c);
-                var needsReply = c.Status == ClarificationStatus.Pending && c.RecipientUserId == userId;
-                <a data-search-item class="sm-item" asp-action="Thread" asp-route-id="@c.Id">
-                    <span class="sm-av" aria-hidden="true">@otherName.Trim()[..1]</span>
-                    <span style="min-width:0">
-                        <b>@c.Subject</b>
-                        <small>@otherName · @Context(c)</small>
-                        <span class="sm-meta"><time class="sm-time device-local-time" datetime="@c.AskedAt.ToString("o")">@c.AskedAt.ToString("dd MMM HH:mm")</time>
-                        @if (needsReply) { <span class="sp-chip wait"><i></i>Reply needed</span> }
-                        else if (c.Status == ClarificationStatus.Pending) { <span class="sp-chip info">Awaiting reply</span> }
-                        else if (c.Status == ClarificationStatus.Resolved) { <span class="sp-chip info">Closed</span> }
-                        else { <span class="sp-chip ok">Answered</span> }</span>
-                    </span>
-                </a>
-            }
-        </aside>
-        <section class="sp-card sm-thread" aria-label="Selected conversation">
-            <div class="sm-pick"><div><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M8 9h8M8 13h5"/></svg><b>Choose a conversation</b>Pick a conversation on the left to read it and reply.</div></div>
-        </section>
-    </div>
 </div>

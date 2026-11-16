@@ -111,7 +111,11 @@
     <script type="importmap"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@@12..96,600;12..96,700&family=DM+Mono:wght@@400;500&family=DM+Sans:opsz,wght@@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+    @if (controller is "SourcingManager" or "EvaluationCommittee")
+    {
+        <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    }
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/layout.css" asp-append-version="true" />
@@ -127,10 +131,8 @@
         <link rel="stylesheet" href="~/css/admin-palette.css" asp-append-version="true" />
     }
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
-    @* Glass theme for every signed-in page; loaded last so it sits on top of the module skins. *@
-    <link rel="stylesheet" href="~/css/glass.css" asp-append-version="true" />
 </head>
-<body class="zt-app zt-glass @(isAdminArea ? "zt-admin" : null)">
+<body class="zt-app @(isAdminArea ? "zt-admin" : null)">
 <div class="zt-shell">
     <aside class="zt-sidebar" id="zt-sidebar" aria-label="Main navigation">
         <div class="zt-sidebar-head">

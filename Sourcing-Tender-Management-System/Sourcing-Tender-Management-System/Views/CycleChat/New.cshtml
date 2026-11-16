@@ -2,33 +2,24 @@
 @using Sourcing_Tender_Management_System.Models
 @{ var recipients = (List<ApplicationUser>)ViewBag.Recipients; }
 @{ ViewData["Title"] = "New Clarification"; }
-<div class="sm-head-block">
-    <a asp-action="Index">&larr; Back to inbox</a>
-    <span class="sp-eyebrow d-block mt-2">New clarification</span>
-    <h1 class="sp-h1">@ViewBag.ContextLabel</h1>
-    <p class="sp-sub">Ask one clear question. The recipient is notified and can reply in the same conversation.</p>
-</div>
-<section class="sp-card" aria-label="New clarification">
-    <div asp-validation-summary="All" class="text-danger"></div>
-    @if (recipients.Any())
-    {
-        <form asp-action="New" method="post" class="sm-form">
-            <input type="hidden" name="ProcurementRequestId" value="@Model.ProcurementRequestId" />
-            <input type="hidden" name="TenderId" value="@Model.TenderId" />
-            <input type="hidden" name="BidId" value="@Model.BidId" />
-            <div><label for="new-recipient" class="form-label">Recipient</label><select id="new-recipient" name="RecipientUserId" class="form-select" required>
-            @foreach (var u in recipients)
-            {
-                <option value="@u.Id" selected="@(u.Id == Model.RecipientUserId)">@u.FullName (@u.Email)</option>
-            }
-            </select></div>
-            <div><label for="new-subject" class="form-label">Subject</label><input id="new-subject" name="Subject" value="@Model.Subject" maxlength="200" required class="form-control" /></div>
-            <div><label for="new-question" class="form-label">Question</label><textarea id="new-question" name="Question" maxlength="2000" required rows="5" class="form-control">@Model.Question</textarea></div>
-            <div class="sm-actions">
-                <a class="btn btn-outline-secondary" asp-action="Index">Cancel</a>
-                <button type="submit" class="btn btn-primary">Send</button>
-            </div>
-        </form>
-    }
-    else { <p class="sp-empty mb-0">No authorized recipient is available for this process stage.</p> }
-</section>
+<h2>New Clarification — @ViewBag.ContextLabel</h2>
+<div asp-validation-summary="All" class="text-danger"></div>
+@if (recipients.Any())
+{
+    <form asp-action="New" method="post">
+        <input type="hidden" name="ProcurementRequestId" value="@Model.ProcurementRequestId" />
+        <input type="hidden" name="TenderId" value="@Model.TenderId" />
+        <input type="hidden" name="BidId" value="@Model.BidId" />
+        <div class="mb-2"><label>Recipient</label><select name="RecipientUserId" class="form-select" required>
+        @foreach (var u in recipients)
+        {
+            <option value="@u.Id" selected="@(u.Id == Model.RecipientUserId)">@u.FullName (@u.Email)</option>
+        }
+        </select></div>
+        <div class="mb-2"><label>Subject</label><input name="Subject" value="@Model.Subject" maxlength="200" required class="form-control" /></div>
+        <div class="mb-2"><label>Question</label><textarea name="Question" maxlength="2000" required class="form-control">@Model.Question</textarea></div>
+        <button type="submit">Send</button>
+    </form>
+}
+else { <p>No authorized recipient is available for this process stage.</p> }
+<p><a asp-action="Index">Back to inbox</a></p>
