@@ -19,10 +19,14 @@
     // profile pages (no MVC controller) never get it, so they keep the look the team set.
     var isDashboard = (controller, currentAction) is ("SourcingOfficer", "Index") or ("SourcingManager", "Index")
         or ("TopCommittee", "Index") or ("EvaluationCommittee", "Index") or ("Suppliers", "Index") or ("Department", "Dashboard");
-    var heritage = controller != "" && controller is not ("Admin" or "AdminCatalog" or "AdminCommittee" or "Auth" or "Home");
+    var heritage = (controller != "" && controller is not ("Admin" or "AdminCatalog" or "AdminCommittee" or "Auth" or "Home")) || (ViewContext.RouteData.Values["area"]?.ToString() == "Identity");
 
     // Tab bars get the glass look on every page of the cycle, dashboards included; admin, sign-in and home are left alone.
     var glassTabs = controller != "" && controller is not ("Admin" or "AdminCatalog" or "AdminCommittee" or "Auth" or "Home");
+
+    var routeArea = ViewContext.RouteData.Values["area"]?.ToString() ?? "";
+    var isProfilePage = routeArea == "Identity";
+    var isMessagesPage = controller is "Messages" or "CycleChat" || (controller == "SourcingOfficer" && currentAction is "Messages");
 
     const string IconGrid = "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z";
     const string IconList = "M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01";
@@ -126,19 +130,21 @@
     {
         <link rel="stylesheet" href="~/css/sourcing-manager.css" asp-append-version="true" />
     }
+    <link rel="stylesheet" href="~/css/brand.css" asp-append-version="true" />
     @if (isAdminArea)
     {
         <link rel="stylesheet" href="~/css/admin-palette.css" asp-append-version="true" />
     }
+    <link rel="stylesheet" href="~/css/frame.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
 </head>
-<body class="zt-app @(isAdminArea ? "zt-admin" : null)">
+<body class="zt-app @(isAdminArea ? "zt-admin" : null)@(isProfilePage ? " zt-page-profile" : null)@(isMessagesPage ? " zt-page-messages" : null)">
 <div class="zt-shell">
     <aside class="zt-sidebar" id="zt-sidebar" aria-label="Main navigation">
         <div class="zt-sidebar-head">
             <span class="zt-brand">
-                <svg class="zt-mark" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12" fill="#17402A"></rect><path d="M12 29c0-9 6-15 16-16 0 9-5 15-16 16z" fill="#DCEB4B"></path><path d="M12 29c3-5 7-9 12-12" fill="none" stroke="#17402A" stroke-width="1.6" stroke-linecap="round"></path></svg>
-                <span><span class="zt-brand-name">Zaytouna<span>.</span></span><span class="zt-brand-sub">Sourcing portal</span></span>
+                <img class="zt-brand-logo" src="~/landing/logo/zaytouna-emblem-white-transparent.svg" width="46" height="46" alt="" />
+                <span><span class="zt-brand-name">Zaytouna<span>.</span></span><span class="zt-brand-sub">@(isAdminArea ? "Admin portal" : "Sourcing portal")</span></span>
             </span>
             <button type="button" class="zt-round zt-menu-toggle" aria-controls="zt-sidebar-body" aria-expanded="false" aria-label="Open menu" data-zt-menu>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="@IconMenu"></path></svg>
@@ -240,6 +246,7 @@
     @if (heritage)
     {
         <script src="~/js/heritage.js" asp-append-version="true" defer></script>
+        <script src="~/js/pager.js" asp-append-version="true" defer></script>
     }
     @await RenderSectionAsync("Scripts", required: false)
 </body>

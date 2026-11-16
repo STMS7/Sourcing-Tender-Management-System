@@ -1,0 +1,5 @@
+/*
+ * Sidebar brand: the Zaytouna emblem (the same white transparent SVG the supplier portal uses), the name and the portal label.
+ */
+.zt-brand-logo { flex: none; width: 46px; height: 46px; object-fit: contain; }
+.zt-brand-sub { font-family: 'DM Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: .18em; opacity: .65; }
