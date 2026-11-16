@@ -151,14 +151,13 @@
 <div class="ec-bid-grid" data-bid-pages data-page-size="3">
 @foreach (var bid in Model.Bids) {
 
-<article data-search-item id="bid-@bid.Id" class="manager-bid">
-<h3>@bid.Supplier.CompanyName @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3>
-<p><strong>Total:</strong> @bid.TotalAmount.ToString("N2") @bid.Currency · <strong>Delivery:</strong> @bid.DeliveryDays days · <strong>Valid until:</strong> @(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</p>
-<p><strong>Payment terms:</strong> @bid.PaymentTerms</p>
-<p class="preserve-lines"><strong>Technical summary:</strong> @bid.TechnicalSummary</p>
-<div class="table-responsive mb-4"><table class="table align-middle"><caption>Cost components in @bid.Currency</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
-<div class="table-responsive mb-4"><table class="table table-hover align-middle"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
-
+<article data-search-item id="bid-@bid.Id" class="manager-bid ec-bid-card">
+<header class="ec-bid-head"><div><span class="manager-kicker">Supplier offer</span><h3>@bid.Supplier.CompanyName @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3></div><strong>@bid.TotalAmount.ToString("N2") @bid.Currency</strong></header>
+<div class="ec-bid-facts"><span><small>Delivery</small><strong>@bid.DeliveryDays days</strong></span><span><small>Valid until</small><strong>@(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</strong></span><span><small>Payment</small><strong>@bid.PaymentTerms</strong></span></div>
+<p class="preserve-lines ec-bid-summary">@bid.TechnicalSummary</p>
+<details class="ec-bid-details"><summary>View full offer details</summary><div class="ec-bid-details-body">
+<div class="table-responsive"><table class="table align-middle"><caption>Cost components in @bid.Currency</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
+<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
 @foreach (var item in tender.Items) {
     var offered = bid.Items.FirstOrDefault(i => i.TenderItemId == item.Id);
     <tr data-search-item><td>@item.ItemName<br /><small>@item.Specifications</small></td><td>@item.Quantity @item.Unit</td><td>@(offered?.UnitPrice.ToString("N2") ?? "Not quoted")</td><td>@(offered?.TotalPrice.ToString("N2") ?? "Not quoted")</td><td class="preserve-lines">@offered?.TechnicalResponse @offered?.BrandOrModel</td></tr>
