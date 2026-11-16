@@ -1,0 +1,179 @@
+/* One search component for every signed-in workspace.
+   This file is intentionally loaded last so page-specific skins cannot reshape it. */
+.zt-app .zt-search-toolbar {
+    display: block !important;
+    width: 100%;
+}
+
+.zt-app .zt-search-toolbar .zt-search-line {
+    display: flex !important;
+    grid-template-columns: none !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    gap: .75rem !important;
+    width: 100%;
+}
+
+.zt-app .zt-search-toolbar .zt-search-shell {
+    display: flex !important;
+    grid-column: auto !important;
+    align-items: center;
+    flex: 1 1 auto !important;
+    min-width: 0;
+    min-height: 56px;
+    overflow: visible;
+    background: #fffdf7;
+    border: 1px solid rgba(61, 74, 42, .24);
+    border-radius: 999px;
+}
+
+.zt-app .zt-search-toolbar .zt-search-shell:focus-within {
+    border-color: #6b7b3a;
+    box-shadow: 0 0 0 3px rgba(201, 168, 76, .45);
+}
+
+.zt-app .zt-search-toolbar .zt-search-input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 120px;
+    min-height: 54px;
+    padding-inline: 1.25rem .5rem;
+    border: 0 !important;
+    border-radius: 999px 0 0 999px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.zt-app .zt-search-toolbar .zt-language-picker,
+.zt-app .zt-search-toolbar .zt-language-button,
+.zt-app .zt-search-toolbar .zt-voice-button {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+}
+
+.zt-app .zt-search-toolbar .zt-language-picker {
+    position: relative;
+    overflow: visible;
+    z-index: 5;
+}
+
+.zt-app .zt-search-toolbar .zt-language-button,
+.zt-app .zt-search-toolbar .zt-voice-button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: #e8ebd9 !important;
+    color: #3d4a2a !important;
+}
+
+.zt-app .zt-search-toolbar .zt-language-button:hover,
+.zt-app .zt-search-toolbar .zt-language-button[aria-expanded="true"],
+.zt-app .zt-search-toolbar .zt-voice-button:hover,
+.zt-app .zt-search-toolbar .zt-voice-button[aria-pressed="true"] {
+    background: #c9a84c !important;
+}
+
+.zt-app .zt-search-toolbar .zt-voice-button {
+    margin: 5px 5px 5px 2px !important;
+}
+
+.zt-app .zt-search-toolbar .zt-search-submit,
+.zt-app .zt-search-toolbar .zt-search-clear,
+.zt-app .zt-search-toolbar .zt-search-line > button[type="submit"],
+.zt-app .zt-search-toolbar .zt-search-line > [data-search-reset] {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto !important;
+    min-width: 96px !important;
+    min-height: 56px !important;
+    padding: .65rem 1.35rem !important;
+    border-radius: 999px !important;
+    white-space: nowrap;
+}
+
+.zt-app .zt-search-toolbar .zt-search-submit,
+.zt-app .zt-search-toolbar .zt-search-line > button[type="submit"] {
+    background: #3d4a2a;
+    border-color: #3d4a2a;
+    color: #f5f0e1;
+}
+
+.zt-app .zt-search-toolbar .zt-search-clear,
+.zt-app .zt-search-toolbar .zt-search-line > [data-search-reset] {
+    background: transparent;
+    border-color: rgba(63, 71, 51, .45);
+    color: #3d4a2a;
+}
+
+.zt-app .zt-search-toolbar .zt-language-menu {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    display: grid;
+    gap: 3px;
+    width: 126px;
+    padding: 5px;
+    background: #fffdf7;
+    border: 1px solid rgba(61,74,42,.18);
+    border-radius: 14px;
+    box-shadow: 0 10px 26px rgba(46,57,32,.2);
+    z-index: 100;
+}
+
+.zt-app .zt-search-toolbar .zt-language-menu[hidden] { display: none; }
+.zt-app .zt-search-toolbar .zt-language-menu button { display:flex; align-items:center; gap:9px; width:100%; min-height:38px; padding:6px 9px; border:0; border-radius:9px; background:transparent; color:#3d4a2a; text-align:left; }
+.zt-app .zt-search-toolbar .zt-language-menu button:hover,
+.zt-app .zt-search-toolbar .zt-language-menu button[aria-selected="true"] { background:#e8ebd9; }
+.zt-app .zt-search-toolbar .zt-language-menu button strong { width:22px; text-align:center; }
+
+/* The dashboard task card is intentionally narrow. Keep the same component,
+   but give the field its own row so the controls never cover the text. */
+.zt-app .ow-panel .zt-search-toolbar .zt-search-line,
+.zt-app .ow-pane .zt-search-toolbar .zt-search-line {
+    flex-wrap: wrap !important;
+}
+
+.zt-app .ow-panel .zt-search-toolbar .zt-search-shell,
+.zt-app .ow-pane .zt-search-toolbar .zt-search-shell {
+    flex: 1 1 100% !important;
+    width: 100%;
+}
+
+.zt-app .ow-panel .zt-search-toolbar .zt-search-submit,
+.zt-app .ow-panel .zt-search-toolbar .zt-search-clear,
+.zt-app .ow-pane .zt-search-toolbar .zt-search-submit,
+.zt-app .ow-pane .zt-search-toolbar .zt-search-clear {
+    flex: 1 1 calc(50% - .4rem) !important;
+    min-width: 0 !important;
+}
+
+@media (max-width: 767.98px) {
+    .zt-app .zt-search-toolbar .zt-search-line {
+        flex-wrap: wrap !important;
+    }
+
+    .zt-app .zt-search-toolbar .zt-search-shell {
+        flex-basis: 100% !important;
+    }
+
+    .zt-app .zt-search-toolbar .zt-search-submit,
+    .zt-app .zt-search-toolbar .zt-search-clear,
+    .zt-app .zt-search-toolbar .zt-search-line > button[type="submit"],
+    .zt-app .zt-search-toolbar .zt-search-line > [data-search-reset] {
+        flex: 1 1 calc(50% - .4rem) !important;
+    }
+}
+
+.zt-list-summary { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:.35rem .25rem .75rem; color:#5c6149; font-size:.85rem; }
+.zt-pagination-bar { display:flex; justify-content:center; margin-top:1rem; }
+.zt-pagination-bar .pagination { flex-wrap:wrap; }
+.zt-pagination-bar .page-link { color:#3d4a2a; background:#fffdf7; border-color:rgba(61,74,42,.18); }
+.zt-pagination-bar .active>.page-link { color:#f5f0e1; background:#3d4a2a; border-color:#3d4a2a; }
+.zt-pagination-bar .disabled>.page-link { color:#7a7f6a; background:#e8ebd9; }
+@media(max-width:575px){.zt-list-summary{align-items:flex-start;flex-direction:column;gap:.2rem}}

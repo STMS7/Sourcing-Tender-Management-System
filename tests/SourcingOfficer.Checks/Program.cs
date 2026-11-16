@@ -110,10 +110,10 @@ try
         foreach (var id in new[] { "admin", "officer", "other", "requester", "supplier-user", "manager", "department", "financial", "technical" })
             db.Users.Add(new ApplicationUser { Id = id, FullName = id, UserName = id, NormalizedUserName = id.ToUpperInvariant(), IsActive = true });
         roleIds = await db.Roles.ToDictionaryAsync(r => r.Name!, r => r.Id);
-        Check(new[] { "ProcurementOfficer", "SourcingOfficer", "Supplier", "DepartmentRepresentative", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative" }
+        Check(new[] { "ProcurementOfficer", "SourcingOfficer", "Supplier", "DepartmentRequester", "DepartmentRepresentative", "SourcingManager", "FinancialRepresentative", "TechnicalRepresentative" }
             .All(roleIds.ContainsKey), "Migration-seeded role names match the communication and sourcing modules");
         foreach (var (user, role) in new[] { ("admin", "Admin"), ("officer", "ProcurementOfficer"), ("other", "ProcurementOfficer"),
-            ("requester", "DepartmentRepresentative"), ("supplier-user", "Supplier"), ("manager", "SourcingManager"),
+            ("requester", "DepartmentRequester"), ("supplier-user", "Supplier"), ("manager", "SourcingManager"),
             ("department", "DepartmentRepresentative"), ("financial", "FinancialRepresentative"), ("technical", "TechnicalRepresentative") })
             db.UserRoles.Add(new IdentityUserRole<string> { UserId = user, RoleId = roleIds[role] });
         var department = new Department { Name = "Production" };
@@ -572,7 +572,7 @@ try
         "Losing a participant role blocks new responses");
     await using (var db = new ApplicationDbContext(options))
     {
-        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "requester", RoleId = roleIds["DepartmentRepresentative"] });
+        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "requester", RoleId = roleIds["DepartmentRequester"] });
         (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.Awarded;
         await db.SaveChangesAsync();
     }
@@ -672,30 +672,6 @@ try
         "Both inboxes retain officer committee communication while report awaits manager review");
     await using (var db = new ApplicationDbContext(options)) {
         (await db.Tenders.FindAsync(tenderId))!.Status = TenderStatus.UnderEvaluation;
-        await db.SaveChangesAsync();
-    }
-    foreach (var alias in new[] { "DepartmentRequester", "RequestingDepartment" }) {
-        await using (var db = new ApplicationDbContext(options)) {
-            var role = await db.Roles.SingleOrDefaultAsync(r => r.Name == alias);
-            if (role == null) {
-                role = new IdentityRole(alias) { NormalizedName = alias.ToUpperInvariant() };
-                db.Roles.Add(role); await db.SaveChangesAsync();
-            }
-            db.UserRoles.RemoveRange(db.UserRoles.Where(r => r.UserId == "department"));
-            await db.SaveChangesAsync();
-            db.UserRoles.Add(new IdentityUserRole<string> { UserId = "department", RoleId = role.Id });
-            await db.SaveChangesAsync();
-        }
-        Check(await Act(c => c.Messages("EvaluationCommittee", "tender:" + tenderId, null)) is ViewResult {
-            Model: SourcingMessagesViewModel aliasModel } && aliasModel.Recipients.Any(r => r.Id == "department"),
-            alias + " is available for assigned committee clarification");
-        Check(CycleAct("department", c => c.New(null, tenderId, null, "officer", "Committee alias " + alias, "Clarify evaluation"))
-            is RedirectToActionResult, alias + " can use the teammate committee chat");
-    }
-    await using (var db = new ApplicationDbContext(options)) {
-        db.UserRoles.RemoveRange(db.UserRoles.Where(r => r.UserId == "department"));
-        await db.SaveChangesAsync();
-        db.UserRoles.Add(new IdentityUserRole<string> { UserId = "department", RoleId = roleIds["DepartmentRepresentative"] });
         await db.SaveChangesAsync();
     }
     Check(await Act(c => c.SendCommitteeMessage(tenderId, "Team handoff", "Review the compliant offers."), "other")

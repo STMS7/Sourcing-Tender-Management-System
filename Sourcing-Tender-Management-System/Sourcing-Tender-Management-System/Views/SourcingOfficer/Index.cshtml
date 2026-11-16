@@ -51,14 +51,14 @@
             <div class="ow-panel-body">
                 <form class="zt-search-toolbar" role="search" id="task-search-form" data-live-search data-local-search data-results="task-list" data-search-status="voice-status" data-empty-state="no-tasks">
                     <label for="task-search" class="form-label">Search tasks</label>
-                    <div class="zt-search-line"><div class="zt-search-shell"><input id="task-search" type="search" class="form-control zt-search-input" placeholder="Search your tasks" data-search-input /><partial name="_SearchVoiceTools" /></div><button type="submit" class="btn btn-primary">Search</button><button type="button" class="btn btn-outline-secondary" data-search-reset>Clear</button></div>
+                    <div class="zt-search-line"><div class="zt-search-shell"><input id="task-search" type="search" class="form-control zt-search-input" placeholder="Search your tasks" data-search-input /><partial name="_SearchVoiceTools" /></div><button type="submit" class="btn btn-primary zt-search-submit">Search</button><button type="button" class="btn btn-outline-secondary zt-search-clear" data-search-reset>Clear</button></div>
                 </form>
                 <p id="voice-status" role="status" class="small text-secondary mb-0 mt-2"></p>
                 <ul class="ow-tasks" id="task-list">
                 @foreach (var task in Model.Tasks)
                 {
                     var late = task.DueAt != null && task.DueAt.Value < DateTime.UtcNow;
-                    <li class="ow-task" data-task="@task.Title @task.Description">
+                    <li class="ow-task" data-task="@task.Title @task.Description" data-search-item>
                         <div class="ow-task-top"><strong>@task.Title</strong> <span class="ow-chip">@task.Status</span></div>
                         <p>@task.Description</p>
                         <div class="ow-task-meta">

@@ -96,9 +96,7 @@ public class AdminCommitteeController(ApplicationDbContext db) : Controller
         {
             var name = position.ToString();
             candidates[position] = await db.Users.AsNoTracking().Where(u => u.IsActive && u.Id != tender.CreatedByUserId &&
-                db.UserRoles.Any(a => a.UserId == u.Id && db.Roles.Any(r => r.Id == a.RoleId &&
-                    (r.Name == name || (position == CommitteeMemberRole.DepartmentRepresentative &&
-                        (r.Name == "DepartmentRequester" || r.Name == "RequestingDepartment"))))))
+                db.UserRoles.Any(a => a.UserId == u.Id && db.Roles.Any(r => r.Id == a.RoleId && r.Name == name)))
                 .OrderBy(u => u.FullName).Select(u => new SelectListItem(u.FullName, u.Id)).ToListAsync();
         }
         ViewBag.CommitteeCandidates = candidates;

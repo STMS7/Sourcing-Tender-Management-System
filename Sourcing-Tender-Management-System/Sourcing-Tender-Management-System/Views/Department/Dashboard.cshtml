@@ -2,10 +2,11 @@
 @using Sourcing_Tender_Management_System.Models
 @{
     ViewData["Title"] = "Department Dashboard";
+    var notifications = ((IEnumerable<Notification>)ViewBag.Notifications).ToList();
 }
+<link rel="stylesheet" href="~/css/department-dashboard.css" asp-append-version="true" />
 <div id="department-dashboard-search-results">
-<h2>Department Dashboard</h2>
-<p><a asp-action="Index">My Requests</a> | <a asp-action="Create">Create Request</a> | <a asp-controller="CycleChat" asp-action="Index">Clarifications</a></p>
+<div class="dd-head"><div><p class="dd-kicker">Department workspace</p><h1>Department Dashboard</h1><p>Track your purchase requests and open the records that need action.</p></div><div class="dd-actions"><a class="btn btn-primary" asp-action="Create">New request</a><a class="btn btn-outline-secondary" asp-action="Index">All requests</a></div></div>
 <ul class="zt-bento" aria-label="Request summary">
     <li><a class="zt-tile" asp-action="Index"><span class="zt-tile-label">Total</span><span class="zt-tile-value">@ViewBag.Total</span></a></li>
     <li><div class="zt-tile"><span class="zt-tile-label">Draft</span><span class="zt-tile-value">@ViewBag.Draft</span></div></li>
@@ -17,19 +18,47 @@
     <li><div class="zt-tile"><span class="zt-tile-label">Converted</span><span class="zt-tile-value">@ViewBag.Converted</span></div></li>
 </ul>
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-dashboard-search", ResultsId = "department-dashboard-search-results", Label = "Search recent requests and notifications" })" />
-<h3>Recent requests</h3>
-<ul>
-@foreach (var r in Model)
-{
-    <li data-search-item><a asp-action="Details" asp-route-id="@r.Id">@r.RequestNumber – @r.Title</a> (@r.Status)</li>
-}
-</ul>
-<h3>My latest notifications</h3>
-<ul>
-@foreach (var n in ((IEnumerable<Notification>)ViewBag.Notifications))
-{
-    <li data-search-item>@n.CreatedAt.ToLocalTime(): @n.Title – @n.Message</li>
-}
-</ul>
+<div class="dd-grid">
+    <section class="dd-panel" aria-labelledby="recent-requests-title">
+        <header><div><span class="dd-kicker">Latest activity</span><h2 id="recent-requests-title">Recent requests</h2></div><a asp-action="Index">View all →</a></header>
+        @if (!Model.Any())
+        {
+            <p class="dd-empty">No purchase requests yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table align-middle mb-0">
+                <thead><tr><th>Request</th><th>Status</th><th>Required by</th><th class="text-end">Action</th></tr></thead>
+                <tbody>
+                @foreach (var request in Model)
+                {
+                    <tr data-search-item>
+                        <td><strong>@request.Title</strong><small>@request.RequestNumber</small></td>
+                        <td><span class="dd-status">@request.Status</span></td>
+                        <td>@(request.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@request.Id">Manage</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        }
+    </section>
+    <section class="dd-panel" aria-labelledby="latest-notifications-title">
+        <header><div><span class="dd-kicker">Updates</span><h2 id="latest-notifications-title">Latest notifications</h2></div><a asp-controller="CycleChat" asp-action="Index">Open messages →</a></header>
+        @if (notifications.Count == 0)
+        {
+            <p class="dd-empty">No notifications yet.</p>
+        }
+        else
+        {
+            <div class="dd-notifications">
+            @foreach (var notification in notifications)
+            {
+                <article data-search-item><span class="dd-notification-dot" aria-hidden="true"></span><div><strong>@notification.Title</strong><p>@notification.Message</p><time class="device-local-time" datetime="@DateTime.SpecifyKind(notification.CreatedAt, DateTimeKind.Utc).ToString("O")">@notification.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC</time></div></article>
+            }
+            </div>
+        }
+    </section>
+</div>
 
 </div>

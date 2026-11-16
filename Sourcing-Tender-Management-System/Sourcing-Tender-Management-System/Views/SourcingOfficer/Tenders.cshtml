@@ -5,7 +5,7 @@
 <div class="actions mb-3"><a class="btn btn-primary" asp-action="Requests" asp-route-status="Approved">Create tender from an approved request</a><a class="btn btn-outline-secondary" asp-action="Messages">Open messages</a></div>
 <form asp-action="Tenders" method="get" class="zt-search-toolbar mb-3" role="search" data-live-search data-results="tender-results" data-search-status="tender-search-status">
     <label for="search" class="form-label">Title or tender number</label>
-    <div class="zt-search-line"><div class="zt-search-shell"><input type="search" name="search" id="search" value="@ViewBag.Search" class="form-control zt-search-input" placeholder="Results update as you type" data-search-input /><partial name="_SearchVoiceTools" /></div><button class="btn btn-primary" type="submit">Search</button><a asp-action="Tenders" data-search-reset class="btn btn-outline-secondary">Clear</a></div>
+    <div class="zt-search-line"><div class="zt-search-shell"><input type="search" name="search" id="search" value="@ViewBag.Search" class="form-control zt-search-input" placeholder="Results update as you type" data-search-input /><partial name="_SearchVoiceTools" /></div><button class="btn btn-primary zt-search-submit" type="submit">Search</button><a asp-action="Tenders" data-search-reset class="btn btn-outline-secondary zt-search-clear">Clear</a></div>
     <div class="mt-3" style="max-width:360px"><label for="status" class="form-label">Status</label><select name="status" id="status" class="form-select"><option value="">All statuses</option>
     @foreach (var status in Enum.GetValues<TenderStatus>()) { <option value="@status" selected="@(ViewBag.Status != null && (TenderStatus)ViewBag.Status == status)">@status</option> }
     </select></div>
