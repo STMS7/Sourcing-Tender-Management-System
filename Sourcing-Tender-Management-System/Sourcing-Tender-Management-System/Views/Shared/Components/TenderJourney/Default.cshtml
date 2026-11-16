@@ -1,0 +1,36 @@
+@model Sourcing_Tender_Management_System.Services.TenderJourney.State
+@using Sourcing_Tender_Management_System.Services
+@{
+    var mine = ViewData["YourTurn"] as bool? ?? Model.ActorRoles.Any(User.IsInRole);
+    var link = ViewData["Link"] as string;
+    var here = link != null && string.Equals(Context.Request.Path.Value?.TrimEnd('/'), link, StringComparison.OrdinalIgnoreCase);
+}
+<link rel="stylesheet" href="~/css/tender-journey.css" asp-append-version="true" />
+<section class="tj @(mine ? "tj-mine" : null)" aria-label="Tender progress">
+    <div class="tj-now">
+        <span class="tj-tag">@(Model.Finished ? "Finished" : mine ? "Your turn" : "Waiting on")</span>
+        <div>
+            <strong>@(Model.Finished ? "Tender complete" : Model.Actor)</strong>
+            <span>@Model.Action @if (Model.DueUtc is DateTime due) { <time class="device-local-time fw-semibold" datetime="@DateTime.SpecifyKind(due, DateTimeKind.Utc).ToString("O")">@due.ToString("dd MMM yyyy HH:mm") UTC</time> }</span>
+        </div>
+        @if (mine && link != null && !here)
+        {
+            <a class="btn btn-primary btn-sm tj-go" href="@link">Go to it →</a>
+        }
+        else if (mine && ViewData["Anchor"] is string anchor)
+        {
+            <a class="btn btn-primary btn-sm tj-go" href="#@anchor">Do it now ↓</a>
+        }
+    </div>
+    <ol class="tj-steps">
+        @for (var i = 0; i < TenderJourney.Stages.Length; i++)
+        {
+            var done = i < Model.Stage || Model.Finished;
+            var current = i == Model.Stage && !Model.Finished;
+            <li class="@(done ? "is-done" : current ? "is-current" : null)" aria-current="@(current ? "step" : null)">
+                <span class="tj-dot" aria-hidden="true">@(done ? "✓" : (i + 1).ToString())</span>
+                <span class="tj-label" title="@TenderJourney.Stages[i]">@TenderJourney.Stages[i]@if (done) { <span class="visually-hidden"> (done)</span> }</span>
+            </li>
+        }
+    </ol>
+</section>

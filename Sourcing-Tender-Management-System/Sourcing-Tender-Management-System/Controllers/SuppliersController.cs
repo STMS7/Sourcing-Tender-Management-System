@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -230,7 +230,7 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
 
     public async Task<IActionResult> Offers() => View(await db.Bids.AsNoTracking().Include(x => x.Tender)
         .Where(x => x.SupplierId == supplier!.Id).OrderByDescending(x => x.SubmittedAt).ToListAsync());
-    private Task<Bid?> OwnBid(int id) => db.Bids.AsNoTracking().Include(x => x.Tender).Include(x => x.Items).ThenInclude(x => x.TenderItem)
+    private Task<Bid?> OwnBid(int id) => db.Bids.AsNoTracking().Include(x => x.Tender).Include(x => x.Supplier).Include(x => x.Items).ThenInclude(x => x.TenderItem)
         .Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == id && x.SupplierId == supplier!.Id);
     public async Task<IActionResult> OfferDetails(int id) { var bid = await OwnBid(id); return bid is null ? NotFound() : View(bid); }
     public async Task<IActionResult> Report(int id) { var bid = await OwnBid(id); return bid is null ? NotFound() : View("Report", bid); }
@@ -275,8 +275,9 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         TempData["SupplierNotice"] = "Your response has been sent.";
         return RedirectToAction(nameof(Questions));
     }
-    public async Task<IActionResult> Notifications() => View(await db.Notifications.AsNoTracking()
-        .Where(x => x.UserId == account!.Id).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).ToListAsync());
+    // Same notifications page as every other role, shown inside the supplier portal.
+    public async Task<IActionResult> Notifications() =>
+        View(NotificationsController.ViewPath, await NotificationsController.ForUserAsync(db, account!.Id));
 
     [HttpPost]
     public async Task<IActionResult> ReadNotification(long id)

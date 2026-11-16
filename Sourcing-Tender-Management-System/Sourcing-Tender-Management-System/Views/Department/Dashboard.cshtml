@@ -1,11 +1,17 @@
-@model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
+﻿@model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
 @using Sourcing_Tender_Management_System.Models
+@inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
 @{
     ViewData["Title"] = "Department Dashboard";
     var notifications = ((IEnumerable<Notification>)ViewBag.Notifications).ToList();
     int total = ViewBag.Total, draft = ViewBag.Draft, submitted = ViewBag.Submitted, underReview = ViewBag.UnderReview,
         returned = ViewBag.Returned, rejected = ViewBag.Rejected, approved = ViewBag.Approved, converted = ViewBag.Converted;
     var needAction = draft + returned;
+    // Department representatives also sit on evaluation committees; show those tasks here so they are not missed.
+    var committeeTasks = User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment")
+        ? await new Sourcing_Tender_Management_System.Controllers.EvaluationCommitteeController(Db)
+            { ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = Context } }.ActionNeededCountAsync()
+        : 0;
     var breakdown = new (string Label, string Css, ProcurementRequestStatus Status, int Count)[]
     {
         ("Draft", "sw-draft", ProcurementRequestStatus.Draft, draft),
@@ -29,6 +35,13 @@
     </div>
 </div>
 
+@if (committeeTasks > 0)
+{
+    <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2" role="status">
+        <span><strong>Evaluation committee:</strong> @(committeeTasks == 1 ? "one tender is" : $"{committeeTasks} tenders are") waiting for your decision.</span>
+        <a asp-controller="EvaluationCommittee" asp-action="Index" class="btn btn-primary btn-sm">Open evaluation tasks</a>
+    </div>
+}
 <ul class="zt-bento" aria-label="Request summary">
     <li><a class="zt-tile" asp-action="Index"><span class="zt-tile-label">Total requests</span><span class="zt-tile-value">@total</span><span class="zt-tile-note">All requests from your department</span></a></li>
     <li><a class="zt-tile @(needAction > 0 ? "is-alert" : "")" asp-action="Index" asp-route-status="@(returned > 0 ? "Returned" : "Draft")"><span class="zt-tile-label">Needs your action</span><span class="zt-tile-value">@needAction</span><span class="zt-tile-note">@draft draft · @returned returned</span></a></li>

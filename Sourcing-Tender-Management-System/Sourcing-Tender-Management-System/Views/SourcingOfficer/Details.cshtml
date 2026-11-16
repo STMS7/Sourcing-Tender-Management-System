@@ -1,4 +1,4 @@
-@model Tender
+﻿@model Tender
 @using Sourcing_Tender_Management_System.Services
 @{
     ViewData["Title"] = Model.Title;
@@ -58,6 +58,8 @@
         </div>
         <a class="btn btn-outline-secondary" asp-action="Tenders">Back to my tenders</a>
     </header>
+
+    @await Component.InvokeAsync("TenderJourney", new { tenderId = Model.Id })
 
     @if (showWorkflowBar) {
     <section class="od-workflow" aria-label="Tender workflow actions">

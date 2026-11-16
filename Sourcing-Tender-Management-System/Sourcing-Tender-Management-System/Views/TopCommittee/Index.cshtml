@@ -1,10 +1,15 @@
-@model TopCommitteeDashboardViewModel
+﻿@model TopCommitteeDashboardViewModel
 @{
     ViewData["Title"] = "Top Committee";
 }
 
-<div id="top-committee-search-results">
-<h1 class="h3 mb-3">Top Committee</h1>
+<div id="top-committee-search-results" class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Top Committee</h1>
+        <p class="manager-intro mb-0">@(Model.MyPendingVotesCount == 0 ? "No tender is waiting for your vote." : Model.MyPendingVotesCount == 1 ? "One tender is waiting for your vote." : $"{Model.MyPendingVotesCount} tenders are waiting for your vote.")</p>
+    </div>
+</div>
 <partial name="_Nav" model="@("Index")" />
 
 <ul class="zt-bento" aria-label="Top Committee summary">
@@ -14,16 +19,19 @@
     <li><div class="zt-tile"><span class="zt-tile-label">Estimated value awaiting</span><span class="zt-tile-value">@Model.AwaitingTotalEstimatedValue.ToString("N0")</span></div></li>
 </ul>
 
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "top-committee-search", ResultsId = "top-committee-search-results", Label = "Search tenders awaiting a decision" })" />
-<h2 class="h5">Tenders awaiting the committee's decision</h2>
+<section class="manager-search-panel mb-4" aria-label="Search tenders">
+<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "top-committee-search", ResultsId = "top-committee-search-results", Label = "Search tenders awaiting a decision", Placeholder = "Tender, category or supplier" })" />
+</section>
+<section class="card manager-card mb-4">
+<div class="card-header"><h2 class="h5 mb-0">Tenders awaiting the committee's decision</h2></div>
 @if (Model.AwaitingTenders.Count == 0)
 {
-    <div class="alert alert-secondary">Nothing is waiting for a decision.</div>
+    <p class="empty-state">Nothing is waiting for a decision.</p>
 }
 else
 {
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
                     <th>Tender</th>
@@ -41,8 +49,8 @@ else
             {
                 <tr data-search-item>
                     <td>
-                        <div class="fw-semibold">@t.TenderNumber</div>
-                        <div class="small text-muted">@t.Title</div>
+                        <a class="dp-req-title" asp-action="Details" asp-route-id="@t.TenderId">@t.Title</a>
+                        <span class="dp-num dp-num-wide" title="@t.TenderNumber">@t.TenderNumber</span>
                         @if (t.Round > 1)
                         {
                             <span class="badge text-bg-secondary">Round @t.Round</span>
@@ -88,5 +96,5 @@ else
         </table>
     </div>
 }
-
+</section>
 </div>

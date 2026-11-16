@@ -1,0 +1,15 @@
+@* Staff workspace look (Top Committee / evaluation pages) for supplier pages. The supplier portal has its own
+   layout, so the shared stylesheets are loaded here. Wrap the page content in <div class="zt-app sp-ws">. *@
+<link rel="stylesheet" href="~/css/content.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/sourcing-manager.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/evaluation-committee.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/department.css" asp-append-version="true" />
+<style>
+.sp-ws { --zt-ink: #3D4A2A; --zt-ink-deep: #2E3920; --zt-lime: #C9A84C; --zt-sage-soft: #E8EBD9; --zt-sage: #D5DABF; --zt-yellow: #E4DCC8; --zt-olive: #6B7B3A; --zt-muted: #5C6149; --zt-line: rgba(61,74,42,.16); }
+.sp-ws .manager-page { padding-top: .25rem; }
+.sp-ws .zt-search-shell { background: #FFFDF7; border-color: rgba(61,74,42,.24); }
+.sp-ws .zt-search-shell:focus-within { box-shadow: 0 0 0 3px rgba(201,168,76,.45); }
+.sp-ws .zt-search-shell .zt-voice-button { background: #E8EBD9; color: #3D4A2A; }
+.sp-ws .table-responsive { overflow-y: hidden; margin-bottom: 0; }
+.sp-ws .manager-card .card-header h2 { font-family: "DM Sans", sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
+</style>

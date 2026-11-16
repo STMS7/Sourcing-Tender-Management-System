@@ -1,25 +1,60 @@
 @model List<Bid>
-@{ ViewData["Title"] = "My Offers"; }
-<div id="supplier-offer-search-results">
-<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">My Offers</h1><a asp-action="Index" class="btn btn-outline-secondary align-self-start">Back to dashboard</a></div>
-<p class="text-muted">Offers belonging to your company only. Dates are shown in UTC.</p>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-offer-search", ResultsId = "supplier-offer-search-results", Label = "Search your company offers" })" />
-@if (Model.Count == 0)
-{
-    <div class="alert alert-info">You have not submitted any offers yet. Open an invitation, accept participation, then submit your offer.</div>
-    <a asp-action="Invitations" class="btn btn-primary">View invitations</a>
+@{
+    ViewData["Title"] = "My Offers";
+    var won = Model.Count(b => b.Status == BidStatus.Accepted);
+    var inReview = Model.Count(b => b.Status is BidStatus.Submitted or BidStatus.UnderReview or BidStatus.UnderEvaluation or BidStatus.Compliant);
+    var wonValue = Model.Where(b => b.Status == BidStatus.Accepted).Sum(b => b.TotalAmount);
+    string Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToString("O");
 }
-else
-{
-    <div class="table-responsive"><table class="table table-striped align-middle">
-        <thead><tr><th scope="col">Offer number</th><th scope="col">Tender</th><th scope="col">Total</th><th scope="col">Status</th><th scope="col">Submitted (UTC)</th><th scope="col">Action</th></tr></thead>
-        <tbody>
-        @foreach (var bid in Model)
-        {
-            <tr data-search-item><td class="text-break">@bid.BidNumber</td><td>@bid.Tender.Title</td><td>@bid.TotalAmount.ToString("N2") @bid.Currency</td><td>@bid.Status</td><td>@bid.SubmittedAt.ToString("dd MMM yyyy HH:mm")</td><td><a asp-action="OfferDetails" asp-route-id="@bid.Id" class="btn btn-sm btn-outline-primary">Details</a></td></tr>
-        }
-        </tbody>
-    </table></div>
-}
+<partial name="_WorkspaceLook" />
+<div class="zt-app sp-ws">
+<div id="supplier-offer-search-results" class="manager-page ec-page dp-page">
+    <div class="dp-head">
+        <div class="manager-page-heading">
+            <h1 class="manager-title mb-1">My offers</h1>
+            <p class="manager-intro mb-0">Every offer your company has submitted, with its review and result.</p>
+        </div>
+        <div class="actions"><a asp-action="Invitations" class="btn btn-primary">View invitations</a></div>
+    </div>
 
+    <ul class="zt-bento" aria-label="Offer summary">
+        <li><div class="zt-tile"><span class="zt-tile-label">All offers</span><span class="zt-tile-value">@Model.Count</span><span class="zt-tile-note">Submitted by your company</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">In review</span><span class="zt-tile-value">@inReview</span><span class="zt-tile-note">Waiting for a decision</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Won</span><span class="zt-tile-value">@won</span><span class="zt-tile-note">Tenders awarded to you</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Won value</span><span class="zt-tile-value" style="font-size:1.6rem">@wonValue.ToString("N0")</span><span class="zt-tile-note">Total of winning offers</span></div></li>
+    </ul>
+
+    <section class="manager-search-panel mb-4" aria-label="Search offers">
+        <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-offer-search", ResultsId = "supplier-offer-search-results", Label = "Search your company offers", Placeholder = "Tender, offer number or status" })" />
+    </section>
+
+    <section class="card manager-card mb-4">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Offers</h2><span class="badge">@Model.Count</span></div>
+        @if (Model.Count == 0)
+        {
+            <div class="empty-state"><p class="mb-3">You have not submitted any offers yet. Open an invitation, accept it, then submit your offer.</p><a asp-action="Invitations" class="btn btn-primary">View invitations</a></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <caption class="visually-hidden">My offers</caption>
+                    <thead><tr><th scope="col">Tender</th><th scope="col" class="text-end">Total</th><th scope="col">Submitted</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                    @foreach (var bid in Model)
+                    {
+                        <tr data-search-item>
+                            <td><a class="dp-req-title" asp-action="OfferDetails" asp-route-id="@bid.Id">@bid.Tender.Title</a><span class="dp-num dp-num-wide" title="@bid.BidNumber">@bid.BidNumber</span></td>
+                            <td class="text-end money fw-semibold">@bid.TotalAmount.ToString("N2") @bid.Currency</td>
+                            <td class="text-nowrap"><time class="device-local-time" datetime="@Utc(bid.SubmittedAt)">@bid.SubmittedAt.ToString("dd MMM yyyy")</time></td>
+                            <td><partial name="_BidStatus" model="bid.Status" /></td>
+                            <td class="text-end"><a asp-action="OfferDetails" asp-route-id="@bid.Id" class="btn btn-sm btn-outline-primary" aria-label="Details for @bid.Tender.Title">Details</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
 </div>

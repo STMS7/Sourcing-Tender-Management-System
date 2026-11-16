@@ -3,138 +3,18 @@
 @{
     ViewData["Title"] = "Messages";
     var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-    // Suppliers see the conversation inside their own portal; every other role keeps the original page.
+    // One messages page for every role; suppliers see it inside their own portal frame.
     var isSupplier = User.IsInRole("Supplier");
     if (isSupplier) { Layout = "~/Views/Suppliers/_SupplierLayout.cshtml"; }
 }
-@if (isSupplier)
-{
-<style>
-.sm-wrap{display:grid;grid-template-columns:minmax(260px,.85fr) minmax(0,1.6fr);gap:18px;align-items:stretch}
-.sm-list{padding:14px;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 250px);overflow:auto}
-.sm-item{display:grid;grid-template-columns:42px 1fr;gap:12px;padding:12px;border-radius:16px;text-decoration:none;color:var(--sp-ink);transition:background .2s}
-.sm-item:hover{background:#F4F0E2;color:var(--sp-ink)}
-.sm-item.on{background:var(--sp-deep);color:#F5F0E1}.sm-item.on small,.sm-item.on .sm-time{color:#C9D3BC}
-.sm-av{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--sp-light);color:var(--sp-deep);font:700 15px 'Bricolage Grotesque',sans-serif}
-.sm-item.on .sm-av{background:var(--sp-gold)}
-.sm-item b{display:block;font-size:14.5px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sm-item small{display:block;font-size:12.5px;color:var(--sp-grey)}
-.sm-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
-.sm-time{font:500 11px 'DM Mono',monospace;color:var(--sp-grey)}
-.sm-item .sp-chip{font-size:10px;padding:3px 8px}
-.sm-thread{display:flex;flex-direction:column;padding:0;overflow:hidden;min-height:520px}
-.sm-head{display:flex;align-items:center;gap:14px;padding:18px 24px;border-bottom:1px solid var(--sp-beige)}
-.sm-head h2{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:21px;color:var(--sp-deep)}
-.sm-head small{display:block;color:var(--sp-grey);font-size:13px}
-.sm-head .sp-chip{margin-left:auto}
-.sm-msgs{list-style:none;margin:0;padding:22px 24px;display:flex;flex-direction:column;gap:14px;flex:1;overflow:auto;max-height:calc(100vh - 380px);background:linear-gradient(#FBF8EF,#FFFDF7)}
-.sm-msg{max-width:78%;display:flex;flex-direction:column;gap:4px}
-.sm-msg.me{align-self:flex-end;align-items:flex-end}
-.sm-bubble{padding:13px 16px;border-radius:18px 18px 18px 6px;background:var(--sp-white);border:1px solid var(--sp-beige);font-size:14.5px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
-.sm-msg.me .sm-bubble{border-radius:18px 18px 6px 18px;background:var(--sp-deep);border-color:var(--sp-deep);color:#F5F0E1}
-.sm-who{font:600 12px 'DM Sans',sans-serif;color:var(--sp-grey)}.sm-who time{font:500 11px 'DM Mono',monospace;margin-left:6px}
-.sm-msg.first .sm-bubble{border-left:4px solid var(--sp-gold)}
-.sm-compose{display:flex;gap:10px;align-items:flex-end;padding:16px 20px;border-top:1px solid var(--sp-beige);background:var(--sp-white)}
-.sm-compose textarea{flex:1;min-height:52px;max-height:180px;resize:vertical;font:inherit;font-size:15px;padding:13px 16px;border-radius:18px;border:1.5px solid var(--sp-beige);background:#FBF8EF;color:var(--sp-ink)}
-.sm-compose textarea:focus{outline:none;border-color:var(--sp-green);box-shadow:0 0 0 4px rgba(107,123,58,.15);background:#fff}
-.sm-send{flex:none;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;border:0;background:var(--sp-gold);color:var(--sp-deep);cursor:pointer;transition:transform .2s}
-.sm-send:hover{transform:scale(1.06)}
-.sm-closed{margin:0;padding:14px 22px;border-top:1px solid var(--sp-beige);background:#F4F0E2;color:var(--sp-grey);font-size:14px}
-.sm-pick{flex:1;display:grid;place-items:center;text-align:center;padding:40px 24px;color:var(--sp-grey)}
-.sm-pick b{display:block;margin:14px 0 6px;font-family:'Bricolage Grotesque',sans-serif;font-size:22px;color:var(--sp-deep)}
-.sm-info{display:flex;gap:12px;align-items:flex-start;margin-bottom:18px;padding:14px 18px;border-radius:18px;background:var(--sp-light);font-size:14px;line-height:1.5;color:var(--sp-ink)}
-@@media (max-width:980px){.sm-wrap{grid-template-columns:1fr}.sm-list{max-height:none}.sm-msgs{max-height:none}}
-</style>
-<div id="recipient-message-search-results">
-    <div style="margin-bottom:18px">
-        <span class="sp-eyebrow">Sourcing officer</span>
-        <h1 class="sp-h1">Messages</h1>
-        <p class="sp-sub">Your conversations with Zaytouna&rsquo;s sourcing team about your offers.</p>
-    </div>
-    @if (TempData["Error"] is string supError) { <div class="sp-alert bad" role="alert">@supError</div> }
-    <div class="sm-info"><span aria-hidden="true">&#128172;</span><span>The sourcing officer starts a conversation when they need a clarification on one of your submitted offers. Reply here; every message is kept on record.</span></div>
-    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "recipient-message-search", ResultsId = "recipient-message-search-results", Label = "Search conversation subjects and participants" })" />
-
-    <div class="sm-wrap">
-        <aside class="sp-card sm-list" aria-label="Conversations">
-            @if (Model.Conversations.Count == 0)
-            {
-                <div class="sp-empty">No conversations yet. When the sourcing officer writes to you, it will appear here.</div>
-            }
-            @foreach (var c in Model.Conversations)
-            {
-                var other = c.AskedByUserId == userId ? c.RecipientUser?.FullName : c.AskedByUser.FullName;
-                var otherName = string.IsNullOrWhiteSpace(other) ? "Sourcing officer" : other;
-                var needsReply = c.Status == ClarificationStatus.Pending && c.RecipientUserId == userId;
-                <a data-search-item class="sm-item @(c.Id == Model.Selected?.Id ? "on" : "")" asp-action="Index" asp-route-conversationId="@c.Id">
-                    <span class="sm-av">@(otherName.Trim()[0])</span>
-                    <span style="min-width:0">
-                        <b>@c.Subject</b>
-                        <small>@otherName</small>
-                        <span class="sm-meta"><time class="sm-time device-local-time" datetime="@c.AskedAt.ToString("o")">@c.AskedAt.ToString("dd MMM HH:mm")</time>
-                        @if (needsReply) { <span class="sp-chip wait"><i></i>Reply needed</span> }
-                        else if (c.Status == ClarificationStatus.Resolved) { <span class="sp-chip info">Closed</span> }
-                        else { <span class="sp-chip ok">Answered</span> }</span>
-                    </span>
-                </a>
-            }
-        </aside>
-
-        <section class="sp-card sm-thread" aria-label="Selected conversation">
-            @if (Model.Selected is not { } sel)
-            {
-                <div class="sm-pick"><div><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#6B7B3A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M8 9h8M8 13h5"/></svg><b>Choose a conversation</b>Pick a conversation on the left to read it and reply.</div></div>
-            }
-            else
-            {
-                var otherSel = sel.AskedByUserId == userId ? sel.RecipientUser?.FullName : sel.AskedByUser.FullName;
-                <header class="sm-head">
-                    <span class="sm-av">@((string.IsNullOrWhiteSpace(otherSel) ? "S" : otherSel.Trim()[0].ToString()))</span>
-                    <div><h2>@sel.Subject</h2><small>with @(string.IsNullOrWhiteSpace(otherSel) ? "Sourcing officer" : otherSel)</small></div>
-                    @if (sel.Status == ClarificationStatus.Pending && sel.RecipientUserId == userId) { <span class="sp-chip wait"><i></i>Reply needed</span> }
-                    else if (sel.Status == ClarificationStatus.Resolved) { <span class="sp-chip info">Closed</span> }
-                    else { <span class="sp-chip ok"><i></i>Answered</span> }
-                </header>
-                <ol class="sm-msgs" data-message-thread tabindex="0" aria-label="Message history">
-                    <li class="sm-msg first @(sel.AskedByUserId == userId ? "me" : "")">
-                        <span class="sm-who">@(sel.AskedByUserId == userId ? "You" : sel.AskedByUser.FullName)<time class="device-local-time" datetime="@sel.AskedAt.ToString("o")">@sel.AskedAt.ToString("dd MMM yyyy HH:mm")</time></span>
-                        <div class="sm-bubble">@sel.Question</div>
-                    </li>
-                    @foreach (var r in sel.Responses.OrderBy(r => r.RespondedAt))
-                    {
-                        <li class="sm-msg @(r.RespondedByUserId == userId ? "me" : "")">
-                            <span class="sm-who">@(r.RespondedByUserId == userId ? "You" : r.RespondedByUser?.FullName ?? "Participant")<time class="device-local-time" datetime="@r.RespondedAt.ToString("o")">@r.RespondedAt.ToString("dd MMM yyyy HH:mm")</time></span>
-                            <div class="sm-bubble">@r.ResponseText</div>
-                        </li>
-                    }
-                </ol>
-                @if (Model.CanReply)
-                {
-                    <form class="sm-compose" asp-action="Reply" method="post">
-                        <input name="id" value="@sel.Id" type="hidden" />
-                        <label for="recipient-response" class="visually-hidden">Your reply</label>
-                        <textarea id="recipient-response" name="response" required maxlength="3000" rows="2" placeholder="Write your reply&hellip;"></textarea>
-                        <button type="submit" class="sm-send" aria-label="Send reply"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
-                    </form>
-                }
-                else
-                {
-                    <p class="sm-closed">This conversation is closed. You can still read its history.</p>
-                }
-            }
-        </section>
-    </div>
-</div>
-<script>
-(function(){var t=document.querySelector('.sm-msgs');if(t)t.scrollTop=t.scrollHeight;var ta=document.getElementById('recipient-response');
-if(ta)ta.addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();ta.form.requestSubmit()}})})();
-</script>
-}
-else
-{
+@{
     string MsgCss(ClarificationStatus s) => s switch { ClarificationStatus.Pending => "is-returned", ClarificationStatus.Answered => "is-review", _ => "is-approved" };
     string Initial(string? n) => string.IsNullOrWhiteSpace(n) ? "?" : n.Trim()[..1].ToUpperInvariant();
     var waiting = Model.Conversations.Count(c => c.Status == ClarificationStatus.Pending && c.RecipientUserId == userId);
+}
+@if (isSupplier) { <partial name="~/Views/Suppliers/_WorkspaceLook.cshtml" /> }
+@* Suppliers get the same messages page as staff, framed by their portal. *@
+<div class="@(isSupplier ? "zt-app sp-ws" : null)">
 <div id="recipient-message-search-results" class="manager-page ec-page dp-page">
 <div class="dp-head">
     <div class="manager-page-heading">
@@ -210,5 +90,5 @@ else
     </section>
 </div>
 </div>
-}
+</div>
 @section Scripts { <script src="~/js/sourcing-messages.js" asp-append-version="true"></script> }

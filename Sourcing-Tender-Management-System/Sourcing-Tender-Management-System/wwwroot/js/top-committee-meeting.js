@@ -1,7 +1,7 @@
 /*
  * Top Committee video meeting (Jitsi IFrame API).
  *
- * Start meeting      -> asks the server for this tender's private room, loads the video library from the video
+ * Join meeting       -> asks the server for this tender's private room, loads the video library from the video
  *                       server and opens the room inside the page.
  * Open in a new tab  -> opens the same room as a normal page of the video server.
  * Leave meeting      -> closes the room and returns to the page.
@@ -147,9 +147,9 @@
         countBadge.classList.add('d-none');
         participants = 1;
         startBtn.disabled = false;
-        startBtn.textContent = 'Start meeting';
+        startBtn.textContent = 'Join meeting';
         newTabBtn.disabled = false;
-        setStatus(message || 'You left the meeting. Press Start meeting to join again.');
+        setStatus(message || 'You left the meeting. Press Join meeting to join again.');
     }
 
     function openMeeting(room) {

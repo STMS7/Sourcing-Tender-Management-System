@@ -1,4 +1,4 @@
-@model EvaluationCommitteeViewModel
+﻿@model EvaluationCommitteeViewModel
 @using Sourcing_Tender_Management_System.Services
 @{
     var tender = Model.Tender;
@@ -26,8 +26,26 @@
         <h1 class="manager-title mb-1">@tender.Title</h1>
         <div class="manager-intro">You are the <strong>@CommitteeWeighting.RoleLabel(Model.MyRole)</strong> on this tender.</div>
     </div>
-    <span class="badge fs-6">@tender.Status</span>
+    <span class="badge fs-6">@System.Text.RegularExpressions.Regex.Replace(tender.Status.ToString(), "(?<=[a-z])(?=[A-Z])", " ")</span>
 </div>
+@{
+    // The member's own progress decides "Your turn"; the role alone would still say so after they acted.
+    bool? journeyTurn = null; string? journeyActor = null; string? journeyAction = null;
+    if (preparing && Model.AgreedWeights == null) journeyTurn = !Model.IsReviewer && Model.MyProposal == null;
+    else if (open && Model.AgreedBidId == null)
+    {
+        journeyTurn = !Model.IsReviewer && Model.MyChoiceBidId == null;
+        journeyActor = "Technical + financial members";
+        journeyAction = Model.IsReviewer ? "They each choose a bid; you review it once they agree." : Model.MyChoiceBidId == null ? "Choose the bid you recommend below. The other member must choose the same one." : "You chose a bid. Waiting for the other member to choose the same bid.";
+    }
+    else if (open)
+    {
+        journeyTurn = Model.IsReviewer && Model.Reviews.GetValueOrDefault(Model.MyRole) == CommitteeWeighting.ReviewState.Pending;
+        journeyActor = "Manager + department representative";
+        journeyAction = journeyTurn == true ? "Accept or deny the agreed bid below." : "Waiting for the manager and department representative to accept the agreed bid.";
+    }
+}
+@await Component.InvokeAsync("TenderJourney", new { tenderId = tender.Id, yourTurn = journeyTurn, actor = journeyActor, action = journeyAction })
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 

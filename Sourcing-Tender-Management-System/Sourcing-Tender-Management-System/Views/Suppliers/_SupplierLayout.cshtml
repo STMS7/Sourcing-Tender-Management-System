@@ -1,4 +1,4 @@
-@using Microsoft.AspNetCore.Identity
+﻿@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject UserManager<ApplicationUser> UserManager
 @inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
@@ -36,8 +36,9 @@
 <body class="sp">
 <div class="sp-shell" id="sp-shell">
     <aside class="sp-side" aria-label="Supplier navigation">
+        @* Same brand block as the staff sidebar (Views/Shared/_Layout.cshtml) so every user sees one sidebar. *@
         <a class="sp-brand" asp-area="" asp-controller="Suppliers" asp-action="Index">
-            <img src="~/landing/logo/zaytouna-emblem-white-transparent.svg" alt="" />
+            <svg class="sp-mark" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12" fill="#5A6A30"></rect><path d="M12 29c0-9 6-15 16-16 0 9-5 15-16 16z" fill="#C9A84C"></path><path d="M12 29c3-5 7-9 12-12" fill="none" stroke="#2E3920" stroke-width="1.6" stroke-linecap="round"></path></svg>
             <span><b>Zaytouna<i>.</i></b><small>Supplier portal</small></span>
         </a>
 

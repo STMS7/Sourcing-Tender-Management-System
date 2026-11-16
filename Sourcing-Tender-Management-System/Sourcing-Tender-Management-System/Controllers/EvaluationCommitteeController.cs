@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
@@ -146,6 +146,10 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
 
     /// <summary>Landing page: what needs the member now, what is in progress and what is finished.</summary>
     public async Task<IActionResult> Index() => View(await BuildRowsAsync());
+
+    /// <summary>How many assigned tenders wait on this member (same rule as the dashboard); used by the sidebar badge.</summary>
+    [NonAction]
+    public async Task<int> ActionNeededCountAsync() => (await BuildRowsAsync()).Count(r => r.ActionNeeded);
 
     /// <summary>Every tender assigned to the member, searchable.</summary>
     public async Task<IActionResult> Tenders() => View(await BuildRowsAsync());

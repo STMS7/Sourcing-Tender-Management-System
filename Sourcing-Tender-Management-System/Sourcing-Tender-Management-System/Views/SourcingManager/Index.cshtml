@@ -1,6 +1,10 @@
-@model SourcingManagerDashboardViewModel
+﻿@model SourcingManagerDashboardViewModel
+@inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
 @{
     ViewData["Title"] = "Sourcing Manager";
+    // The manager also sits on each evaluation committee; surface those tasks here so they are not missed.
+    var committeeTasks = await new Sourcing_Tender_Management_System.Controllers.EvaluationCommitteeController(Db)
+        { ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = Context } }.ActionNeededCountAsync();
 }
 
 <div id="manager-search-results" class="manager-page">
@@ -14,6 +18,7 @@
 <ul class="zt-bento" aria-label="Manager summary">
     <li><div class="zt-tile @(Model.PendingReports.Count > 0 ? "is-alert" : "")"><span class="zt-tile-label">Reports awaiting your decision</span><span class="zt-tile-value">@Model.PendingReports.Count</span></div></li>
     <li><div class="zt-tile @(Model.TopDecisionsToForward.Count > 0 ? "is-alert" : "")"><span class="zt-tile-label">Top Committee decisions to forward</span><span class="zt-tile-value">@Model.TopDecisionsToForward.Count</span></div></li>
+    <li><a class="zt-tile @(committeeTasks > 0 ? "is-alert" : "")" asp-controller="EvaluationCommittee" asp-action="Index" style="text-decoration:none"><span class="zt-tile-label">Evaluation committee tasks</span><span class="zt-tile-value">@committeeTasks</span><span class="zt-tile-note">@(committeeTasks > 0 ? "Accept or deny agreed bids →" : "Nothing waiting")</span></a></li>
     <li><div class="zt-tile"><span class="zt-tile-label">Recent decisions</span><span class="zt-tile-value">@Model.RecentReports.Count</span><span class="zt-tile-note">Latest 10 shown below</span></div></li>
 </ul>
 
@@ -108,7 +113,7 @@
                     <tr data-search-item>
                         <td><strong>@report.Tender.TenderNumber</strong><div class="small text-secondary">@report.Tender.Title</div></td>
                         <td>@report.Round</td>
-                        <td><span class="badge text-bg-secondary">@report.Status</span></td>
+                        <td><span class="badge text-bg-secondary">@System.Text.RegularExpressions.Regex.Replace(report.Status.ToString(), "(?<=[a-z])(?=[A-Z])", " ")</span></td>
                         <td>@((report.SubmittedAt ?? report.CreatedAt).ToLocalTime().ToString("dd MMM yyyy, HH:mm"))</td>
                         <td class="text-end"><a class="btn btn-outline-secondary btn-sm" asp-action="Details" asp-route-id="@report.Id">Open</a></td>
                     </tr>

@@ -1,36 +1,76 @@
-@model List<TenderInvitation>
-@{ ViewData["Title"] = "Tender Invitations"; }
-<div id="invitation-search-results">
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h2 mb-0">Tender Invitations</h1>
-    <a asp-action="Index" class="btn btn-outline-secondary">Back to dashboard</a>
-</div>
-<p class="text-muted">Review the tenders your company has been invited to participate in. Dates are shown in UTC.</p>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "invitation-search", ResultsId = "invitation-search-results", Label = "Search your tender invitations" })" />
-@if (Model.Count == 0)
-{
-    <div class="alert alert-info" role="status">You have no tender invitations yet. Invitations will appear here when a sourcing officer invites your company.</div>
+﻿@model List<TenderInvitation>
+@{
+    ViewData["Title"] = "Tender Invitations";
+    var now = DateTime.UtcNow;
+    var replyNeeded = Model.Count(i => i.Status == InvitationStatus.Invited && i.Tender.SubmissionDeadline > now);
+    var accepted = Model.Count(i => i.Status == InvitationStatus.Accepted);
+    var open = Model.Count(i => i.Tender.Status == TenderStatus.Published && i.Tender.SubmissionDeadline > now);
+    static (string Css, string Text) Chip(InvitationStatus st) => st switch
+    {
+        InvitationStatus.Invited => ("is-returned", "Reply needed"),
+        InvitationStatus.Accepted => ("is-approved", "Accepted"),
+        InvitationStatus.Declined => ("is-rejected", "Declined"),
+        _ => ("is-draft", st.ToString())
+    };
+    string Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToString("O");
 }
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped align-middle">
-            <thead><tr><th scope="col">Tender</th><th scope="col">Title</th><th scope="col">Invited on (UTC)</th><th scope="col">Deadline (UTC)</th><th scope="col">Your response</th><th scope="col">Action</th></tr></thead>
-            <tbody>
-            @foreach (var invitation in Model)
-            {
-                <tr data-search-item>
-                    <td>@invitation.Tender.TenderNumber</td>
-                    <td>@invitation.Tender.Title</td>
-                    <td><time class="device-local-time" datetime="@DateTime.SpecifyKind(invitation.InvitedAt, DateTimeKind.Utc).ToString("O")">@invitation.InvitedAt.ToString("dd MMM yyyy HH:mm") UTC</time></td>
-                    <td><time class="device-local-time" datetime="@DateTime.SpecifyKind(invitation.Tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@invitation.Tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></td>
-                    <td><span class="badge bg-secondary">@invitation.Status</span></td>
-                    <td><a asp-action="Invitation" asp-route-id="@invitation.Id" class="btn btn-sm btn-outline-primary">View details</a></td>
-                </tr>
-            }
-            </tbody>
-        </table>
+<partial name="_WorkspaceLook" />
+<div class="zt-app sp-ws">
+<div id="invitation-search-results" class="manager-page ec-page dp-page">
+    <div class="dp-head">
+        <div class="manager-page-heading">
+            <h1 class="manager-title mb-1">Tender invitations</h1>
+            <p class="manager-intro mb-0">@(replyNeeded == 0 ? "Every open invitation has an answer." : replyNeeded == 1 ? "One invitation is waiting for your reply." : $"{replyNeeded} invitations are waiting for your reply.")</p>
+        </div>
+        <div class="actions"><a asp-action="Index" class="btn btn-outline-primary">Back to dashboard</a></div>
     </div>
-}
 
+    @if (TempData["SupplierNotice"] is string notice) { <div class="alert alert-success" role="status">@notice</div> }
+
+    <ul class="zt-bento" aria-label="Invitation summary">
+        <li><div class="zt-tile"><span class="zt-tile-label">All invitations</span><span class="zt-tile-value">@Model.Count</span><span class="zt-tile-note">Sent to your company</span></div></li>
+        <li><div class="zt-tile @(replyNeeded > 0 ? "is-alert" : null)"><span class="zt-tile-label">Reply needed</span><span class="zt-tile-value">@replyNeeded</span><span class="zt-tile-note">Accept or decline</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Accepted</span><span class="zt-tile-value">@accepted</span><span class="zt-tile-note">You are taking part</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Open for offers</span><span class="zt-tile-value">@open</span><span class="zt-tile-note">Deadline not passed</span></div></li>
+    </ul>
+
+    <section class="manager-search-panel mb-4" aria-label="Search invitations">
+        <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "invitation-search", ResultsId = "invitation-search-results", Label = "Search your tender invitations", Placeholder = "Tender title or number" })" />
+    </section>
+
+    <section class="card manager-card mb-4">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Invitations</h2><span class="badge">@Model.Count</span></div>
+        @if (Model.Count == 0)
+        {
+            <p class="empty-state">You have no tender invitations yet. They appear here when a sourcing officer invites your company.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <caption class="visually-hidden">Tender invitations</caption>
+                    <thead><tr><th scope="col">Tender</th><th scope="col">Invited</th><th scope="col">Deadline</th><th scope="col">Your response</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                    @foreach (var invitation in Model)
+                    {
+                        var chip = Chip(invitation.Status);
+                        var daysLeft = (invitation.Tender.SubmissionDeadline - now).TotalDays;
+                        var reply = invitation.Status == InvitationStatus.Invited && daysLeft > 0;
+                        <tr data-search-item>
+                            <td><a class="dp-req-title" asp-action="Invitation" asp-route-id="@invitation.Id">@invitation.Tender.Title</a><span class="dp-num dp-num-wide" title="@invitation.Tender.TenderNumber">@invitation.Tender.TenderNumber</span></td>
+                            <td class="text-nowrap"><time class="device-local-time" datetime="@Utc(invitation.InvitedAt)">@invitation.InvitedAt.ToString("dd MMM yyyy")</time></td>
+                            <td class="text-nowrap">
+                                <time class="device-local-time" datetime="@Utc(invitation.Tender.SubmissionDeadline)">@invitation.Tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm")</time>
+                                <span class="dp-meta mt-0 @(daysLeft is >= 0 and < 3 ? "text-danger fw-semibold" : null)">@(daysLeft < 0 ? "Closed" : daysLeft < 1 ? "Closes today" : Math.Ceiling(daysLeft) + " days left")</span>
+                            </td>
+                            <td><span class="dp-status @chip.Css">@chip.Text</span></td>
+                            <td class="text-end"><a class="btn btn-sm @(reply ? "btn-primary" : "btn-outline-primary")" asp-action="Invitation" asp-route-id="@invitation.Id" aria-label="@(reply ? "Respond to" : "Open") @invitation.Tender.Title">@(reply ? "Respond" : "Open")</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
 </div>

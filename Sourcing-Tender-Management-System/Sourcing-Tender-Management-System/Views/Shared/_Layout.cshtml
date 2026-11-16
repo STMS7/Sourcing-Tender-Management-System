@@ -1,6 +1,8 @@
-﻿@using Microsoft.AspNetCore.Identity
+﻿@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
 @inject SignInManager<Sourcing_Tender_Management_System.Models.ApplicationUser> SignInManager
 @inject UserManager<Sourcing_Tender_Management_System.Models.ApplicationUser> UserManager
+@inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
 @{
     // Signed-in layout: dark rounded sidebar + top bar. The same links and role rules as the
     // previous top navigation; only the frame around the page changed.
@@ -16,7 +18,7 @@
     var isAdminArea = isAdmin && (controller is "Admin" or "AdminCatalog" or "AdminCommittee");
     var isProfile = (ViewContext.RouteData.Values["page"] as string)?.StartsWith("/Account/Manage") == true;
     // Department, clarification, messages and profile pages share the evaluation committee look.
-    var committeeLook = controller is "SourcingManager" or "EvaluationCommittee" or "Department" or "CycleChat" or "Messages" || isProfile;
+    var committeeLook = controller is "SourcingManager" or "EvaluationCommittee" or "Department" or "CycleChat" or "Messages" or "TopCommittee" or "Notifications" || isProfile;
 
     // The olive heritage skin (css/heritage.css) is only for inner pages. The admin area, sign-in and home
     // never get it, so they keep the look the team set.
@@ -44,6 +46,7 @@
     const string IconLogout = "M10 4H5v16h5M15 8l4 4-4 4M19 12H9";
     const string IconUser = "M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c1-4 4-6 8-6s7 2 8 6";
     const string IconMenu = "M4 7h16M4 12h16M4 17h16";
+    const string IconBell = "M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0";
 
     var links = new List<(string Label, string Href, string Icon, bool Active)>();
     if (InRole("Supplier"))
@@ -88,6 +91,8 @@
     var tools = new List<(string Label, string Href, string Icon, bool Active)>();
     if (signedIn && !isOfficer && !isAdmin)
         tools.Add(("Messages", Url.Action("Index", "Messages")!, IconChat, controller == "Messages"));
+    if (signedIn)
+        tools.Add(("Notifications", Url.Action("Index", "Notifications")!, IconBell, controller == "Notifications"));
     if (InRole("Admin"))
     {
         tools.Add(("Contact Us", Url.Action("ContactMessages", "Admin")!, IconMail,
@@ -108,6 +113,48 @@
         links.Add(("My requests", Url.Action("Index", "Department")!, IconList, controller == "Department" && currentAction is "Index" or "Details" or "Edit" or "Delete"));
         links.Add(("Create request", Url.Action("Create", "Department")!, IconDoc, controller == "Department" && currentAction == "Create"));
         links.Add(("Clarifications", Url.Action("Index", "CycleChat")!, IconChat, controller == "CycleChat"));
+    }
+}
+@{
+    // "Needs you" counts on sidebar links, so each role sees where work is waiting without opening every page.
+    var badges = new Dictionary<string, int>();
+    if (currentUser != null)
+    {
+        badges["Notifications"] = await Db.Notifications.CountAsync(n => n.UserId == currentUser.Id && !n.IsRead);
+        if (isOfficer)
+        {
+            var officerTenders = 0;
+            foreach (var tenderId in await Db.Tenders.Where(t => t.CreatedByUserId == currentUser.Id &&
+                t.Status != Sourcing_Tender_Management_System.Models.TenderStatus.Cancelled &&
+                // An awarded tender still needs the officer until the result is announced.
+                (t.Status != Sourcing_Tender_Management_System.Models.TenderStatus.Awarded ||
+                 !Db.WorkflowTransitions.Any(w => w.TenderId == t.Id && w.Reason == Sourcing_Tender_Management_System.Services.TenderResultFlow.ResultAnnounced)))
+                .Select(t => t.Id).ToListAsync())
+                if (await Sourcing_Tender_Management_System.Services.TenderJourney.ComputeAsync(Db, tenderId) is { } journey &&
+                    journey.ActorRoles.Contains("SourcingOfficer")) officerTenders++;
+            badges["Tenders"] = officerTenders;
+        }
+        if (isOfficer)
+            badges["Requests"] = await Db.ProcurementRequests.CountAsync(r => r.Status == Sourcing_Tender_Management_System.Models.ProcurementRequestStatus.Submitted || r.Status == Sourcing_Tender_Management_System.Models.ProcurementRequestStatus.UnderReview);
+        if (InRole("SourcingManager"))
+        {
+            // Reports to review and Top Committee decisions to forward: both are the manager's move on the journey.
+            var managerTurns = 0;
+            foreach (var tenderId in await Db.EvaluationReports.Select(r => r.TenderId).Distinct().ToListAsync())
+                if (await Sourcing_Tender_Management_System.Services.TenderJourney.ComputeAsync(Db, tenderId) is { Finished: false } journey &&
+                    journey.ActorRoles.Contains("SourcingManager") && journey.Stage == 7) managerTurns++;
+            badges["Manager Review"] = managerTurns;
+        }
+        if (InRole("TopCommittee"))
+            badges["Top committee"] = await Db.CommitteeVotes.CountAsync(v => v.CommitteeType == Sourcing_Tender_Management_System.Models.CommitteeType.Top && v.MemberUserId == currentUser.Id && v.Decision == Sourcing_Tender_Management_System.Models.CommitteeDecision.Pending);
+        if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative", "RequestingDepartment"))
+        {
+            var committee = new Sourcing_Tender_Management_System.Controllers.EvaluationCommitteeController(Db)
+                { ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = Context } };
+            badges["Evaluation"] = await committee.ActionNeededCountAsync();
+        }
+        if (InRole("DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment") && currentUser.DepartmentId != null)
+            badges["My requests"] = await Db.ProcurementRequests.CountAsync(r => r.DepartmentId == currentUser.DepartmentId && (r.Status == Sourcing_Tender_Management_System.Models.ProcurementRequestStatus.Draft || r.Status == Sourcing_Tender_Management_System.Models.ProcurementRequestStatus.Returned));
     }
 }
 <!DOCTYPE html>
@@ -134,7 +181,7 @@
     {
         <link rel="stylesheet" href="~/css/sourcing-manager.css" asp-append-version="true" />
     }
-    @if (controller is "Department" or "CycleChat" or "Messages" || isProfile)
+    @if (controller is "Department" or "CycleChat" or "Messages" or "TopCommittee" or "SourcingManager" || isProfile)
     {
         <link rel="stylesheet" href="~/css/evaluation-committee.css" asp-append-version="true" />
         <link rel="stylesheet" href="~/css/department.css" asp-append-version="true" />
@@ -165,6 +212,7 @@
                     <a href="@item.Href" class="@(item.Active ? "is-active" : null)" aria-current="@(item.Active ? "page" : null)">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@item.Icon"></path></svg>
                         <span>@item.Label</span>
+                        @if (badges.TryGetValue(item.Label, out var waiting) && waiting > 0) { <span class="zt-nav-count" title="Needs action">@waiting</span> }
                     </a>
                 }
             </nav>
@@ -177,6 +225,7 @@
                         <a href="@item.Href" class="@(item.Active ? "is-active" : null)" aria-current="@(item.Active ? "page" : null)">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@item.Icon"></path></svg>
                             <span>@item.Label</span>
+                            @if (badges.TryGetValue(item.Label, out var toolCount) && toolCount > 0) { <span class="zt-nav-count" title="Unread">@toolCount</span> }
                         </a>
                     }
                 </nav>

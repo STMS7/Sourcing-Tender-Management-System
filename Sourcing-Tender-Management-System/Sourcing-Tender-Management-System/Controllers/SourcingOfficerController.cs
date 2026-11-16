@@ -464,7 +464,8 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         {
             invitation.InvitedAt = DateTime.UtcNow;
             foreach (var userId in await db.Users.Where(u => u.SupplierId == invitation.SupplierId && u.IsActive).Select(u => u.Id).ToListAsync())
-                Notify(userId, "Tender invitation", $"Your company has been invited to {tender.TenderNumber}.");
+                Notify(userId, "Tender invitation", $"Your company has been invited to \"{tender.Title}\" ({tender.TenderNumber}). Accept it and submit your offer before the deadline.",
+                    $"/Suppliers/Invitation/{invitation.Id}");
         }
         Log(tender, "Publish", WorkflowStage.Sourcing, WorkflowStage.SupplierBidding);
         await db.SaveChangesAsync();
@@ -888,8 +889,11 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             i.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved ||
             !i.Supplier.SupplierCategories.Any(c => c.CategoryId == tender.CategoryId)))
             result.OfficerTasks.Add("Remove ineligible suppliers and select approved suppliers matching this category.");
-        if (!await EvaluationPreparation.Approved(db, tender))
-            result.TeamDependencies.Add("Waiting for the evaluation committee's preparation approval. This is completed by the responsible team, not by the sourcing officer.");
+        // Until the officer locks the draft, approval cannot start: that click is the officer's own task.
+        if (tender.EvaluationCriteriaLockedAt == null)
+            result.OfficerTasks.Add("Click “Request pre-publication review” so the technical and financial members can approve the weights.");
+        else if (!await EvaluationPreparation.Approved(db, tender))
+            result.TeamDependencies.Add("Waiting for the technical and financial members to submit the evaluation weights.");
         if ((await EvaluationPreparation.MemberIssues(db, tender)).Count != 0)
             result.TeamDependencies.Add("Waiting for Admin to complete the evaluation assignment.");
         if (await db.Bids.AnyAsync(b => b.TenderId == tender.Id))

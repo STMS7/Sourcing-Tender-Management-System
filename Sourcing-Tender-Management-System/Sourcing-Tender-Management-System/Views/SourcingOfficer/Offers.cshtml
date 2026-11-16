@@ -13,7 +13,7 @@
 @if (Model.Count > 0) { <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#bid-analysis-modal">Analyze offers with AI assistant</button> }
 </div>
 <p>@tender.Title · @tender.TenderNumber</p>
-<partial name="_SourcingCycle" model="@(tender.Status == TenderStatus.Closed ? 3 : 5)" />
+@await Component.InvokeAsync("TenderJourney", new { tenderId = tender.Id })
 <section class="so-next" aria-labelledby="compliance-next-heading">
     <h2 id="compliance-next-heading">@(tender.Status == TenderStatus.Closed ? "Your next step: review every submitted offer" : "Compliance handoff recorded")</h2>
     @if (tender.Status == TenderStatus.Closed) {
@@ -57,7 +57,7 @@ else {
 <form asp-action="Compliance" method="post" class="form-panel mt-3">
 <input type="hidden" name="BidId" value="@bid.Id" />
 <div class="mb-3"><label for="decision-@bid.Id" class="form-label">Compliance decision</label><select id="decision-@bid.Id" name="Decision" required class="form-select"><option value="">Choose an outcome</option>
-@foreach (var decision in new[] { ComplianceDecision.Compliant, ComplianceDecision.NonCompliant, ComplianceDecision.PendingClarification }) { <option value="@decision" selected="@(bid.ComplianceStatus == decision)">@decision</option> }
+@foreach (var decision in new[] { ComplianceDecision.Compliant, ComplianceDecision.NonCompliant, ComplianceDecision.PendingClarification }) { <option value="@decision" selected="@(bid.ComplianceStatus == decision)">@(decision switch { ComplianceDecision.NonCompliant => "Not compliant", ComplianceDecision.PendingClarification => "Needs supplier clarification", _ => "Compliant" })</option> }
 </select></div>
 <div class="mb-3"><label for="reason-@bid.Id" class="form-label">Reason and observations</label><textarea id="reason-@bid.Id" name="Reason" maxlength="2000" required class="form-control" rows="3"></textarea></div>
 <div class="actions"><button type="submit" class="btn btn-primary">Record compliance review</button><a class="btn btn-outline-primary" asp-action="Clarifications" asp-route-tenderId="@tender.Id" asp-route-bidId="@bid.Id">Request supplier clarification</a></div>

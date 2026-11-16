@@ -1,4 +1,4 @@
-@model Sourcing_Tender_Management_System.Models.ProcurementRequest
+﻿@model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @using Sourcing_Tender_Management_System.Models
 @{
     ViewData["Title"] = "Request Details";
@@ -16,6 +16,31 @@
     </div>
 </div>
 
+@if (Model.Tenders.Any())
+{
+    foreach (var t in Model.Tenders)
+    {
+        @await Component.InvokeAsync("TenderJourney", new { tenderId = t.Id })
+    }
+}
+else
+{
+    var (who, what, mine, done) = Model.Status switch
+    {
+        ProcurementRequestStatus.Draft => ("You", "Check the details, then click “Submit for review”.", true, false),
+        ProcurementRequestStatus.Returned => ("You", "Read the review notes, edit the request, then resubmit it.", true, false),
+        ProcurementRequestStatus.Rejected => ("Done", "The sourcing officer rejected this request. See the review notes.", false, true),
+        ProcurementRequestStatus.Approved => ("Sourcing officer", "The request is approved and will become a tender.", false, false),
+        _ => ("Sourcing officer", "The sourcing officer is reviewing your request.", false, false)
+    };
+    <link rel="stylesheet" href="~/css/tender-journey.css" asp-append-version="true" />
+    <section class="tj @(mine ? "tj-mine" : null)" aria-label="Request progress">
+        <div class="tj-now mb-0">
+            <span class="tj-tag">@(done ? "Finished" : mine ? "Your turn" : "Waiting on")</span>
+            <div><strong>@who</strong><span>@what</span></div>
+        </div>
+    </section>
+}
 @if (Model.Status == ProcurementRequestStatus.Returned)
 {
     <div class="alert alert-warning" role="status">The sourcing officer returned this request. Read the review notes, edit it, then resubmit.</div>

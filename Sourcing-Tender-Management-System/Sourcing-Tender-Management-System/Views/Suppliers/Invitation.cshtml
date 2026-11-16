@@ -1,98 +1,177 @@
-@model TenderInvitation
+﻿@model TenderInvitation
 @{
     ViewData["Title"] = "Invitation Details";
     var tender = Model.Tender;
-    var open = tender.Status == TenderStatus.Published && tender.SubmissionDeadline > DateTime.UtcNow
-        && (tender.PublishedAt is null || tender.PublishedAt <= DateTime.UtcNow);
-}
-<div id="invitation-details-search-results">
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h2 mb-0">Invitation Details</h1>
-    <a asp-action="Invitations" class="btn btn-outline-secondary">Back to invitations</a>
-</div>
-@if (TempData["SupplierNotice"] is string notice)
-{
-    <div class="alert alert-info" role="status">@notice</div>
-}
-<div class="card mb-4"><div class="card-body">
-    <h2 class="h4">@tender.Title</h2>
-    <dl class="row mb-0">
-        <dt class="col-sm-4">Tender number</dt><dd class="col-sm-8">@tender.TenderNumber</dd>
-        <dt class="col-sm-4">Tender status</dt><dd class="col-sm-8">@tender.Status</dd>
-        <dt class="col-sm-4">Submission deadline (device time)</dt><dd class="col-sm-8"><time class="device-local-time" datetime="@DateTime.SpecifyKind(tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></dd>
-        <dt class="col-sm-4">Your response</dt><dd class="col-sm-8"><span class="badge bg-secondary">@Model.Status</span></dd>
-        @if (Model.RespondedAt.HasValue)
-        {
-            <dt class="col-sm-4">Responded on (UTC)</dt><dd class="col-sm-8">@Model.RespondedAt.Value.ToString("dd MMM yyyy HH:mm")</dd>
-        }
-    </dl>
-    <h3 class="h6 mt-3">Description</h3>
-    <p class="text-break" style="white-space: pre-wrap">@(tender.Description ?? "No description provided.")</p>
-    <h3 class="h6">Terms and conditions</h3>
-    <p class="text-break mb-0" style="white-space: pre-wrap">@(tender.TermsAndConditions ?? "No additional terms provided.")</p>
-</div></div>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "invitation-details-search", ResultsId = "invitation-details-search-results", Label = "Search requested items and document requirements" })" />
-<h2 class="h5">Requested items</h2>
-@if (tender.Items.Count == 0)
-{
-    <p class="text-muted">No items have been specified.</p>
-}
-else
-{
-    <div class="table-responsive mb-4"><table class="table table-bordered">
-        <thead><tr><th scope="col">Item</th><th scope="col">Specifications</th><th scope="col">Quantity</th><th scope="col">Unit</th></tr></thead>
-        <tbody>
-        @foreach (var item in tender.Items.OrderBy(x => x.Id))
-        {
-            <tr data-search-item><td>@item.ItemName</td><td class="text-break">@item.Specifications</td><td>@item.Quantity.ToString("0.###")</td><td>@item.Unit</td></tr>
-        }
-        </tbody>
-    </table></div>
-}
-<h2 class="h5">Offer document requirements</h2>
-@if (tender.DocumentRequirements.Count == 0)
-{
-    <p class="text-muted">No document requirements have been specified.</p>
-}
-else
-{
-    <ul class="list-group mb-4">
-    @foreach (var requirement in tender.DocumentRequirements.OrderBy(x => x.Id))
+    var now = DateTime.UtcNow;
+    var open = tender.Status == TenderStatus.Published && tender.SubmissionDeadline > now
+        && (tender.PublishedAt is null || tender.PublishedAt <= now);
+    var daysLeft = (tender.SubmissionDeadline - now).TotalDays;
+    var (chipCss, chipText) = Model.Status switch
     {
-        <li data-search-item class="list-group-item"><strong>@requirement.DocumentType</strong>
-            <span class="badge @(requirement.IsMandatory ? "bg-danger" : "bg-secondary")">@(requirement.IsMandatory ? "Required" : "Optional")</span>
-            @if (!string.IsNullOrWhiteSpace(requirement.Description)) { <p class="mb-0 mt-1">@requirement.Description</p> }
-        </li>
-    }
-    </ul>
+        InvitationStatus.Invited => ("is-returned", "Reply needed"),
+        InvitationStatus.Accepted => ("is-approved", "Accepted"),
+        InvitationStatus.Declined => ("is-rejected", "Declined"),
+        _ => ("is-draft", Model.Status.ToString())
+    };
+    string Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToString("O");
+    string Words(string v) => System.Text.RegularExpressions.Regex.Replace(v, "(?<=[a-z])(?=[A-Z])", " ");
 }
-@if (open && Model.Status == InvitationStatus.Invited)
-{
-    <div class="card mb-4"><div class="card-body">
-        <h2 class="h5">Participation decision</h2>
-        <p>Accepting confirms your intention to participate. Your price offer is submitted separately. Your decision cannot be changed on this page.</p>
-        <form asp-action="Respond" method="post" class="d-inline">
-            <input type="hidden" name="id" value="@Model.Id" />
-            <button type="submit" name="accept" value="true" class="btn btn-success">Accept participation</button>
-        </form>
-        <form asp-action="Respond" method="post" class="d-inline">
-            <input type="hidden" name="id" value="@Model.Id" />
-            <button type="submit" name="accept" value="false" class="btn btn-outline-danger">Decline participation</button>
-        </form>
-    </div></div>
-}
-else if (open && Model.Status == InvitationStatus.Accepted)
-{
-    <div class="alert alert-success">You have accepted this invitation. You can now prepare your offer.</div>
-    <a asp-action="Offer" asp-route-id="@Model.Id" class="btn btn-primary mb-4">Prepare offer</a>
-}
-else if (Model.Status == InvitationStatus.Declined)
-{
-    <div class="alert alert-secondary">You declined participation in this tender.</div>
-}
-else
-{
-    <div class="alert alert-warning">This invitation is not available for a participation response. The tender may be closed, not yet open, or the invitation may have expired.</div>
-}
+<partial name="_WorkspaceLook" />
+<div class="zt-app sp-ws">
+<div id="invitation-details-search-results" class="manager-page ec-page dp-page">
+    <div class="dp-head">
+        <div class="manager-page-heading">
+            <a asp-action="Invitations" class="dp-crumb"><span aria-hidden="true">←</span> Tender invitations</a>
+            <h1 class="manager-title mb-1">@tender.Title</h1>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="dp-status @chipCss">@chipText</span>
+                <span class="dp-num" title="@tender.TenderNumber">@tender.TenderNumber</span>
+            </div>
+        </div>
+    </div>
 
+    @if (TempData["SupplierNotice"] is string notice) { <div class="alert alert-success" role="status">@notice</div> }
+
+    @* ---------- What to do next ---------- *@
+    @if (open && Model.Status == InvitationStatus.Invited)
+    {
+        <section class="tj tj-mine" aria-label="Next step">
+            <div class="tj-now mb-0 flex-wrap">
+                <span class="tj-tag">Your turn</span>
+                <div>
+                    <strong>Accept or decline this invitation</strong>
+                    <span>Respond before <time class="device-local-time fw-semibold" datetime="@Utc(tender.SubmissionDeadline)">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time>. Accepting lets you submit a price offer; your decision cannot be changed later.</span>
+                </div>
+                <div class="actions">
+                    <form asp-action="Respond" method="post">
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" name="accept" value="true" class="btn btn-primary">Accept participation</button>
+                    </form>
+                    <form asp-action="Respond" method="post" onsubmit="return confirm('Decline this tender? You cannot change this decision later.');">
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" name="accept" value="false" class="btn btn-outline-danger">Decline</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    }
+    else if (open && Model.Status == InvitationStatus.Accepted)
+    {
+        <section class="tj tj-mine" aria-label="Next step">
+            <div class="tj-now mb-0 flex-wrap">
+                <span class="tj-tag">Your turn</span>
+                <div>
+                    <strong>Prepare and submit your offer</strong>
+                    <span>You accepted this invitation. Submit your offer before <time class="device-local-time fw-semibold" datetime="@Utc(tender.SubmissionDeadline)">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time>.</span>
+                </div>
+                <a asp-action="Offer" asp-route-id="@Model.Id" class="btn btn-primary">Prepare offer</a>
+            </div>
+        </section>
+    }
+    else if (Model.Status == InvitationStatus.Declined)
+    {
+        <div class="alert alert-secondary">You declined participation in this tender.</div>
+    }
+    else if (Model.Status == InvitationStatus.Accepted)
+    {
+        <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2"><span>Bidding on this tender is closed. Follow your offer and its result in My offers.</span><a asp-action="Offers" class="btn btn-sm btn-primary">My offers</a></div>
+    }
+    else
+    {
+        <div class="alert alert-warning">This invitation can no longer be answered. The tender may be closed, not yet open, or the invitation may have expired.</div>
+    }
+
+    <ul class="zt-bento" aria-label="Tender summary">
+        <li><div class="zt-tile @(open && daysLeft < 3 ? "is-alert" : null)"><span class="zt-tile-label">Deadline</span><span class="zt-tile-value">@(daysLeft < 0 ? "Closed" : daysLeft < 1 ? "Today" : Math.Ceiling(daysLeft) + "d")</span><span class="zt-tile-note"><time class="device-local-time" datetime="@Utc(tender.SubmissionDeadline)">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Items</span><span class="zt-tile-value">@tender.Items.Count</span><span class="zt-tile-note">To quote</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Documents</span><span class="zt-tile-value">@tender.DocumentRequirements.Count</span><span class="zt-tile-note">@tender.DocumentRequirements.Count(r => r.IsMandatory) required</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Tender status</span><span class="zt-tile-value" style="font-size:1.4rem">@Words(tender.Status.ToString())</span><span class="zt-tile-note">@(open ? "Open for offers" : "Not accepting offers")</span></div></li>
+    </ul>
+
+    <section class="manager-search-panel mb-4" aria-label="Search this invitation">
+        <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "invitation-details-search", ResultsId = "invitation-details-search-results", Label = "Search requested items and document requirements", Placeholder = "Item, specification or document" })" />
+    </section>
+
+    <div class="row g-4">
+        <div class="col-xl-8">
+            <section class="card manager-card mb-4">
+                <div class="card-header dp-split"><h2 class="h5 mb-0">Requested items</h2><span class="badge">@tender.Items.Count</span></div>
+                @if (tender.Items.Count == 0) { <p class="empty-state">No items have been specified.</p> }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <caption class="visually-hidden">Requested items</caption>
+                            <thead><tr><th scope="col">Item</th><th scope="col">Specifications</th><th scope="col" class="text-end">Quantity</th><th scope="col">Unit</th></tr></thead>
+                            <tbody>
+                            @foreach (var item in tender.Items.OrderBy(x => x.Id))
+                            {
+                                <tr data-search-item><td class="fw-semibold">@item.ItemName</td><td class="preserve-lines">@(string.IsNullOrWhiteSpace(item.Specifications) ? "—" : item.Specifications)</td><td class="text-end money">@item.Quantity.ToString("0.###")</td><td>@item.Unit</td></tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+
+            <section class="card manager-card mb-4">
+                <div class="card-header dp-split"><h2 class="h5 mb-0">Offer document requirements</h2><span class="badge">@tender.DocumentRequirements.Count</span></div>
+                @if (tender.DocumentRequirements.Count == 0) { <p class="empty-state">No document requirements have been specified.</p> }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <caption class="visually-hidden">Document requirements</caption>
+                            <thead><tr><th scope="col">Document</th><th scope="col">Details</th><th scope="col">Needed</th></tr></thead>
+                            <tbody>
+                            @foreach (var requirement in tender.DocumentRequirements.OrderBy(x => x.Id))
+                            {
+                                <tr data-search-item>
+                                    <td class="fw-semibold">@requirement.DocumentType</td>
+                                    <td class="preserve-lines">@(string.IsNullOrWhiteSpace(requirement.Description) ? "—" : requirement.Description)</td>
+                                    <td><span class="dp-status @(requirement.IsMandatory ? "is-rejected" : "is-draft")">@(requirement.IsMandatory ? "Required" : "Optional")</span></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="dp-sticky">
+                <section class="card manager-card mb-4">
+                    <div class="card-header"><h2 class="h5 mb-0">Invitation</h2></div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <caption class="visually-hidden">Invitation details</caption>
+                            <tbody>
+                                <tr><th scope="row">Tender number</th><td><span class="dp-num dp-num-wide" title="@tender.TenderNumber">@tender.TenderNumber</span></td></tr>
+                                <tr><th scope="row">Invited</th><td><time class="device-local-time" datetime="@Utc(Model.InvitedAt)">@Model.InvitedAt.ToString("dd MMM yyyy")</time></td></tr>
+                                <tr><th scope="row">Your response</th><td><span class="dp-status @chipCss">@chipText</span></td></tr>
+                                @if (Model.RespondedAt is DateTime responded)
+                                {
+                                    <tr><th scope="row">Responded</th><td><time class="device-local-time" datetime="@Utc(responded)">@responded.ToString("dd MMM yyyy HH:mm")</time></td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="card manager-card mb-4">
+                    <div class="card-header"><h2 class="h5 mb-0">Description</h2></div>
+                    <p class="dp-desc pt-3">@(tender.Description ?? "No description provided.")</p>
+                </section>
+
+                <section class="card manager-card mb-4">
+                    <div class="card-header"><h2 class="h5 mb-0">Terms and conditions</h2></div>
+                    <p class="dp-desc pt-3">@(tender.TermsAndConditions ?? "No additional terms provided.")</p>
+                </section>
+            </div>
+        </div>
+    </div>
 </div>
+</div>
+<link rel="stylesheet" href="~/css/tender-journey.css" asp-append-version="true" />
+<style>.sp-ws .tj-now .actions { margin-left: auto; } .sp-ws .tj-now .actions form { margin: 0; } .sp-ws .tj-now > .btn { margin-left: auto; align-self: center; }</style>

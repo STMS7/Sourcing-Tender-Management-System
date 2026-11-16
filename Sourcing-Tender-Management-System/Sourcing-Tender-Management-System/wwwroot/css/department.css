@@ -210,3 +210,12 @@
 .pf-page .pf-menu a:hover { background: var(--sm-sage); color: var(--sm-olive); }
 .pf-page .pf-menu a.is-active { background: var(--sm-olive); color: var(--sm-cream); }
 .pf-page .pf-menu a.is-active svg { color: var(--sm-gold); }
+/* Long reference numbers: one clipped line (full value in the title tooltip). */
+.dp-page .dp-num-wide { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+.dp-page td .dp-req-title { display: inline-block; max-width: 28ch; }
+.dp-page .zt-bento { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.dp-page .zt-tile { min-height: 118px; }
+.dp-page .tc-bids { table-layout: auto; width: 100%; }
+.dp-page .tc-bids td:first-child { width: 55%; }
+.dp-page .dp-timeline li.is-done::before { background: var(--sm-leaf); }
+.dp-page .dp-timeline li.is-now::before { border-color: var(--sm-gold); background: #F6ECCF; }

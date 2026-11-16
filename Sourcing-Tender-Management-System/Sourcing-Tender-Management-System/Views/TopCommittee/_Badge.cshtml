@@ -1,12 +1,19 @@
 @model string
 @{
+    // Uses the shared status chips (css/department.css) so colours match the other workspace pages.
     var css = Model switch
     {
-        "Approved" or "Awarded" or "Accepted" or "Compliant" or "Success" => "text-bg-success",
-        "Rejected" or "Cancelled" or "NonCompliant" or "Disqualified" => "text-bg-danger",
-        "Pending" or "UnderEvaluation" or "PendingClarification" => "text-bg-warning",
-        "ReturnedForRevision" or "ReturnedForDetails" => "text-bg-info",
-        _ => "text-bg-secondary"
+        "Approved" or "Awarded" or "Accepted" or "Compliant" or "Success" or "CommitteeApproved" => "is-approved",
+        "Rejected" or "Cancelled" or "NonCompliant" or "Disqualified" or "Suspended" or "CommitteeRejected" => "is-rejected",
+        "Pending" or "PendingClarification" or "AwaitingCommitteeDecision" or "AwaitingManagerReview" => "is-returned",
+        "ReturnedForRevision" or "ReturnedForDetails" or "UnderEvaluation" or "Published" or "Closed" => "is-review",
+        _ => "is-draft"
+    };
+    var label = Model switch
+    {
+        "ReturnedForRevision" or "ReturnedForDetails" => "Returned for details",
+        "NonCompliant" => "Not compliant",
+        _ => System.Text.RegularExpressions.Regex.Replace(Model ?? string.Empty, "(?<!^)([A-Z])", m => " " + m.Value.ToLowerInvariant())
     };
 }
-<span class="badge @css">@System.Text.RegularExpressions.Regex.Replace(Model ?? string.Empty, "(?<!^)([A-Z])", m => " " + m.Value.ToLowerInvariant())</span>
+<span class="dp-status @css">@label</span>
