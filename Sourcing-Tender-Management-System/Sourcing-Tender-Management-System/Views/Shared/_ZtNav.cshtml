@@ -1,6 +1,6 @@
   <!-- Nav -->
   @{ var ztPage = ViewData["ZtPage"] as string ?? "home"; }
-  <header class="zt-nav@(ztPage != "home" ? " is-solid" : "")" id="zt-nav" data-solid="@(ztPage != "home" ? "1" : "")">
+  <header class="zt-nav@(ztPage != "home" ? " is-light" : "")" id="zt-nav" data-sub="@(ztPage != "home" ? "1" : "")">
     <nav class="zt-nav-in" aria-label="Main">
       <a class="zt-brand" href="/" aria-label="Zaytouna Olive Oil Co. home"><svg class="zt-logo" viewBox="0 0 412 120" role="img" aria-label="Zaytouna Olive Oil Co."><g transform="translate(-6 -30) scale(0.42)"><path d="M136.0 330 C140.0 300.0 128.0 275.0 142.0 250.0 C148.0 238.0 132.0 226.0 124.0 212.0
       M164.0 330 C156.0 302.0 170.0 278.0 156.0 252.0 C150 240.0 166.0 228.0 178.0 214.0
@@ -206,7 +206,6 @@
         <li class="zt-pill"><div class="zt-pill-in" id="zt-pill"><span class="zt-ind" id="zt-ind" aria-hidden="true"></span>
           <a href="/#top" data-spy="top">Home</a>
           <a href="/#story" data-spy="story">Harvest</a>
-          <a href="/#about" data-spy="about">About</a>
           <a href="/#cycle" data-spy="cycle">How It Works</a>
           <a href="/#suppliers" data-spy="suppliers">Suppliers</a>
           <a href="/#roles" data-spy="roles">Who It&rsquo;s For</a>
@@ -259,6 +258,11 @@
 .zt-links-cta .zt-login{border:1px solid rgba(23,64,42,.3)}.zt-links-cta .zt-reg{background:#17402A;color:#FBF3DF}
 .zt-nav-in{height:64px;padding:0 20px}}
 @@media (prefers-reduced-motion:reduce){.zt-ind{transition:none}}
+/* sub-pages with a light first section: transparent nav with dark text, beige once you scroll */
+.zt-nav.is-light:not(.is-solid):not(.is-open){color:#17402A}
+.zt-nav.is-light:not(.is-solid) .zt-pill-in{background:rgba(255,253,247,.45);border-color:rgba(23,64,42,.16)}
+.zt-nav.is-light:not(.is-solid) .zt-reg{background:#17402A;color:#FBF3DF}
+.zt-nav.is-light:not(.is-solid) .zt-links a[data-spy]{opacity:.9}
 </style>
 <script>
 (function(){var nav=document.getElementById('zt-nav');if(!nav)return;var hero=document.getElementById('top'),burger=nav.querySelector('.zt-burger');
@@ -269,7 +273,7 @@ nav.querySelectorAll('.zt-links a').forEach(function(a){a.addEventListener('clic
 var links=[].slice.call(nav.querySelectorAll('a[data-spy]')),pill=document.getElementById('zt-pill'),ind=document.getElementById('zt-ind'),alias={stats:'top',wordmark:'story','zt-pin':'story'},cur='';
 function place(){if(!ind)return;var a=pill&&pill.querySelector('a.is-active');if(!a){ind.classList.remove('on');return}ind.style.width=a.offsetWidth+'px';ind.style.transform='translateX('+a.offsetLeft+'px)';ind.classList.add('on')}
 function setActive(id){id=alias[id]||id;if(id===cur)return;var known=links.some(function(l){return l.dataset.spy===id});if(!known)return;cur=id;links.forEach(function(l){l.classList.toggle('is-active',l.dataset.spy===id)});place()}
-if(!nav.dataset.solid){links.forEach(function(l){if(pill&&pill.contains(l))l.addEventListener('click',function(){setActive(l.dataset.spy)})});
+if(!nav.dataset.sub){links.forEach(function(l){if(pill&&pill.contains(l))l.addEventListener('click',function(){setActive(l.dataset.spy)})});
 function spy(){if(!('IntersectionObserver' in window))return;var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)setActive(e.target.id)})},{rootMargin:'-45% 0px -50% 0px'});
 [].slice.call(document.querySelectorAll('section[id],footer[id]')).forEach(function(t){io.observe(t)})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',spy);else spy();

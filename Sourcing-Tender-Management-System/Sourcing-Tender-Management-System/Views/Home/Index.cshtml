@@ -391,33 +391,11 @@
             </svg>
           </div>
         </div>
+        <style>#wordmark .zc-belt{height:auto;filter:drop-shadow(0 14px 12px rgba(16,38,26,.22))}#wordmark .zc-belt-top{height:46px;border-radius:0;box-shadow:none;background:url('/landing/images/conveyor-belt.webp') repeat-x 0 0/auto 100%}#wordmark .zc-rollers{display:none}#wordmark .zc-jar{bottom:-5px}</style>
         <div class="zc-belt"><span class="zc-belt-top"></span><div class="zc-rollers"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
       </div>
   </section>
   </div>
-
-  <!-- About Zaytouna (figures are placeholders until the real ones are confirmed) -->
-  <section id="about" class="za" aria-label="About Zaytouna">
-    <div class="za-in">
-      <div class="za-media">
-        <img class="za-main" src="/landing/images/olive-harvest.jpg" alt="Hands picking green olives from a tree" loading="lazy">
-        <img class="za-inset" src="/landing/images/stage-press.jpg" alt="Fresh olive oil flowing from the press" loading="lazy">
-        <div class="za-badge" aria-hidden="true"><svg viewBox="0 0 140 140"><defs><path id="za-ring" d="M70 70 m-52 0 a52 52 0 1 1 104 0 a52 52 0 1 1 -104 0"/></defs><circle cx="70" cy="70" r="68" fill="#17402A"/><text font-family="DM Mono, monospace" font-size="9.5" letter-spacing="3.4" fill="#DCEB4B"><textPath href="#za-ring">PRESSED IN JORDAN · ZAYTOUNA ·</textPath></text><text x="70" y="64" text-anchor="middle" font-family="Cormorant Garamond, serif" font-style="italic" font-size="16" fill="#E9C46A">est.</text><text x="70" y="90" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="28" fill="#FBF3DF">1998</text></svg></div>
-      </div>
-      <div class="za-copy">
-        <span class="za-eyebrow">About Zaytouna</span>
-        <h2 class="za-h2">From our groves<br><em>to every table.</em></h2>
-        <p class="za-lead">Zaytouna is a family olive oil company in northern Jordan. We press, bottle and preserve: extra virgin olive oil, table olives, makdous, labneh and zaatar, made the way our grandparents made them.</p>
-        <p class="za-sub">Everything that goes into our products, from the olives to the jar, the label and the press itself, is bought through this platform: fairly for suppliers, clearly for every team, and documented from first request to final award.</p>
-        <ul class="za-values">
-          <li><span>01</span><b>Transparency</b><small>Criteria and weights are set before bidding opens.</small></li>
-          <li><span>02</span><b>Accountability</b><small>Every action is logged with a name and a time.</small></li>
-          <li><span>03</span><b>Efficiency</b><small>No paperwork, no lost emails, no scattered files.</small></li>
-        </ul>
-      </div>
-    </div>
-    <ul class="za-stats"><li><b><span data-to="27">27</span></b><span>Years pressing</span><small>Every harvest since 1998</small></li><li><b><span data-to="14">14</span></b><span>Products</span><small>Oils, olives, preserves</small></li><li><b><span data-to="22">22</span></b><span>Markets</span><small>Exported across the region and Europe</small></li><li><b><span data-to="180">180</span>+</b><span>Suppliers</span><small>Approved and active</small></li></ul>
-  </section>
 
   <!-- How it works: one document's journey (scroll-pinned) -->
   <section id="cycle" class="zd" aria-label="How it works">
@@ -487,6 +465,20 @@
   </section>
 
   <!-- Supplier CTA: the award lands here -->
+  <style>
+/* suppliers: compact */
+#suppliers.zw{padding:56px 32px 64px}
+#suppliers .zw-panel{padding:112px 40px 34px}
+#suppliers .zw-stage{transform:scale(.78);transform-origin:0 0}
+#suppliers .zw-note{margin-top:14px;padding:10px 18px 10px 10px}
+#suppliers .zw-copy{margin-top:22px}
+#suppliers .zw-h2{font-size:clamp(30px,3.6vw,48px);margin:10px 0 12px}
+#suppliers .zw-copy p{font-size:16px}
+#suppliers .zw-cta{margin-top:20px}
+#suppliers .zw-primary,#suppliers .zw-ghost{min-height:48px}
+#suppliers .zw-steps{margin-top:30px;padding-top:20px}
+@@media(max-width:760px){#suppliers.zw{padding:48px 14px}#suppliers .zw-panel{padding:104px 18px 28px}}
+</style>
   <section id="suppliers" class="zw" aria-label="For suppliers">
     <div class="zw-panel">
       <img class="zw-bg" src="/landing/images/warehouse.jpg" alt="" loading="lazy">
@@ -519,34 +511,80 @@
   
 
   <!-- Roles: the same record, seen through each role -->
-  <section id="roles" class="zr" aria-label="Who it's for">
-    <div class="zr-head">
-      <div><span class="zr-eyebrow">Who it&rsquo;s for</span>
-      <h2 class="zr-h2">Every role.<br><em>One shared record.</em></h2></div>
-      <p>Pick a role and watch the same tender change: what it can edit, what it can only read, and what stays hidden.</p>
-    </div>
-    <div class="zr-chips" role="tablist" aria-label="Roles"><button class="zr-chip" role="tab" aria-selected="true" tabindex="0" data-i="0"><span>01</span>Requesting Department</button><button class="zr-chip" role="tab" aria-selected="false" tabindex="-1" data-i="1"><span>02</span>Sourcing Officer</button><button class="zr-chip" role="tab" aria-selected="false" tabindex="-1" data-i="2"><span>03</span>Evaluation Committee</button><button class="zr-chip" role="tab" aria-selected="false" tabindex="-1" data-i="3"><span>04</span>Sourcing Manager</button><button class="zr-chip" role="tab" aria-selected="false" tabindex="-1" data-i="4"><span>05</span>Top Committee</button><button class="zr-chip" role="tab" aria-selected="false" tabindex="-1" data-i="5"><span>06</span>Admin</button><button class="zr-chip" role="tab" aria-selected="false" tabindex="-1" data-i="6"><span>07</span>Supplier <em>External</em></button></div>
-    <div class="zr-body">
-      <div class="zr-desk">
-          <div class="zr-doc">
-            <div class="zr-dh"><div><span class="zr-dk">Tender record</span><b>T-2026-031 · 750 ml glass bottles</b></div><span class="zr-as">Viewing as <b class="zr-asname">Requesting Department</b></span></div>
-            <div class="zr-b" data-b="0"><div class="zr-bh"><span>Request</span><i class="zr-tag">Your part</i></div><dl class="zr-kv"><div><dt>Department</dt><dd>Production</dd></div><div><dt>Quantity</dt><dd>120,000 units</dd></div><div><dt>Needed by</dt><dd>15 Jan 2027</dd></div></dl><span class="zr-lock" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Not visible to this role</span></div>
-            <div class="zr-b" data-b="1"><div class="zr-bh"><span>Tender</span><i class="zr-tag">Your part</i></div><dl class="zr-kv"><div><dt>Bidding</dt><dd>01 → 15 Dec</dd></div><div><dt>Invited</dt><dd>3 suppliers</dd></div><div><dt>Status</dt><dd><span class="zr-pill">Published</span></dd></div></dl><span class="zr-lock" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Not visible to this role</span></div>
-            <div class="zr-b" data-b="2"><div class="zr-bh"><span>Bids</span><i class="zr-tag">Your part</i></div><div class="zr-bids"><div class="zr-bid own"><span>Bid A · Amman Glass</span><b>JOD 0.142</b></div><div class="zr-bid"><span>Bid B · Levant Pack</span><b>JOD 0.131</b></div><div class="zr-bid"><span>Bid C · Nour Bottles</span><b>JOD 0.138</b></div></div><span class="zr-lock" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Not visible to this role</span></div>
-            <div class="zr-row2"><div class="zr-b" data-b="3"><div class="zr-bh"><span>Scores</span><i class="zr-tag">Your part</i></div><div class="zr-sc"><span>A</span><i style="--w:.86"></i><b>86</b></div><div class="zr-sc"><span>C</span><i style="--w:.78"></i><b>78</b></div><span class="zr-lock" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Not visible to this role</span></div><div class="zr-b" data-b="4"><div class="zr-bh"><span>Report &amp; review</span><i class="zr-tag">Your part</i></div><p class="zr-note">Committee recommends Bid A. <span class="zr-pill">Approved</span></p><span class="zr-lock" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Not visible to this role</span></div></div>
-            <div class="zr-b" data-b="5"><div class="zr-bh"><span>Final decision</span><i class="zr-tag">Your part</i></div><p class="zr-note">Awarded to <b>Amman Glass Co.</b> · notified 18 Dec</p><span class="zr-lock" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Not visible to this role</span></div>
-            <div class="zr-b" data-b="6"><div class="zr-bh"><span>Activity log</span><i class="zr-tag">Your part</i></div><ul class="zr-log"><li><time>10:42</time>R. Khalil scored Bid A</li><li><time>11:05</time>M. Haddad approved the report</li></ul><span class="zr-lock" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Not visible to this role</span></div>
-            <div class="zr-actions"></div>
-          </div>
-        <div class="zr-legend" aria-hidden="true"><span><i class="lf"></i>Can edit</span><span><i class="lr"></i>Read only</span><span><i class="ll"></i>Hidden</span></div>
+  <style>
+/* roles: one tender travelling through seven hands */
+.zrj{position:relative;height:220vh;background:#FBF3DF;color:#17402A}
+.zrj-pin{position:sticky;top:0;height:100vh;min-height:620px;display:flex;flex-direction:column;justify-content:center;gap:clamp(40px,7vh,80px);max-width:1280px;margin:0 auto;padding:80px 32px 40px;box-sizing:border-box}
+.zrj-eye{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#4E6B2F}
+.zrj-h2{margin:10px 0 10px;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:clamp(34px,4.2vw,60px);line-height:1.05;letter-spacing:-.015em}
+.zrj-h2 em{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;color:#B9800C}
+.zrj-head p{margin:0;max-width:560px;font-size:16px;line-height:1.6;color:#5A6A5E}
+.zrj-track{position:relative;padding-top:86px}
+.zrj-rail{position:absolute;left:calc(100%/14);right:calc(100%/14);top:126px;height:4px;border-radius:4px;background:repeating-linear-gradient(90deg,rgba(23,64,42,.22) 0 8px,transparent 8px 14px)}
+.zrj-rail i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:4px;background:linear-gradient(90deg,#9DB34A,#E0A215);box-shadow:0 0 10px rgba(224,162,21,.5)}
+.zrj-file{position:absolute;top:0;left:calc(100%/14);transform:translateX(-50%);width:150px;padding:10px 12px 12px;border-radius:6px 12px 12px 12px;background:#17402A;color:#FBF3DF;box-shadow:0 18px 30px -16px rgba(23,64,42,.7);transition:transform .15s}
+.zrj-file::before{content:"";position:absolute;left:0;top:-9px;width:54px;height:10px;border-radius:6px 6px 0 0;background:#2E6A42}
+.zrj-file::after{content:"";position:absolute;left:50%;bottom:-9px;margin-left:-8px;border:8px solid transparent;border-bottom:0;border-top-color:#17402A}
+.zrj-file span{display:block;font:500 10px 'DM Mono',monospace;letter-spacing:.12em;color:#DCEB4B}
+.zrj-file b{display:block;margin-top:3px;font-size:13px;line-height:1.2}
+.zrj-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.zrj-st{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;opacity:.45;transition:opacity .4s}
+.zrj-dot{display:grid;place-items:center;width:80px;height:80px;margin-bottom:12px;border-radius:50%;background:#FBF3DF;border:2px solid rgba(23,64,42,.25);color:#17402A;transition:background .4s,border-color .4s,color .4s,transform .4s,box-shadow .4s}
+.zrj-dot svg{width:32px;height:32px}
+.zrj-st small{font:500 10.5px 'DM Mono',monospace;letter-spacing:.12em;color:#8C6A2A}
+.zrj-st b{font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:18px;line-height:1.15}
+.zrj-st span{font-size:14.5px;line-height:1.4;color:#5A6A5E;max-width:150px}
+.zrj-st.past{opacity:.85}
+.zrj-st.past .zrj-dot{background:#E8EBD9;border-color:#9DB34A}
+.zrj-st.on{opacity:1}
+.zrj-st.on .zrj-dot{background:#17402A;border-color:#17402A;color:#DCEB4B;transform:scale(1.15);box-shadow:0 0 0 8px rgba(220,235,75,.25)}
+@@media(max-width:900px){.zrj{height:auto}.zrj-pin{position:static;height:auto;min-height:0;padding:80px 22px}.zrj-track{padding:0}.zrj-rail,.zrj-file{display:none}.zrj-list{grid-template-columns:1fr;gap:0;border-left:3px solid #9DB34A;margin-left:30px}.zrj-st{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;column-gap:16px;align-items:center;text-align:left;opacity:1;padding:0 0 22px;margin-left:-33px}.zrj-dot{grid-row:1/4;width:56px;height:56px;margin:0}.zrj-st span{max-width:none}}
+@@media(prefers-reduced-motion:reduce){.zrj-st{opacity:1}}
+</style>
+  <section id="roles" class="zrj" aria-label="Who it's for">
+    <div class="zrj-pin">
+      <div class="zrj-head">
+        <span class="zrj-eye">Who it&rsquo;s for</span>
+        <h2 class="zrj-h2">Every role. <em>One shared record.</em></h2>
+        <p>Follow one tender from the first request to the final award. Seven hands, one file, nothing lost on the way.</p>
       </div>
-      <div class="zr-cards" role="tabpanel" aria-live="polite"><article class="zr-card on" data-i="0"><span class="zr-card-n">Role 01 / 07</span><h3>Requesting Department</h3><p>Production, quality, packaging or any team that needs something bought.</p><ul><li>Create purchase requests with items and specs</li><li>Edit and resubmit when a request is returned</li><li>Track every request through to award</li></ul></article><article class="zr-card" data-i="1"><span class="zr-card-n">Role 02 / 07</span><h3>Sourcing Officer</h3><p>Turns approved requests into live tenders.</p><ul><li>Create tenders with terms and deadlines</li><li>Invite suppliers and collect their bids</li><li>Run the compliance check on every offer</li></ul></article><article class="zr-card" data-i="2"><span class="zr-card-n">Role 03 / 07</span><h3>Evaluation Committee</h3><p>Four members who score every compliant bid.</p><ul><li>Score technical and financial offers</li><li>Apply the weights set before bidding opened</li><li>Agree on one unified report</li></ul></article><article class="zr-card" data-i="3"><span class="zr-card-n">Role 04 / 07</span><h3>Sourcing Manager</h3><p>Reviews the recommendation before it moves on.</p><ul><li>Approve, reject or return the report</li><li>Escalate high-value tenders</li><li>Follow progress across all tenders</li></ul></article><article class="zr-card" data-i="4"><span class="zr-card-n">Role 05 / 07</span><h3>Top Committee</h3><p>Gives the final word on the biggest decisions.</p><ul><li>Decide on high-value and critical tenders</li><li>Record the decision and its reasons</li><li>Confirm the winning supplier</li></ul></article><article class="zr-card" data-i="5"><span class="zr-card-n">Role 06 / 07</span><h3>Admin</h3><p>Keeps the system set up and running.</p><ul><li>Manage users, roles and departments</li><li>Maintain master data</li><li>Approve new supplier registrations</li></ul></article><article class="zr-card" data-i="6"><span class="zr-card-n">Role 07 / 07</span><h3>Supplier</h3><p>Works with you through its own secure portal.</p><ul><li>Register once with documents, tax number and licences</li><li>Submit offers before the deadline</li><li>Answer clarifications and get the result</li></ul></article></div>
+      <div class="zrj-track">
+        <div class="zrj-rail" aria-hidden="true"><i id="zrj-fill"></i></div>
+        <div class="zrj-file" id="zrj-file" aria-hidden="true"><span>T-2026-031</span><b>750 ml glass bottles</b></div>
+        <ol class="zrj-list">
+          <li class="zrj-st" data-i="0"><span class="zrj-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M12 12v6M9 15h6"/></svg></span><small>01</small><b>Requesting Department</b><span>Raises the need</span></li>
+          <li class="zrj-st" data-i="1"><span class="zrj-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h12"/><circle cx="19" cy="17" r="2"/></svg></span><small>02</small><b>Sourcing Officer</b><span>Opens the tender, invites suppliers</span></li>
+          <li class="zrj-st" data-i="2"><span class="zrj-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 20v-6h6v6"/></svg></span><small>03 · External</small><b>Supplier</b><span>Sends one sealed bid</span></li>
+          <li class="zrj-st" data-i="3"><span class="zrj-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0Zm14 0-3 7a4 4 0 0 0 6 0Z"/></svg></span><small>04</small><b>Evaluation Committee</b><span>Scores bids on fixed weights</span></li>
+          <li class="zrj-st" data-i="4"><span class="zrj-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="m15 12 2 2 4-4"/></svg></span><small>05</small><b>Sourcing Manager</b><span>Reviews and recommends</span></li>
+          <li class="zrj-st" data-i="5"><span class="zrj-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="m9 13-2 8 5-3 5 3-2-8"/></svg></span><small>06</small><b>Top Committee</b><span>Approves the award</span></li>
+          <li class="zrj-st" data-i="6"><span class="zrj-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/></svg></span><small>07</small><b>Admin</b><span>Keeps every step on record</span></li>
+        </ol>
+      </div>
     </div>
   </section>
 
   <!-- Why: from paper chaos to one clear record -->
+  <style>
+/* why: the real family desk, messy then tidy */
+#why.zy{background:#2A1A0E}
+#why .zy-bg{position:absolute;inset:0;z-index:0;background:center/cover no-repeat;transition:opacity 1.1s ease}
+#why .zy-bgm{background-image:url('/landing/images/desk-messy.webp')}
+#why .zy-bgt{background-image:url('/landing/images/desk-tidy.webp');opacity:0}
+#why.zy.tidy .zy-bgt{opacity:.55}
+#why.zy.closed .zy-bgt{opacity:1}
+#why .zy-shade{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(90deg,rgba(16,26,14,.88) 0%,rgba(16,26,14,.78) 34%,rgba(16,26,14,.25) 58%,rgba(16,26,14,.1) 100%),linear-gradient(180deg,rgba(16,26,14,.35),transparent 25%,transparent 80%,rgba(16,26,14,.4))}
+#why .zy-grid{position:relative;z-index:1}
+#why .zy-desk{background:none;box-shadow:none;border-radius:0}
+#why .zy-desk::before{display:none}
+#why .zy-cup{display:none}
+#why .zy-it{box-shadow:0 18px 30px -12px rgba(0,0,0,.65)}
+#why .zy-row{border-top-color:rgba(251,243,223,.2)}
+@@media(max-width:900px){#why .zy-shade{background:linear-gradient(180deg,rgba(16,26,14,.85) 0%,rgba(16,26,14,.7) 55%,rgba(16,26,14,.3) 100%)}}
+</style>
   <section id="why" class="zy" aria-label="Why Zaytouna">
     <div class="zy-sticky">
+      <div class="zy-bg zy-bgm" aria-hidden="true"></div><div class="zy-bg zy-bgt" aria-hidden="true"></div><div class="zy-shade" aria-hidden="true"></div>
       <div class="zy-grid">
         <div class="zy-left">
           <span class="zy-eyebrow">Why Zaytouna</span>
@@ -808,23 +846,16 @@ else{fly.style.display='none';sec.classList.toggle('flying',q>=1);sup.classList.
 size();addEventListener('resize',function(){size();upd()});addEventListener('scroll',function(){requestAnimationFrame(upd)},{passive:true});upd()})();
 </script>
 <script>
-// Roles: the same tender record re-renders for each role
-(function(){var sec=document.getElementById('roles');if(!sec||!sec.classList.contains('zr'))return;
-var S=["frllrrr", "rffrlrr", "rrrffrr", "rrrrfrr", "rrrrrfr", "rrrrrrf", "lrrllrl"],A=[["Submit request", "Edit items"], ["Publish tender", "Invite suppliers"], ["Save scores", "Sign report"], ["Approve", "Return"], ["Award tender", "Record reasons"], ["Manage users", "Approve supplier"], ["Submit offer", "Reply to clarification"]],N=["Requesting Department", "Sourcing Officer", "Evaluation Committee", "Sourcing Manager", "Top Committee", "Admin", "Supplier"];
-var chips=[].slice.call(sec.querySelectorAll('.zr-chip')),cards=[].slice.call(sec.querySelectorAll('.zr-card')),blocks=[].slice.call(sec.querySelectorAll('.zr-b')),acts=sec.querySelector('.zr-actions'),nm=sec.querySelector('.zr-asname'),cur=-1,timer=null;
-var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-function show(i,focus){if(i===cur)return;cur=(i+7)%7;sec.dataset.role=cur;
-chips.forEach(function(c,j){var on=j===cur;c.setAttribute('aria-selected',on);c.tabIndex=on?0:-1});if(focus)chips[cur].focus();
-cards.forEach(function(c,j){c.classList.toggle('on',j===cur)});
-blocks.forEach(function(b){var st=S[cur][+b.dataset.b];b.classList.remove('f','r','l');b.classList.add(st)});
-nm.textContent=N[cur];acts.innerHTML=A[cur].map(function(t){return '<span>'+t+'</span>'}).join('')}
-function stop(){clearInterval(timer);timer=null}
-chips.forEach(function(c,i){c.addEventListener('click',function(){stop();show(i)});
-c.addEventListener('keydown',function(e){var k=e.key,n=null;if(k==='ArrowRight')n=cur+1;if(k==='ArrowLeft')n=cur-1;if(n!==null){e.preventDefault();stop();show((n+7)%7,true)}})});
-show(0);
-if(!reduce&&'IntersectionObserver' in window){var io=new IntersectionObserver(function(es){if(es[0].isIntersecting){if(!timer&&!sec.dataset.touched)timer=setInterval(function(){show(cur+1)},4200)}else stop()},{threshold:.35});io.observe(sec);
-sec.addEventListener('pointerdown',function(){sec.dataset.touched=1;stop()});sec.addEventListener('mouseenter',stop)}})();
+// roles: the tender file travels along the rail as you scroll
+(function(){var sec=document.getElementById('roles');if(!sec||!sec.classList.contains('zrj'))return;
+var st=[].slice.call(sec.querySelectorAll('.zrj-st')),file=document.getElementById('zrj-file'),fill=document.getElementById('zrj-fill'),mq=matchMedia('(max-width:900px)'),rm=matchMedia('(prefers-reduced-motion: reduce)');
+function upd(){if(mq.matches||rm.matches){st.forEach(function(s){s.classList.add('on')});return}
+var r=sec.getBoundingClientRect(),p=Math.max(0,Math.min(1,-r.top/Math.max(1,r.height-innerHeight))),n=st.length-1,pos=p*n,a=Math.round(pos);
+var w=sec.querySelector('.zrj-list').offsetWidth,step=w/st.length;file.style.left=(step/2+pos*step)+'px';fill.style.width=(pos/n*100)+'%';
+st.forEach(function(s,i){s.classList.toggle('on',i===a);s.classList.toggle('past',i<a)})}
+addEventListener('scroll',function(){requestAnimationFrame(upd)},{passive:true});addEventListener('resize',upd);upd()})();
 </script>
+
 <script>
 // About: count the figures up once they come into view
 (function(){var els=[].slice.call(document.querySelectorAll('.za-stats [data-to]'));if(!els.length||!('IntersectionObserver' in window))return;
