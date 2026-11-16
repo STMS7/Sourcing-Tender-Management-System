@@ -182,11 +182,11 @@
                     </ol>
                     <div class="ow-composer">
                         @if (Model.CanReply) {
-                            <form asp-controller="Messages" asp-action="Reply" method="post">
+                            <form class="sm-compose" asp-controller="Messages" asp-action="Reply" method="post">
                                 <input type="hidden" name="id" value="@selected.Id" />
-                                <label for="message-response">Your response</label>
-                                <textarea id="message-response" name="response" class="form-control" rows="3" required maxlength="3000"></textarea>
-                                <div class="ow-composer-actions"><button type="submit" class="btn btn-primary">Send response</button></div>
+                                <label for="message-response" class="visually-hidden">Your response</label>
+                                <textarea id="message-response" name="response" rows="2" required maxlength="3000" placeholder="Write your reply&hellip;"></textarea>
+                                <button type="submit" class="sm-send" aria-label="Send response"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
                             </form>
                         } else {
                             <p class="ow-note">@(selected.Status == ClarificationStatus.Resolved ? "This conversation is resolved. Its history remains available." : "This transaction is no longer at a stage that permits a response, or the participant is no longer eligible. Its history remains available.")</p>

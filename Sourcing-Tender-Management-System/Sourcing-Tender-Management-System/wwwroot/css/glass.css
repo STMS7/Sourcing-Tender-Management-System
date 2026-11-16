@@ -1,0 +1,847 @@
+/*
+ * Zaytouna glass theme for every signed-in page (shared _Layout and the supplier portal layout).
+ *
+ * Look: warm cream backdrop, dark olive glass sidebar, and the page content inside one dark olive frame
+ * where every panel is frosted green glass with light text and lime accents.
+ *
+ * How it works:
+ *   - Loaded last, after every module stylesheet, on <body class="zt-glass">.
+ *   - Inside the frame (<main>), the colour tokens of the older skins (content.css, heritage.css, sourcing-manager.css,
+ *     officer-*.css, supplier-portal.css) are re-pointed to light-on-dark values, so text follows automatically.
+ *   - Places where those tokens were used as a background are then fixed one by one below.
+ *   - !important is used only to win over earlier !important rules or very specific selectors in the older skins.
+ *   - No transform, filter or backdrop-filter is ever put on <main> or other page-wide wrappers: those would trap
+ *     position:fixed children such as Bootstrap modals.
+ */
+
+/* ================================================================== tokens */
+body.zt-glass {
+  --gl-fg: #EEF3E4;
+  --gl-fg-2: #DCE5CF;
+  --gl-muted: #C6D3B8;
+  --gl-faint: #AAB99D;
+  --gl-lime: #DCEB4B;
+  --gl-lime-2: #E8F470;
+  --gl-lime-ink: #26341A;
+  --gl-lime-soft: rgba(220, 235, 75, .13);
+  --gl-lime-text: #D3E37A;
+  --gl-gold: #E3C76A;
+  --gl-gold-soft: rgba(227, 199, 106, .18);
+  --gl-warn: #FFC2A6;
+  --gl-warn-soft: rgba(240, 130, 90, .16);
+  --gl-danger: #FF9F86;
+  --gl-danger-soft: rgba(232, 96, 66, .22);
+  --gl-info: #B4D9CB;
+  --gl-info-soft: rgba(150, 205, 185, .16);
+  --gl-line: rgba(226, 240, 200, .14);
+  --gl-line-2: rgba(226, 240, 200, .26);
+  --gl-tint: rgba(255, 255, 255, .06);
+  --gl-tint-2: rgba(255, 255, 255, .1);
+  --gl-inset: rgba(0, 0, 0, .18);
+  --gl-panel: linear-gradient(150deg, rgba(70, 100, 62, .84), rgba(44, 70, 40, .78));
+  --gl-panel-solid: #3A5734;
+  --gl-panel-deep: linear-gradient(170deg, rgba(40, 64, 36, .92), rgba(30, 50, 28, .88));
+  --gl-frame: #2C4529;
+  --gl-edge: rgba(240, 255, 215, .18);
+  --gl-edge-top: rgba(255, 255, 240, .3);
+  --gl-shadow: 0 18px 40px rgba(25, 40, 18, .28), inset 0 1px 0 rgba(255, 255, 255, .14);
+  --gl-shadow-hover: 0 26px 50px rgba(25, 40, 18, .4), inset 0 1px 0 rgba(255, 255, 255, .2);
+  --gl-radius: 20px;
+  --gl-radius-sm: 14px;
+  --gl-blur: blur(20px) saturate(150%);
+  --gl-ease: cubic-bezier(.2, .7, .2, 1);
+  --gl-mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --gl-display: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif;
+  --gl-sans: 'DM Sans', system-ui, sans-serif;
+
+  /* the backdrop around the frame: warm cream with olive and gold light, like a sunlit press room */
+  background:
+    radial-gradient(45% 40% at 85% 4%, rgba(232, 205, 110, .55), transparent 70%),
+    radial-gradient(40% 45% at 4% 96%, rgba(138, 168, 106, .45), transparent 70%),
+    radial-gradient(35% 35% at 55% 55%, rgba(240, 232, 205, .9), transparent 75%),
+    #E4DDC4 !important;
+  background-attachment: fixed !important;
+  color: #22331F;
+  font-family: var(--gl-sans);
+}
+
+/* ================================================================== sidebar (shared layout) */
+body.zt-glass .zt-sidebar {
+  background: linear-gradient(180deg, rgba(48, 75, 43, .94), rgba(31, 52, 29, .94));
+  border: 1px solid var(--gl-edge);
+  border-top-color: var(--gl-edge-top);
+  box-shadow: 0 24px 50px -20px rgba(25, 40, 18, .55), inset 0 1px 0 rgba(255, 255, 255, .12);
+  color: var(--gl-fg);
+}
+body.zt-glass .zt-brand { color: var(--gl-fg); }
+body.zt-glass .zt-brand-name span { color: var(--gl-lime); }
+body.zt-glass .zt-brand-sub { font-family: var(--gl-mono); font-size: 10px; letter-spacing: .18em; color: var(--gl-muted); }
+body.zt-glass .zt-mark rect { fill: rgba(255, 255, 255, .1) !important; }
+body.zt-glass .zt-mark path:first-of-type { fill: var(--gl-lime) !important; }
+body.zt-glass .zt-mark path:last-of-type { stroke: #24391F !important; }
+body.zt-glass .zt-nav-label { font-family: var(--gl-mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--gl-muted); }
+body.zt-glass .zt-nav a, body.zt-glass .zt-nav button {
+  color: var(--gl-fg-2); border: 1px solid transparent;
+  transition: background-color .25s var(--gl-ease), color .25s var(--gl-ease), border-color .25s var(--gl-ease), transform .25s var(--gl-ease);
+}
+body.zt-glass .zt-nav a:hover, body.zt-glass .zt-nav button:hover { background: rgba(255, 255, 255, .07); color: #FFFFFF; }
+body.zt-glass .zt-nav a.is-active {
+  background: rgba(255, 255, 255, .11) !important; color: #FFFFFF !important; border-color: var(--gl-line-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+body.zt-glass .zt-nav a.is-active svg { color: var(--gl-lime); }
+body.zt-glass .zt-account { border-top-color: var(--gl-line); }
+body.zt-glass .zt-menu-toggle { background: rgba(255, 255, 255, .1) !important; color: var(--gl-lime) !important; }
+
+/* ================================================================== top bar (shared layout) */
+body.zt-glass .zt-pill {
+  background: linear-gradient(150deg, rgba(70, 100, 62, .9), rgba(44, 70, 40, .86)) !important; color: var(--gl-fg) !important;
+  border: 1px solid var(--gl-edge); box-shadow: 0 10px 24px -14px rgba(25, 40, 18, .6);
+}
+body.zt-glass .zt-round {
+  background: linear-gradient(150deg, rgba(70, 100, 62, .9), rgba(44, 70, 40, .86)); color: var(--gl-fg);
+  border: 1px solid var(--gl-edge); transition: background-color .25s, transform .25s var(--gl-ease);
+}
+body.zt-glass .zt-round:hover { background: var(--gl-lime); color: var(--gl-lime-ink); transform: translateY(-1px); }
+body.zt-glass .zt-round:focus-visible { outline: 3px solid var(--gl-lime); }
+body.zt-glass .zt-avatar { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+
+/* ================================================================== supplier portal frame */
+body.zt-glass.sp { color: #22331F; }
+body.zt-glass .sp-side {
+  background: linear-gradient(180deg, rgba(48, 75, 43, .94), rgba(31, 52, 29, .94));
+  border: 1px solid var(--gl-edge); border-top-color: var(--gl-edge-top);
+  box-shadow: 0 24px 50px -20px rgba(25, 40, 18, .55), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+body.zt-glass .sp-brand b i { color: var(--gl-lime); }
+body.zt-glass .sp-group { font-family: var(--gl-mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--gl-muted); }
+body.zt-glass .sp-nav a, body.zt-glass .sp-nav button { border: 1px solid transparent; }
+body.zt-glass .sp-nav a.on { background: rgba(255, 255, 255, .11); color: #FFFFFF; border-color: var(--gl-line-2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1); }
+body.zt-glass .sp-nav a.on svg { color: var(--gl-lime); }
+body.zt-glass .sp-badge { background: var(--gl-lime); color: var(--gl-lime-ink); }
+body.zt-glass .sp-side-foot { border-top-color: var(--gl-line); }
+body.zt-glass .sp-crumb, body.zt-glass .sp-iconbtn {
+  background: linear-gradient(150deg, rgba(70, 100, 62, .9), rgba(44, 70, 40, .86)); color: var(--gl-fg); border-color: var(--gl-edge);
+}
+body.zt-glass .sp-iconbtn:hover { background: var(--gl-lime); color: var(--gl-lime-ink); }
+body.zt-glass .sp-iconbtn .dot { background: var(--gl-lime); box-shadow: 0 0 0 2px #3A5734; }
+body.zt-glass .sp-avatar { background: var(--gl-lime); color: var(--gl-lime-ink); box-shadow: 0 0 0 3px rgba(255, 255, 255, .5); }
+body.zt-glass .sp-alert { border: 1px solid var(--gl-edge); border-left: 4px solid var(--gl-lime); background: linear-gradient(150deg, rgba(70, 100, 62, .92), rgba(44, 70, 40, .88)); color: var(--gl-fg); }
+body.zt-glass .sp-alert.bad { border-left-color: var(--gl-danger); }
+body.zt-glass .sp-alert.wait { border-left-color: var(--gl-gold); }
+
+/* ================================================================== the frame: <main> on both layouts */
+body.zt-glass main[role="main"] {
+  /* tokens of the older skins, re-pointed for light text on dark glass */
+  --zt-ink: var(--gl-fg); --zt-ink-deep: #FFFFFF; --zt-bg: var(--gl-tint); --zt-card: var(--gl-tint);
+  --zt-sage-soft: var(--gl-tint); --zt-sage: var(--gl-tint-2); --zt-yellow: var(--gl-gold-soft);
+  --zt-olive: #A8C26A; --zt-muted: var(--gl-muted); --zt-line: var(--gl-line); --zt-danger: var(--gl-danger); --zt-lime: var(--gl-lime);
+  --sp-cream: var(--gl-tint); --sp-white: var(--gl-tint); --sp-deep: var(--gl-fg); --sp-green: var(--gl-lime-text); --sp-gold: var(--gl-gold);
+  --sp-grey: var(--gl-muted); --sp-beige: var(--gl-line); --sp-light: var(--gl-tint-2); --sp-ink: var(--gl-fg); --sp-red: var(--gl-danger);
+  --bs-body-color: var(--gl-fg); --bs-body-color-rgb: 238, 243, 228; --bs-emphasis-color: #FFFFFF; --bs-emphasis-color-rgb: 255, 255, 255;
+  --bs-heading-color: var(--gl-fg); --bs-secondary-color: var(--gl-muted); --bs-secondary-color-rgb: 179, 194, 166;
+  --bs-tertiary-color: var(--gl-faint); --bs-tertiary-bg: var(--gl-tint); --bs-secondary-bg: var(--gl-tint-2); --bs-body-bg: transparent;
+  --bs-border-color: var(--gl-line); --bs-border-color-translucent: var(--gl-line);
+  --bs-link-color: var(--gl-lime); --bs-link-color-rgb: 220, 235, 75; --bs-link-hover-color: var(--gl-lime-2); --bs-link-hover-color-rgb: 232, 244, 112;
+  --bs-code-color: var(--gl-gold);
+  --bs-primary-rgb: 220, 235, 75; --bs-success-rgb: 201, 224, 106; --bs-danger-rgb: 255, 159, 134; --bs-warning-rgb: 227, 199, 106; --bs-info-rgb: 180, 217, 203;
+
+  position: relative;
+  isolation: auto !important; /* a stacking context here would put Bootstrap's body-level backdrop above every modal */
+  color-scheme: dark;
+  color: var(--gl-fg);
+  border-radius: 28px;
+  border: 1px solid rgba(240, 255, 215, .12);
+  padding: clamp(14px, 2vw, 28px) !important;
+  background:
+    radial-gradient(30% 30% at 10% 6%, rgba(98, 140, 72, .55), transparent 70%),
+    radial-gradient(26% 26% at 92% 4%, rgba(214, 190, 92, .32), transparent 70%),
+    radial-gradient(34% 30% at 52% 62%, rgba(62, 108, 64, .55), transparent 70%),
+    radial-gradient(24% 24% at 90% 94%, rgba(190, 214, 70, .26), transparent 70%),
+    radial-gradient(26% 26% at 4% 90%, rgba(138, 168, 106, .38), transparent 70%),
+    var(--gl-frame);
+  box-shadow: 0 34px 70px -34px rgba(25, 40, 18, .65);
+  min-height: calc(100vh - 120px);
+}
+/* the heritage skin's own token set lives on main.zt-heritage */
+body.zt-glass main.zt-heritage {
+  --o800: var(--gl-fg); --o900: #FFFFFF; --o600: #A8C26A; --o600t: var(--gl-lime-text); --lime: var(--gl-gold);
+  --cream100: var(--gl-fg); --cream50: var(--gl-tint); --sand200: var(--gl-tint-2); --sage100: var(--gl-tint);
+  --ink700: var(--gl-fg); --ink500: var(--gl-muted); --ok: #C9E06A; --danger: var(--gl-danger); --line: var(--gl-line);
+  color: var(--gl-fg);
+}
+body.zt-glass main[role="main"] ::selection { background: var(--gl-lime); color: var(--gl-lime-ink); }
+body.zt-glass main[role="main"] :focus-visible { outline: 2px solid var(--gl-lime) !important; outline-offset: 2px; box-shadow: none; }
+
+/* ---------------------------------------------------------------- text */
+body.zt-glass main :is(h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6) { color: var(--gl-fg) !important; }
+body.zt-glass main :is(h1, .h1) { font-family: var(--gl-display); font-weight: 700; letter-spacing: -.025em; text-wrap: balance; }
+body.zt-glass main :is(h2, h3) { text-wrap: balance; }
+body.zt-glass main :is(p, li, dd, dt, td, th, label, legend, caption, figcaption, summary, blockquote) { color: inherit; }
+body.zt-glass main :is(.text-muted, .text-secondary, .text-body-secondary, .form-text, small, .small, caption, figcaption, .manager-intro, .od-muted) { color: var(--gl-muted) !important; }
+body.zt-glass main h1 + p { color: var(--gl-muted); }
+body.zt-glass main :is(.text-dark, .text-body, .text-black, .text-primary, .text-emphasis) { color: var(--gl-fg) !important; }
+body.zt-glass main .text-success { color: #C9E06A !important; }
+body.zt-glass main .text-danger { color: var(--gl-danger) !important; }
+body.zt-glass main .text-warning { color: var(--gl-gold) !important; }
+body.zt-glass main .text-info { color: var(--gl-info) !important; }
+body.zt-glass main .text-white { color: #FFFFFF !important; }
+/* plain text links only; :where keeps this at low specificity so component rules (tabs, tiles, chips) win */
+body.zt-glass main a:where(:not(.btn, .nav-link, .page-link, .list-group-item, .dropdown-item, .zt-tile, .ow-kpi, .ow-action, .od-action, .ow-conv, .sm-item, .sd-stat, .sp-link, .sourcing-nav a, .message-link)) {
+  color: var(--gl-lime) !important; text-decoration-color: rgba(220, 235, 75, .45);
+}
+body.zt-glass main a:where(:not(.btn, .nav-link, .page-link, .list-group-item, .dropdown-item, .zt-tile, .ow-kpi, .ow-action, .od-action, .ow-conv, .sm-item, .sd-stat, .sp-link, .sourcing-nav a, .message-link)):hover { color: var(--gl-lime-2) !important; }
+body.zt-glass main :is(.link-secondary, .link-dark, .link-body-emphasis) { color: var(--gl-muted) !important; }
+body.zt-glass main :is(.link-secondary, .link-dark, .link-body-emphasis):hover { color: var(--gl-fg) !important; }
+body.zt-glass main :is(strong, b) { color: inherit; }
+body.zt-glass main hr { border-color: var(--gl-line); opacity: 1; filter: none; }
+body.zt-glass main.zt-heritage hr { filter: brightness(1.8) saturate(.6); }
+body.zt-glass main :is(code, kbd) { color: var(--gl-gold); }
+body.zt-glass main pre { color: var(--gl-fg); }
+body.zt-glass main :is(.manager-kicker, .manager-label, .ow-kicker, .ow-section-title, .tc-kicker, .sp-eyebrow, .od-stat-label, .zt-tile-label) { color: var(--gl-lime-text) !important; }
+body.zt-glass main .sp-h1 { color: var(--gl-fg); }
+body.zt-glass main .sp-sub { color: var(--gl-muted); }
+body.zt-glass main .manager-title::before { filter: invert(1) brightness(1.6); opacity: .5; }
+body.zt-glass main .manager-page::before { filter: invert(1); opacity: .06; }
+body.zt-glass main :is(h2, h3)::before { background: var(--gl-lime) !important; }
+
+/* ================================================================== glass panels */
+body.zt-glass main :is(
+  .card, .zt-admin-table, .zt-contact-card, .manager-card, .manager-stat, .manager-search-panel,
+  .ow-kpi, .ow-action, .ow-panel, .ow-pane, .od-workflow, .od-stats > li, .od-card,
+  .sp-card, .sd-stat, .tc-decision, .tc-seats, .ec-hero, .ec-steps, .zt-tile
+),
+body.zt-glass main .table-responsive:not(.card .table-responsive):not(.ow-panel .table-responsive):not(.od-card .table-responsive):not(.manager-card .table-responsive):not(.sp-card .table-responsive) {
+  --bs-card-bg: transparent; --bs-card-color: var(--gl-fg); --bs-card-cap-color: var(--gl-fg); --bs-card-border-color: var(--gl-edge);
+  position: relative;
+  background: var(--gl-panel) !important;
+  border: 1px solid var(--gl-edge) !important;
+  border-top-color: var(--gl-edge-top) !important;
+  border-radius: var(--gl-radius) !important;
+  box-shadow: var(--gl-shadow) !important;
+  -webkit-backdrop-filter: var(--gl-blur);
+  backdrop-filter: var(--gl-blur);
+  color: var(--gl-fg) !important;
+}
+/* a panel inside a panel reads as a soft inset, not a second slab of glass */
+body.zt-glass main :is(.card, .ow-panel, .od-card, .sp-card, .manager-card) :is(.card, .sp-card) {
+  background: var(--gl-tint) !important; box-shadow: none !important; border-color: var(--gl-line) !important;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+body.zt-glass main .card-header, body.zt-glass main .card-footer {
+  background: transparent !important; color: var(--gl-fg) !important; border-color: var(--gl-line) !important;
+}
+body.zt-glass main.zt-heritage .card-header {
+  border-bottom: 1px solid var(--gl-line) !important; color: var(--gl-lime-text) !important;
+}
+body.zt-glass main .card-header :is(h1, h2, h3, h4, h5, h6) { color: var(--gl-fg) !important; font-family: var(--gl-display); text-transform: none; letter-spacing: -.01em; font-weight: 700; }
+body.zt-glass main :is(.card-header.bg-primary, .card-header.bg-dark, .card-header.bg-success) { background: var(--gl-lime-soft) !important; color: var(--gl-fg) !important; }
+body.zt-glass main :is(.bg-white, .bg-light, .bg-body, .bg-body-tertiary, .bg-body-secondary, .bg-secondary-subtle, .bg-primary-subtle, .bg-success-subtle, .bg-info-subtle, .bg-light-subtle) {
+  background-color: var(--gl-tint) !important; color: inherit;
+}
+body.zt-glass main :is(.bg-warning-subtle) { background-color: var(--gl-gold-soft) !important; }
+body.zt-glass main :is(.bg-danger-subtle) { background-color: var(--gl-danger-soft) !important; }
+body.zt-glass main .border, body.zt-glass main :is(.border-top, .border-bottom, .border-start, .border-end) { border-color: var(--gl-line) !important; }
+body.zt-glass main :is(.border-primary, .border-success, .border-info) { border-color: rgba(220, 235, 75, .45) !important; }
+body.zt-glass main .border-warning { border-color: rgba(227, 199, 106, .55) !important; }
+body.zt-glass main .border-danger { border-color: rgba(255, 159, 134, .55) !important; }
+body.zt-glass main .shadow-sm, body.zt-glass main .shadow { box-shadow: var(--gl-shadow) !important; }
+
+/* ================================================================== dashboard tiles */
+body.zt-glass main .zt-tile { color: var(--gl-fg) !important; min-height: 140px; overflow: hidden; }
+body.zt-glass main .zt-tile::after { background: rgba(255, 255, 255, .06) !important; }
+body.zt-glass main :is(.zt-tile-value, .zt-tile-note) { color: var(--gl-fg) !important; }
+body.zt-glass main .zt-tile-label { font-family: var(--gl-mono); font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; }
+body.zt-glass main .zt-tile-value { font-family: var(--gl-display); font-weight: 700; }
+body.zt-glass main :is(.zt-bento > :first-child .zt-tile, .zt-tile.is-lime) {
+  background: linear-gradient(160deg, rgba(226, 245, 110, .97), rgba(200, 224, 60, .93)) !important;
+  color: var(--gl-lime-ink) !important; border-color: rgba(255, 255, 240, .5) !important;
+}
+body.zt-glass main :is(.zt-bento > :first-child .zt-tile, .zt-tile.is-lime) :is(.zt-tile-label, .zt-tile-value, .zt-tile-note, span, small, strong) { color: var(--gl-lime-ink) !important; }
+body.zt-glass main :is(.zt-bento > :first-child .zt-tile, .zt-tile.is-lime) .zt-tile-label { color: #4B5D2A !important; }
+body.zt-glass main :is(.zt-bento > :nth-child(5n+5) .zt-tile, .zt-tile.is-dark) { background: var(--gl-panel-deep) !important; }
+body.zt-glass main .zt-tile.is-alert { box-shadow: inset 0 0 0 2px var(--gl-warn), var(--gl-shadow) !important; }
+body.zt-glass main :is(.zt-bento > :first-child .zt-tile, .zt-tile.is-lime).is-alert { box-shadow: inset 0 0 0 3px var(--gl-lime-ink), var(--gl-shadow) !important; }
+
+/* ================================================================== tables */
+body.zt-glass main .table {
+  --bs-table-bg: transparent; --bs-table-color: var(--gl-fg); --bs-table-border-color: var(--gl-line);
+  --bs-table-striped-bg: rgba(255, 255, 255, .035); --bs-table-striped-color: var(--gl-fg);
+  --bs-table-hover-bg: rgba(255, 255, 255, .06); --bs-table-hover-color: var(--gl-fg);
+  --bs-table-active-bg: rgba(255, 255, 255, .08); --bs-table-active-color: var(--gl-fg);
+  color: var(--gl-fg) !important;
+}
+body.zt-glass main .table > :not(caption) > * > * { color: var(--gl-fg); border-color: var(--gl-line) !important; }
+body.zt-glass main .table > thead > tr > *, body.zt-glass main .table > thead th {
+  background: transparent !important; color: var(--gl-muted) !important; border-bottom: 1px solid var(--gl-line-2) !important;
+  font-family: var(--gl-mono); font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase;
+}
+body.zt-glass main .table > tbody > tr > * { border-bottom: 1px solid var(--gl-line) !important; }
+body.zt-glass main .table > tbody > tr:last-child > * { border-bottom: 0 !important; }
+body.zt-glass main .table-striped > tbody > tr:nth-of-type(odd) > * { background: rgba(255, 255, 255, .035) !important; }
+body.zt-glass main .table-hover > tbody > tr:hover > * { background: rgba(255, 255, 255, .06) !important; }
+body.zt-glass main :is(.table-light, .table-secondary, .table-active) { --bs-table-bg: var(--gl-tint); --bs-table-color: var(--gl-fg); }
+body.zt-glass main :is(.table-light, .table-secondary, .table-active) > * { background: var(--gl-tint) !important; color: var(--gl-fg) !important; }
+body.zt-glass main :is(.table-primary, .table-success) > *, body.zt-glass main tr:is(.table-primary, .table-success) > * { --bs-table-bg: var(--gl-lime-soft); background: var(--gl-lime-soft) !important; color: var(--gl-fg) !important; }
+body.zt-glass main :is(.table-warning) > *, body.zt-glass main tr.table-warning > * { background: var(--gl-gold-soft) !important; color: var(--gl-fg) !important; }
+body.zt-glass main :is(.table-danger) > *, body.zt-glass main tr.table-danger > * { background: var(--gl-danger-soft) !important; color: var(--gl-fg) !important; }
+body.zt-glass main :is(.table-info) > *, body.zt-glass main tr.table-info > * { background: var(--gl-info-soft) !important; color: var(--gl-fg) !important; }
+body.zt-glass main .table caption { color: var(--gl-muted) !important; }
+body.zt-glass main .table-responsive { scrollbar-color: rgba(255, 255, 255, .25) transparent; }
+body.zt-glass main .table > tbody > tr.tc-recommended > * { background: var(--gl-lime-soft) !important; }
+body.zt-glass main .table > tbody > tr.tc-recommended > :first-child { box-shadow: inset 4px 0 0 var(--gl-lime) !important; }
+body.zt-glass main :is(tr.table-success, tr.table-primary, tr.tc-recommended, tr.table-warning, tr.table-info) :is(small, .small, .text-muted, .text-secondary) { color: var(--gl-fg-2) !important; }
+/* chips inside a lime-tinted row turn solid so they stay readable on the tint */
+body.zt-glass main :is(tr.table-success, tr.table-primary, tr.tc-recommended, .list-group-item.active) :is(.badge, .ow-chip, .od-chip, .status):is(.text-bg-success, .bg-success, [data-tone="ok"], .badge:not([class*="text-bg-"]):not([class*=" bg-"])) { color: var(--gl-lime-ink) !important; background: var(--gl-lime) !important; }
+/* supplier portal tables */
+body.zt-glass main .sp-table th { color: var(--gl-muted); border-bottom: 1px solid var(--gl-line-2); }
+body.zt-glass main .sp-table td { border-bottom-color: var(--gl-line); color: var(--gl-fg); }
+body.zt-glass main .sp-table tbody tr { transition: background-color .2s; }
+body.zt-glass main .sp-table tbody tr:hover > td { background: rgba(255, 255, 255, .05); }
+body.zt-glass main .sp-table b { color: var(--gl-fg); }
+
+/* ================================================================== status chips and badges */
+body.zt-glass main .badge,
+body.zt-glass main :is(.ow-chip, .od-chip, .sp-chip, .status, .tc-tag, .ec-pill) {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-family: var(--gl-mono) !important; font-size: .68rem !important; font-weight: 500 !important; letter-spacing: .08em; text-transform: uppercase;
+  line-height: 1.25; padding: .36rem .75rem !important; border-radius: 999px !important; white-space: nowrap;
+  color: var(--gl-lime) !important; background: var(--gl-lime-soft) !important; border: 0 !important;
+}
+body.zt-glass main :is(.badge, .ow-chip, .od-chip, .status, .tc-tag)::before {
+  content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+body.zt-glass main .sp-chip i { width: 6px; height: 6px; background: currentColor; }
+body.zt-glass main .badge:empty::before { display: none; }
+body.zt-glass main .badge.rounded-pill:not(:has(*)):is(:empty) { display: none; }
+/* tones */
+body.zt-glass main :is(.text-bg-warning, .bg-warning, .ow-chip.is-gold, .od-chip[data-tone="warn"], .sp-chip.wait, .ec-pill.is-gold) { color: var(--gl-gold) !important; background: var(--gl-gold-soft) !important; }
+body.zt-glass main :is(.text-bg-danger, .bg-danger, .od-chip[data-tone="bad"], .sp-chip.bad, .ec-pill.is-warn) { color: var(--gl-warn) !important; background: var(--gl-warn-soft) !important; }
+body.zt-glass main :is(.text-bg-info, .bg-info, .od-chip[data-tone="info"], .sp-chip.info) { color: var(--gl-info) !important; background: var(--gl-info-soft) !important; }
+body.zt-glass main :is(.text-bg-secondary, .bg-secondary, .text-bg-light, .bg-light.badge, .ow-chip.is-quiet) { color: var(--gl-fg-2) !important; background: rgba(255, 255, 255, .08) !important; }
+body.zt-glass main :is(.text-bg-primary, .bg-primary, .text-bg-dark, .bg-dark, .ow-chip.is-dark, .tc-tag) { color: var(--gl-lime-ink) !important; background: var(--gl-lime) !important; }
+body.zt-glass main :is(.text-bg-success, .bg-success, .od-chip[data-tone="ok"], .sp-chip.ok) { color: var(--gl-lime) !important; background: var(--gl-lime-soft) !important; }
+/* a background utility on something that is not a chip (rare) keeps a readable panel */
+body.zt-glass main div:is(.bg-primary, .bg-success, .bg-dark):not(.badge) { color: var(--gl-fg) !important; background: var(--gl-lime-soft) !important; }
+body.zt-glass main .od-count { background: rgba(255, 255, 255, .1); color: var(--gl-fg); }
+body.zt-glass main .od-tabs button[aria-selected="true"] .od-count { background: rgba(38, 52, 26, .18); color: var(--gl-lime-ink); }
+body.zt-glass main .sp-badge { background: var(--gl-lime); color: var(--gl-lime-ink); }
+
+/* ================================================================== buttons */
+body.zt-glass main .btn {
+  --bs-btn-border-radius: 999px; border-radius: 999px !important; font-weight: 700;
+  transition: transform .25s var(--gl-ease), box-shadow .25s var(--gl-ease), background-color .2s, color .2s, border-color .2s;
+}
+body.zt-glass main .btn:hover:not(:disabled):not(.disabled) { transform: translateY(-1px); }
+body.zt-glass main .btn:active { transform: none; }
+body.zt-glass main :is(.btn-primary, .btn-success, .sp-btn:not(.ghost)) {
+  --bs-btn-color: var(--gl-lime-ink); --bs-btn-bg: var(--gl-lime); --bs-btn-border-color: var(--gl-lime);
+  --bs-btn-hover-color: var(--gl-lime-ink); --bs-btn-hover-bg: var(--gl-lime-2); --bs-btn-hover-border-color: var(--gl-lime-2);
+  --bs-btn-active-color: var(--gl-lime-ink); --bs-btn-active-bg: #CFDF3C; --bs-btn-active-border-color: #CFDF3C;
+  --bs-btn-disabled-color: rgba(38, 52, 26, .7); --bs-btn-disabled-bg: rgba(220, 235, 75, .45); --bs-btn-disabled-border-color: transparent;
+  color: var(--gl-lime-ink) !important; background-color: var(--gl-lime) !important; border-color: var(--gl-lime) !important;
+}
+body.zt-glass main :is(.btn-primary, .btn-success, .sp-btn:not(.ghost)):hover:not(:disabled) {
+  background-color: var(--gl-lime-2) !important; border-color: var(--gl-lime-2) !important; color: var(--gl-lime-ink) !important;
+  box-shadow: 0 8px 20px -6px rgba(220, 235, 75, .45);
+}
+body.zt-glass main :is(.btn-primary, .btn-success):disabled { background-color: rgba(220, 235, 75, .45) !important; border-color: transparent !important; color: rgba(38, 52, 26, .75) !important; }
+body.zt-glass main :is(.btn-outline-primary, .btn-outline-secondary, .btn-outline-success, .btn-outline-info, .btn-outline-dark, .btn-outline-light, .btn-secondary, .btn-info, .btn-light, .btn-dark, .sp-btn.ghost) {
+  --bs-btn-color: var(--gl-fg); --bs-btn-border-color: rgba(255, 255, 255, .32); --bs-btn-bg: transparent;
+  --bs-btn-hover-color: var(--gl-fg); --bs-btn-hover-bg: rgba(255, 255, 255, .1); --bs-btn-hover-border-color: rgba(255, 255, 255, .5);
+  --bs-btn-active-color: var(--gl-fg); --bs-btn-active-bg: rgba(255, 255, 255, .14); --bs-btn-active-border-color: rgba(255, 255, 255, .5);
+  --bs-btn-disabled-color: var(--gl-faint); --bs-btn-disabled-border-color: var(--gl-line);
+  color: var(--gl-fg) !important; background-color: transparent !important; border: 1px solid rgba(255, 255, 255, .32) !important;
+}
+body.zt-glass main :is(.btn-secondary, .btn-info, .btn-light, .btn-dark) { background-color: rgba(255, 255, 255, .08) !important; }
+body.zt-glass main :is(.btn-outline-primary, .btn-outline-secondary, .btn-outline-success, .btn-outline-info, .btn-outline-dark, .btn-outline-light, .btn-secondary, .btn-info, .btn-light, .btn-dark, .sp-btn.ghost):hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, .12) !important; border-color: rgba(255, 255, 255, .55) !important; color: #FFFFFF !important;
+}
+body.zt-glass main :is(.btn-outline-primary, .btn-outline-secondary, .btn-outline-success, .btn-outline-info).active { background-color: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; border-color: var(--gl-lime) !important; }
+body.zt-glass main :is(.btn-warning) { color: #3A2C08 !important; background-color: var(--gl-gold) !important; border-color: var(--gl-gold) !important; }
+body.zt-glass main :is(.btn-warning):hover:not(:disabled) { background-color: #EDD587 !important; border-color: #EDD587 !important; }
+body.zt-glass main :is(.btn-outline-warning) { color: var(--gl-gold) !important; background-color: transparent !important; border: 1px solid rgba(227, 199, 106, .6) !important; }
+body.zt-glass main :is(.btn-outline-warning):hover:not(:disabled) { color: #3A2C08 !important; background-color: var(--gl-gold) !important; }
+body.zt-glass main :is(.btn-danger) { color: #3B120A !important; background-color: var(--gl-danger) !important; border-color: var(--gl-danger) !important; }
+body.zt-glass main :is(.btn-danger):hover:not(:disabled) { background-color: #FFB6A2 !important; border-color: #FFB6A2 !important; }
+body.zt-glass main :is(.btn-outline-danger) { color: var(--gl-danger) !important; background-color: transparent !important; border: 1px solid rgba(255, 159, 134, .6) !important; }
+body.zt-glass main :is(.btn-outline-danger):hover:not(:disabled) { color: #3B120A !important; background-color: var(--gl-danger) !important; border-color: var(--gl-danger) !important; }
+body.zt-glass main .btn-link { color: var(--gl-lime) !important; background: transparent !important; border-color: transparent !important; }
+body.zt-glass main .btn-link:hover { color: var(--gl-lime-2) !important; transform: none !important; }
+body.zt-glass main .btn-close { filter: invert(1) grayscale(1) brightness(1.6); opacity: .7; }
+body.zt-glass main .btn-close:hover { opacity: 1; }
+body.zt-glass main .btn-check:checked + .btn, body.zt-glass main .btn-check:checked + .btn:hover { background-color: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; border-color: var(--gl-lime) !important; }
+body.zt-glass main .btn-group > .btn:not(:last-child) { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+body.zt-glass main .btn-group > .btn:not(:first-child) { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
+body.zt-glass main .btn-group > .btn:hover { transform: none; }
+
+/* ================================================================== forms */
+body.zt-glass main :is(.form-control, .form-select, .sm-compose textarea),
+body.zt-glass main :is(input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="datetime-local"], input[type="time"], input[type="tel"], input[type="url"], input[type="search"], input[type="file"], select, textarea):not(.form-check-input):not(.btn-check):not(.zt-search-input) {
+  color: var(--gl-fg) !important;
+  background-color: var(--gl-inset) !important;
+  border: 1px solid var(--gl-line-2) !important;
+  border-radius: 12px;
+}
+body.zt-glass main .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23DCEB4B' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+}
+body.zt-glass main :is(.form-control, .form-select, textarea, input, select):focus {
+  border-color: var(--gl-lime) !important; background-color: rgba(0, 0, 0, .26) !important; color: #FFFFFF !important;
+  box-shadow: 0 0 0 3px rgba(220, 235, 75, .22) !important; outline: 0;
+}
+body.zt-glass main :is(.form-control, textarea, input)::placeholder { color: var(--gl-faint) !important; opacity: 1; }
+body.zt-glass main :is(.form-control, .form-select):disabled, body.zt-glass main .form-control[readonly] { background-color: rgba(255, 255, 255, .04) !important; color: var(--gl-muted) !important; }
+body.zt-glass main select option { background: #2C4529; color: var(--gl-fg); }
+body.zt-glass main input[type="file"]::file-selector-button { background: rgba(255, 255, 255, .12); color: var(--gl-fg); border: 0; border-right: 1px solid var(--gl-line-2); }
+body.zt-glass main :is(.form-label, label, legend, .col-form-label) { color: var(--gl-fg-2) !important; }
+body.zt-glass main .form-floating > label { color: var(--gl-muted) !important; }
+body.zt-glass main .form-floating > label::after { background: transparent !important; }
+body.zt-glass main .input-group-text { background: rgba(255, 255, 255, .08) !important; color: var(--gl-fg) !important; border-color: var(--gl-line-2) !important; }
+body.zt-glass main .form-check-input { background-color: var(--gl-inset) !important; border: 1px solid rgba(255, 255, 255, .4) !important; }
+body.zt-glass main .form-check-input:checked { background-color: var(--gl-lime) !important; border-color: var(--gl-lime) !important; }
+body.zt-glass main .form-check-input[type="checkbox"]:checked { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%2326341A' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important; }
+body.zt-glass main .form-check-input[type="radio"]:checked { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%2326341A'/%3e%3c/svg%3e") !important; }
+body.zt-glass main .form-switch .form-check-input { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255,255,255,.7%29'/%3e%3c/svg%3e") !important; }
+body.zt-glass main .form-switch .form-check-input:checked { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%2326341A'/%3e%3c/svg%3e") !important; }
+body.zt-glass main .form-check-label { color: var(--gl-fg-2); }
+body.zt-glass main .form-range::-webkit-slider-thumb { background: var(--gl-lime); }
+body.zt-glass main .form-range::-moz-range-thumb { background: var(--gl-lime); }
+body.zt-glass main :is(.invalid-feedback, .field-validation-error, .validation-summary-errors, .validation-summary-errors li, .text-danger) { color: var(--gl-danger) !important; }
+body.zt-glass main .is-invalid, body.zt-glass main .input-validation-error { border-color: var(--gl-danger) !important; }
+body.zt-glass main .valid-feedback { color: #C9E06A !important; }
+body.zt-glass main :is(form.border, .form-panel.border, fieldset.border) { background: var(--gl-tint) !important; border: 1px solid var(--gl-line) !important; border-radius: 16px !important; }
+body.zt-glass main fieldset legend { color: var(--gl-fg); }
+
+/* search toolbar used on most list pages */
+body.zt-glass main .zt-search-shell { background: var(--gl-inset) !important; border: 1px solid var(--gl-line-2) !important; }
+body.zt-glass main .zt-search-shell:focus-within { border-color: var(--gl-lime) !important; box-shadow: 0 0 0 3px rgba(220, 235, 75, .22) !important; }
+body.zt-glass main .zt-search-shell .zt-search-input { background: transparent !important; color: var(--gl-fg) !important; border: 0 !important; box-shadow: none !important; }
+body.zt-glass main :is(.zt-language-button, .zt-search-shell .zt-voice-button) { background: rgba(255, 255, 255, .1) !important; color: var(--gl-fg) !important; }
+body.zt-glass main :is(.zt-language-button:hover, .zt-language-button[aria-expanded="true"], .zt-search-shell .zt-voice-button:hover, .zt-search-shell .zt-voice-button[aria-pressed="true"]) { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .zt-language-menu { background: var(--gl-panel-solid); border-color: var(--gl-line-2); box-shadow: 0 18px 40px rgba(10, 20, 8, .45); }
+body.zt-glass main .zt-language-menu button { color: var(--gl-fg); }
+body.zt-glass main .zt-language-menu button:hover, body.zt-glass main .zt-language-menu button[aria-selected="true"] { background: rgba(255, 255, 255, .1); }
+body.zt-glass main .zt-search-toolbar > p { color: var(--gl-muted) !important; }
+
+/* ================================================================== alerts */
+body.zt-glass main .alert {
+  --bs-alert-color: var(--gl-fg); --bs-alert-bg: transparent; --bs-alert-border-color: var(--gl-line); --bs-alert-link-color: var(--gl-lime);
+  color: var(--gl-fg) !important;
+  background: linear-gradient(150deg, rgba(70, 100, 62, .7), rgba(44, 70, 40, .62)) !important;
+  border: 1px solid var(--gl-edge) !important; border-left: 4px solid var(--gl-lime) !important; border-radius: var(--gl-radius-sm) !important;
+  box-shadow: 0 10px 26px -18px rgba(10, 20, 8, .7);
+}
+body.zt-glass main .alert :is(strong, b, p, li, span, a) { color: inherit; }
+body.zt-glass main .alert a:not(.btn) { color: var(--gl-lime) !important; }
+body.zt-glass main .alert-success { border-left-color: var(--gl-lime) !important; }
+body.zt-glass main .alert-warning { border-left-color: var(--gl-gold) !important; }
+body.zt-glass main .alert-danger { border-left-color: var(--gl-danger) !important; }
+body.zt-glass main :is(.alert-info, .alert-primary, .alert-secondary, .alert-light) { border-left-color: var(--gl-info) !important; }
+
+/* ================================================================== navs, lists, paging, progress, menus, dialogs */
+body.zt-glass main .nav-tabs { border-bottom: 1px solid var(--gl-line-2) !important; --bs-nav-tabs-border-color: var(--gl-line-2); }
+body.zt-glass main .nav-tabs .nav-link { color: var(--gl-muted) !important; border: 0 !important; background: transparent; border-radius: 12px 12px 0 0; }
+body.zt-glass main .nav-tabs .nav-link:hover { color: var(--gl-fg) !important; background: rgba(255, 255, 255, .06); }
+body.zt-glass main .nav-tabs .nav-link.active { color: var(--gl-fg) !important; background: rgba(255, 255, 255, .1) !important; box-shadow: inset 0 -2px 0 var(--gl-lime) !important; }
+body.zt-glass main .nav-pills .nav-link { color: var(--gl-fg-2) !important; border-radius: 999px !important; }
+body.zt-glass main .nav-pills .nav-link:hover { background: rgba(255, 255, 255, .08) !important; color: #FFFFFF !important; }
+body.zt-glass main :is(.nav-pills .nav-link.active, .nav-pills .show > .nav-link) { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .nav-pills:not(.card .nav-pills):not(.flex-column) {
+  background: var(--gl-panel) !important; border: 1px solid var(--gl-edge) !important; border-radius: 999px !important; padding: 5px;
+  box-shadow: var(--gl-shadow) !important;
+}
+body.zt-glass main .nav-pills.flex-column { background: var(--gl-panel) !important; border: 1px solid var(--gl-edge) !important; border-radius: var(--gl-radius) !important; padding: 10px; box-shadow: var(--gl-shadow) !important; }
+body.zt-glass main .list-group {
+  --bs-list-group-bg: transparent; --bs-list-group-color: var(--gl-fg); --bs-list-group-border-color: var(--gl-line);
+  --bs-list-group-action-color: var(--gl-fg); --bs-list-group-action-hover-color: #FFFFFF; --bs-list-group-action-hover-bg: rgba(255, 255, 255, .07);
+  --bs-list-group-active-bg: var(--gl-lime-soft); --bs-list-group-active-color: var(--gl-fg); --bs-list-group-active-border-color: var(--gl-line);
+  --bs-list-group-disabled-color: var(--gl-faint);
+  border-color: var(--gl-line) !important; background: var(--gl-tint); border-radius: var(--gl-radius-sm);
+}
+body.zt-glass main .list-group-item { background: transparent !important; color: var(--gl-fg) !important; border-color: var(--gl-line) !important; }
+body.zt-glass main .list-group-item-action:hover { background: rgba(255, 255, 255, .07) !important; }
+body.zt-glass main .list-group-item.active { background: var(--gl-lime-soft) !important; box-shadow: inset 3px 0 0 var(--gl-lime); }
+body.zt-glass main .pagination {
+  --bs-pagination-color: var(--gl-fg); --bs-pagination-bg: rgba(255, 255, 255, .06); --bs-pagination-border-color: var(--gl-line);
+  --bs-pagination-hover-color: #FFFFFF; --bs-pagination-hover-bg: rgba(255, 255, 255, .12); --bs-pagination-hover-border-color: var(--gl-line-2);
+  --bs-pagination-focus-color: #FFFFFF; --bs-pagination-focus-bg: rgba(255, 255, 255, .12);
+  --bs-pagination-active-color: var(--gl-lime-ink); --bs-pagination-active-bg: var(--gl-lime); --bs-pagination-active-border-color: var(--gl-lime);
+  --bs-pagination-disabled-color: var(--gl-faint); --bs-pagination-disabled-bg: rgba(255, 255, 255, .03); --bs-pagination-disabled-border-color: var(--gl-line);
+}
+body.zt-glass main .page-link { color: var(--gl-fg) !important; background: rgba(255, 255, 255, .06) !important; border-color: var(--gl-line) !important; }
+body.zt-glass main .page-link:hover { background: rgba(255, 255, 255, .12) !important; }
+body.zt-glass main :is(.active > .page-link, .page-link.active) { color: var(--gl-lime-ink) !important; background: var(--gl-lime) !important; border-color: var(--gl-lime) !important; }
+body.zt-glass main :is(.disabled > .page-link, .page-link.disabled) { color: var(--gl-faint) !important; background: rgba(255, 255, 255, .03) !important; }
+body.zt-glass main .progress { --bs-progress-bg: rgba(255, 255, 255, .12); --bs-progress-bar-bg: var(--gl-lime); background: rgba(255, 255, 255, .12) !important; border-radius: 999px; }
+body.zt-glass main .progress-bar { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main :is(.dropdown-menu) {
+  --bs-dropdown-bg: var(--gl-panel-solid); --bs-dropdown-color: var(--gl-fg); --bs-dropdown-border-color: var(--gl-line-2);
+  --bs-dropdown-link-color: var(--gl-fg); --bs-dropdown-link-hover-color: #FFFFFF; --bs-dropdown-link-hover-bg: rgba(255, 255, 255, .1);
+  --bs-dropdown-link-active-color: var(--gl-lime-ink); --bs-dropdown-link-active-bg: var(--gl-lime); --bs-dropdown-divider-bg: var(--gl-line);
+  --bs-dropdown-header-color: var(--gl-muted);
+  background: var(--gl-panel-solid) !important; border-color: var(--gl-line-2) !important; box-shadow: 0 18px 40px rgba(10, 20, 8, .45);
+}
+body.zt-glass main .modal {
+  --bs-modal-bg: var(--gl-panel-solid); --bs-modal-color: var(--gl-fg); --bs-modal-border-color: var(--gl-edge);
+  --bs-modal-header-border-color: var(--gl-line); --bs-modal-footer-border-color: var(--gl-line); --bs-modal-border-radius: 22px;
+}
+body.zt-glass main .modal-content {
+  background: linear-gradient(160deg, #42613B, #2F4A2B) !important; color: var(--gl-fg) !important;
+  border: 1px solid var(--gl-edge) !important; border-top-color: var(--gl-edge-top) !important; border-radius: 22px !important;
+  box-shadow: 0 40px 80px -20px rgba(5, 12, 4, .7) !important;
+}
+body.zt-glass main :is(.modal-header, .modal-footer) { border-color: var(--gl-line) !important; }
+body.zt-glass .modal-backdrop { --bs-backdrop-bg: #0F1A0D; --bs-backdrop-opacity: .6; }
+/* an open Bootstrap modal must be positioned against the viewport, so nothing above it may hold a transform or a blur */
+body.zt-glass.modal-open main * { transform: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; isolation: auto !important; }
+body.zt-glass.modal-open main .modal { z-index: 1060; }
+body.zt-glass main details > summary { color: var(--gl-fg); }
+body.zt-glass main .tooltip { --bs-tooltip-bg: var(--gl-lime); --bs-tooltip-color: var(--gl-lime-ink); }
+
+/* wizard steps (admin supplier review) */
+body.zt-glass main .zt-wizard-steps span { background: rgba(255, 255, 255, .07) !important; color: var(--gl-muted) !important; }
+body.zt-glass main .zt-wizard-steps span b { background: rgba(255, 255, 255, .12) !important; color: var(--gl-fg) !important; }
+body.zt-glass main .zt-wizard-steps span.is-active { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .zt-wizard-steps span.is-active b { background: var(--gl-lime-ink) !important; color: var(--gl-lime) !important; }
+
+/* admin contact inbox */
+body.zt-glass main .zt-contact-card-head { border-color: var(--gl-line); }
+body.zt-glass main .zt-contact-avatar { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main :is(.zt-contact-sender a, .zt-contact-subject span, .zt-contact-card-foot time) { color: var(--gl-muted) !important; }
+body.zt-glass main .zt-contact-card-body p { color: var(--gl-fg); }
+
+/* ================================================================== sourcing officer pages (.ow, .od, .sourcing-workspace) */
+body.zt-glass main :is(.ow, .od) {
+  --ow-ink: var(--gl-fg); --ow-deep: #FFFFFF; --ow-olive: #A8C26A; --ow-olive-text: var(--gl-lime-text); --ow-gold: var(--gl-gold);
+  --ow-cream: var(--gl-fg); --ow-card: var(--gl-panel-solid); --ow-sand: var(--gl-tint-2); --ow-sage: var(--gl-tint-2); --ow-text: var(--gl-fg);
+  --ow-muted: var(--gl-muted); --ow-line: var(--gl-line); --ow-danger: var(--gl-danger); --ow-glass: var(--gl-panel); --ow-shadow: var(--gl-shadow);
+  --od-ink: var(--gl-fg); --od-deep: #FFFFFF; --od-olive: #A8C26A; --od-olive-text: var(--gl-lime-text); --od-gold: var(--gl-gold);
+  --od-cream: var(--gl-fg); --od-sand: var(--gl-tint-2); --od-sage: var(--gl-tint-2); --od-text: var(--gl-fg); --od-muted: var(--gl-muted);
+  --od-line: var(--gl-line); --od-danger: var(--gl-danger); --od-ok: #C9E06A; --od-glass: var(--gl-panel); --od-shadow: var(--gl-shadow);
+}
+body.zt-glass main .ow-kpi-icon, body.zt-glass main .od-stat-icon { background: rgba(255, 255, 255, .1) !important; color: var(--gl-lime) !important; }
+body.zt-glass main .ow-kpi.is-gold .ow-kpi-icon, body.zt-glass main .od-stats li:nth-child(1) .od-stat-icon { background: var(--gl-gold-soft) !important; color: var(--gl-gold) !important; }
+body.zt-glass main .ow-kpi.is-dark { background: linear-gradient(160deg, rgba(226, 245, 110, .97), rgba(200, 224, 60, .93)) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .ow-kpi.is-dark :is(.ow-kpi-label, .ow-kpi-note, .ow-kpi-value) { color: var(--gl-lime-ink) !important; }
+body.zt-glass main .ow-kpi.is-dark .ow-kpi-note { color: #4B5D2A !important; }
+body.zt-glass main .ow-kpi.is-dark .ow-kpi-icon { background: rgba(38, 52, 26, .14) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main :is(.ow-action-icon, .od-action-icon, .ow-avatar) { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .od-action.is-off .od-action-icon { background: rgba(255, 255, 255, .1) !important; color: var(--gl-muted) !important; }
+body.zt-glass main :is(.ow-task, .od-action, .od-reports > li, .ow-note, .ow-empty, .od-empty, .ow-filter-empty, .od-more pre, .od-workflow .alert) { background: var(--gl-tint) !important; border-color: var(--gl-line) !important; color: var(--gl-fg); }
+body.zt-glass main a.od-action:hover { background: rgba(255, 255, 255, .1) !important; }
+body.zt-glass main .ow-panel-head, body.zt-glass main .ow-pane-head, body.zt-glass main .ow-convo-head, body.zt-glass main .od-card-head { border-color: var(--gl-line) !important; }
+body.zt-glass main :is(.od-facts > div, .ow-facts > div, .od-list > li) { border-bottom-color: var(--gl-line) !important; }
+body.zt-glass main .ow-seg.sourcing-nav, body.zt-glass main .od-tabs { background: var(--gl-panel) !important; border: 1px solid var(--gl-edge) !important; border-radius: 999px !important; box-shadow: var(--gl-shadow) !important; }
+body.zt-glass main .ow-seg.sourcing-nav a, body.zt-glass main .od-tabs button { color: var(--gl-fg-2) !important; border-radius: 999px !important; }
+body.zt-glass main .ow-seg.sourcing-nav a:hover, body.zt-glass main .od-tabs button:hover { background: rgba(255, 255, 255, .08) !important; color: #FFFFFF !important; }
+body.zt-glass main :is(.ow-seg.sourcing-nav a.active, .od-tabs button[aria-selected="true"]) { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .ow-seg.sourcing-nav a.active :is(small, span) { color: var(--gl-lime-ink) !important; opacity: .8; }
+/* tables already inside a panel do not get a second glass slab (heritage paints its own paper on them) */
+body.zt-glass main :is(.card, .ow-panel, .ow-pane, .od-card, .manager-card, .sp-card, .zt-admin-table, .tc-decision, .tc-seats) .table-responsive {
+  background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important;
+}
+body.zt-glass main .ow-filter { background: rgba(255, 255, 255, .06) !important; color: var(--gl-fg) !important; border-color: var(--gl-line-2) !important; border-radius: 999px !important; }
+body.zt-glass main .ow-filter:hover { background: rgba(255, 255, 255, .12) !important; }
+body.zt-glass main .ow-filter[aria-pressed="true"] { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; border-color: var(--gl-lime) !important; }
+body.zt-glass main .ow-filter[aria-pressed="true"] :is(small, span) { color: var(--gl-lime-ink) !important; }
+body.zt-glass main :is(.ow-conv:hover, .ow-conv.is-selected, .sm-item.on, .sm-item:hover) :is(time, small, .ow-conv-preview, .sm-time) { color: var(--gl-fg-2) !important; }
+body.zt-glass main :is(.ow-conv.is-selected, .sm-item.on) :is(.ow-chip, .sp-chip, .badge) { color: var(--gl-lime-ink) !important; background: var(--gl-lime) !important; }
+body.zt-glass main .ow-conv { color: var(--gl-fg) !important; }
+body.zt-glass main .ow-conv:hover { background: rgba(255, 255, 255, .07) !important; }
+body.zt-glass main .ow-conv.is-selected { background: rgba(255, 255, 255, .1) !important; box-shadow: inset 3px 0 0 var(--gl-lime) !important; }
+body.zt-glass main .ow-dot { background: var(--gl-lime); box-shadow: 0 0 0 3px rgba(220, 235, 75, .25); }
+body.zt-glass main .ow-bubble { background: rgba(255, 255, 255, .08) !important; border-color: var(--gl-line) !important; color: var(--gl-fg) !important; }
+body.zt-glass main .ow-bubble-row.is-mine .ow-bubble { background: var(--gl-lime) !important; border-color: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .ow-composer { background: rgba(0, 0, 0, .12) !important; border-color: var(--gl-line) !important; }
+body.zt-glass main .ow-empty-icon { background: rgba(255, 255, 255, .1) !important; color: var(--gl-lime) !important; }
+body.zt-glass main .ow-dialog { background: linear-gradient(160deg, #42613B, #2F4A2B) !important; color: var(--gl-fg) !important; border-color: var(--gl-edge) !important; }
+body.zt-glass main .ow-dialog-head { background: rgba(255, 255, 255, .06) !important; border-color: var(--gl-line) !important; }
+body.zt-glass main .ow-dialog::backdrop { background: rgba(10, 20, 8, .6); }
+body.zt-glass main .ow-dialog-close { color: var(--gl-fg) !important; }
+body.zt-glass main .ow-dialog-close:hover { background: rgba(255, 255, 255, .12) !important; }
+body.zt-glass main .od-qr img { background: #FFFFFF !important; }
+body.zt-glass main .od-dot { background: var(--gl-panel-solid) !important; border-color: #A8C26A !important; }
+body.zt-glass main .od-timeline > li.is-latest .od-dot { background: var(--gl-lime) !important; border-color: var(--gl-lime) !important; }
+body.zt-glass main .od-timeline > li::before { background: var(--gl-line-2) !important; }
+body.zt-glass main .od-result { border-left: 4px solid var(--gl-gold) !important; }
+body.zt-glass main .ow-due.is-late, body.zt-glass main .sd-dead.soon { color: var(--gl-warn) !important; }
+body.zt-glass main .sourcing-workspace { --sourcing-ink: var(--gl-fg); --sourcing-muted: var(--gl-muted); color: var(--gl-fg); }
+body.zt-glass main .sourcing-workspace :is(.empty-state, .message-entry) { background: var(--gl-tint) !important; color: var(--gl-fg); }
+body.zt-glass main .sourcing-workspace .message-entry.outgoing { background: var(--gl-lime-soft) !important; }
+body.zt-glass main .sourcing-workspace .message-link { color: var(--gl-fg) !important; }
+body.zt-glass main .sourcing-workspace .message-link:hover, body.zt-glass main .sourcing-workspace .message-link.selected { background: rgba(255, 255, 255, .08) !important; }
+body.zt-glass main .sourcing-workspace .summary-strip { border-color: var(--gl-line) !important; }
+body.zt-glass main .sourcing-workspace .conversation { border-color: var(--gl-line) !important; }
+body.zt-glass main .empty-state { background: var(--gl-tint) !important; color: var(--gl-muted) !important; border-radius: var(--gl-radius-sm); }
+
+/* ================================================================== sourcing manager and evaluation committee (.manager-page) */
+body.zt-glass main .manager-page {
+  --sm-olive: var(--gl-fg); --sm-dark: #FFFFFF; --sm-leaf: var(--gl-lime); --sm-safe: var(--gl-lime-text); --sm-cream: var(--gl-tint);
+  --sm-white: var(--gl-tint); --sm-sand: var(--gl-line); --sm-sage: var(--gl-tint-2); --sm-gold: var(--gl-gold); --sm-ink: var(--gl-fg); --sm-muted: var(--gl-muted);
+  color: var(--gl-fg);
+}
+body.zt-glass main .manager-page .card-header { border-bottom: 1px solid var(--gl-line) !important; }
+body.zt-glass main .manager-page .manager-bid { margin: .9rem 1.1rem; padding: 1.1rem 1.25rem; border: 1px solid var(--gl-line); border-radius: 16px; background: var(--gl-tint); }
+body.zt-glass main .manager-page .manager-bid:last-child { border-bottom: 1px solid var(--gl-line); }
+body.zt-glass main .manager-page .manager-bid h3 { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+body.zt-glass main .manager-page .manager-stat strong { color: var(--gl-fg); }
+body.zt-glass main .manager-page .manager-title { font-family: var(--gl-display); }
+
+/* committee hero, ring and step tracker (Evaluation committee pages) */
+.ec-top { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr); gap: 1rem; margin-bottom: 1.5rem; align-items: start; }
+.ec-top .zt-bento { margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.ec-top .zt-bento .zt-tile { height: auto; min-height: 150px; }
+.ec-hero { display: flex; gap: 1.25rem; align-items: center; justify-content: space-between; padding: 1.25rem 1.4rem; }
+.ec-hero .manager-title { font-size: clamp(1.5rem, 1rem + 1.2vw, 2rem); overflow-wrap: normal; hyphens: manual; }
+.ec-hero > div:first-child { min-width: 0; }
+.ec-hero .manager-title::before { display: none !important; }
+.ec-hero p { margin: .35rem 0 .75rem; max-width: 46ch; }
+.ec-ring { position: relative; width: 104px; height: 104px; flex: none; }
+.ec-ring svg { width: 100%; height: 100%; display: block; transform: rotate(-90deg); }
+.ec-ring circle { fill: none; stroke-width: 9; }
+.ec-ring .track { stroke: rgba(255, 255, 255, .12); }
+.ec-ring .arc { stroke: #DCEB4B; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(220, 235, 75, .45)); }
+.ec-ring-val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: #EEF3E4; }
+.ec-ring-val small { font-family: 'DM Mono', ui-monospace, monospace; font-size: .5rem !important; letter-spacing: .15em; text-transform: uppercase; margin-top: .3rem; font-weight: 400; }
+.ec-steps { list-style: none; margin: 0 0 1.5rem; padding: .75rem !important; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
+.ec-steps li { display: grid; gap: .15rem; padding: .75rem .9rem; border-radius: 14px; border: 1px solid rgba(226, 240, 200, .14); background: rgba(0, 0, 0, .08); }
+.ec-steps .ec-step-no { font-family: 'DM Mono', ui-monospace, monospace; font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: #B3C2A6; }
+.ec-steps .ec-step-state { font-size: .8rem; color: #B3C2A6; }
+.ec-steps li.is-done { border-color: rgba(220, 235, 75, .45); }
+.ec-steps li.is-done .ec-step-state { color: #DCEB4B; }
+.ec-steps li.is-now { background: #DCEB4B; border-color: #DCEB4B; }
+.ec-steps li.is-now :is(strong, .ec-step-no, .ec-step-state) { color: #26341A !important; }
+
+/* ================================================================== top committee and reports (committee.css) */
+body.zt-glass main .tc-decision-head { background: var(--gl-lime-soft) !important; color: var(--gl-fg) !important; border-bottom: 1px solid var(--gl-line); }
+body.zt-glass main .tc-decision-head :is(h2, .tc-kicker) { color: var(--gl-fg) !important; }
+body.zt-glass main .tc-decision-head .tc-kicker { color: var(--gl-lime) !important; }
+body.zt-glass main .tc-choice label { background: var(--gl-tint) !important; border-color: var(--gl-line-2) !important; color: var(--gl-fg) !important; }
+body.zt-glass main .tc-choice span { color: var(--gl-muted) !important; }
+body.zt-glass main .tc-choice label::before { background: transparent !important; border-color: rgba(255, 255, 255, .45) !important; }
+body.zt-glass main .tc-choice input:checked + label { background: rgba(255, 255, 255, .1) !important; }
+body.zt-glass main .tc-choice input:checked + label :is(strong, span) { color: var(--gl-fg) !important; }
+body.zt-glass main .tc-choice.is-approve input:checked + label { border-color: var(--gl-lime) !important; }
+body.zt-glass main .tc-choice.is-approve input:checked + label::before { background: var(--gl-lime) !important; box-shadow: inset 0 0 0 4px #3A5734 !important; border-color: var(--gl-lime) !important; }
+body.zt-glass main .tc-choice.is-reject input:checked + label { border-color: var(--gl-danger) !important; }
+body.zt-glass main .tc-choice.is-reject input:checked + label::before { background: var(--gl-danger) !important; box-shadow: inset 0 0 0 4px #3A5734 !important; border-color: var(--gl-danger) !important; }
+body.zt-glass main .tc-choice.is-return input:checked + label { border-color: var(--gl-gold) !important; }
+body.zt-glass main .tc-choice.is-return input:checked + label::before { background: var(--gl-gold) !important; box-shadow: inset 0 0 0 4px #3A5734 !important; border-color: var(--gl-gold) !important; }
+body.zt-glass main .tc-seat { background: var(--gl-tint) !important; border-left-color: var(--gl-faint) !important; }
+body.zt-glass main .tc-seat-name { color: var(--gl-muted) !important; }
+body.zt-glass main .tc-seat.is-approved { border-left-color: var(--gl-lime) !important; }
+body.zt-glass main .tc-seat.is-approved .tc-seat-state { color: var(--gl-lime) !important; }
+body.zt-glass main .tc-seat.is-rejected { border-left-color: var(--gl-danger) !important; }
+body.zt-glass main .tc-seat.is-rejected .tc-seat-state { color: var(--gl-danger) !important; }
+body.zt-glass main .tc-seat.is-returned { border-left-color: var(--gl-gold) !important; }
+body.zt-glass main .tc-seat.is-returned .tc-seat-state { color: var(--gl-gold) !important; }
+body.zt-glass main .tc-seat.is-pending .tc-seat-state { color: var(--gl-muted) !important; }
+body.zt-glass main .tc-bar { background: var(--gl-lime) !important; }
+
+/* ================================================================== supplier portal pages */
+body.zt-glass main .sp-card-h h2 { color: var(--gl-fg); }
+body.zt-glass main .sp-card-h h2::before { background: var(--gl-lime); }
+body.zt-glass main .sp-link { color: var(--gl-lime) !important; }
+body.zt-glass main .sp-link:hover { color: var(--gl-lime-2) !important; }
+body.zt-glass main .sp-empty { background: var(--gl-tint) !important; border-color: var(--gl-line-2) !important; color: var(--gl-muted); }
+body.zt-glass main .sd-stat { color: var(--gl-fg) !important; }
+body.zt-glass main .sd-stat::after { background: #FFFFFF; opacity: .05; }
+body.zt-glass main :is(.sd-stat.sage, .sd-stat.mint) { background: var(--gl-panel) !important; }
+body.zt-glass main .sd-stat.gold { background: linear-gradient(160deg, rgba(226, 245, 110, .97), rgba(200, 224, 60, .93)) !important; color: var(--gl-lime-ink) !important; border-color: rgba(255, 255, 240, .5) !important; }
+body.zt-glass main .sd-stat.gold :is(b, small, span) { color: var(--gl-lime-ink) !important; }
+body.zt-glass main .sd-stat.gold small { color: #4B5D2A !important; }
+body.zt-glass main .sd-profile dl div { border-bottom-color: var(--gl-line); }
+body.zt-glass main .sd-note { background: var(--gl-gold-soft) !important; color: var(--gl-fg) !important; }
+body.zt-glass main .sd-steps i { border-color: var(--gl-line-2); color: var(--gl-muted); }
+body.zt-glass main .sd-steps li.done i { background: var(--gl-lime) !important; border-color: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .sd-steps li.now i { background: var(--gl-gold-soft) !important; border-color: var(--gl-gold) !important; color: var(--gl-gold) !important; }
+body.zt-glass main .sm-item { color: var(--gl-fg) !important; }
+body.zt-glass main .sm-item:hover { background: rgba(255, 255, 255, .07) !important; }
+body.zt-glass main .sm-item.on { background: rgba(255, 255, 255, .12) !important; color: #FFFFFF !important; box-shadow: inset 3px 0 0 var(--gl-lime); }
+body.zt-glass main .sm-item.on :is(small, .sm-time) { color: var(--gl-muted) !important; }
+body.zt-glass main .sm-av { background: rgba(255, 255, 255, .12) !important; color: var(--gl-fg) !important; }
+body.zt-glass main .sm-item.on .sm-av { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .sm-head { border-color: var(--gl-line) !important; }
+body.zt-glass main .sm-msgs { background: rgba(0, 0, 0, .1) !important; }
+body.zt-glass main .sm-bubble { background: rgba(255, 255, 255, .08) !important; border-color: var(--gl-line) !important; color: var(--gl-fg) !important; }
+body.zt-glass main .sm-msg.me .sm-bubble { background: var(--gl-lime) !important; border-color: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .sm-msg.first .sm-bubble { border-left: 4px solid var(--gl-gold) !important; }
+body.zt-glass main .sm-compose { background: rgba(0, 0, 0, .12) !important; border-color: var(--gl-line) !important; }
+body.zt-glass main .sm-send { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .sm-closed { background: rgba(0, 0, 0, .12) !important; border-color: var(--gl-line) !important; color: var(--gl-muted) !important; }
+body.zt-glass main .sm-pick b { color: var(--gl-fg); }
+body.zt-glass main .sm-pick svg { stroke: var(--gl-lime); }
+body.zt-glass main .sm-info { background: var(--gl-tint) !important; color: var(--gl-fg) !important; border: 1px solid var(--gl-line); }
+/* supplier account pages */
+body.zt-glass main.sp-acc .sp-acc-hero { background: var(--gl-panel) !important; border: 1px solid var(--gl-edge); box-shadow: var(--gl-shadow); }
+body.zt-glass main.sp-acc .sp-acc-hero .sp-eyebrow { color: var(--gl-lime) !important; }
+body.zt-glass main.sp-acc .sp-acc-hero .sp-sub { color: var(--gl-muted); }
+body.zt-glass main .sp-acc-av { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main.sp-acc > div > .row > [class*="col-md-9"] { background: var(--gl-panel) !important; border-color: var(--gl-edge) !important; box-shadow: var(--gl-shadow) !important; }
+body.zt-glass main.sp-acc .nav-pills .nav-link::before { background: rgba(255, 255, 255, .25); }
+body.zt-glass main.sp-acc .nav-pills .nav-link.active::before { background: var(--gl-lime-ink); }
+
+/* ================================================================== motion */
+@media (prefers-reduced-motion: no-preference) {
+  body.zt-glass main :is(.card, .zt-tile, .ow-kpi, .ow-action, .ow-panel, .od-stats > li, .od-card, .od-workflow, .sp-card, .sd-stat,
+    .manager-card, .manager-search-panel, .tc-decision, .tc-seats, .ec-hero, .ec-steps, .zt-contact-card, .zt-admin-table) {
+    animation: gl-rise .6s var(--gl-ease) backwards;
+    transition: transform .35s var(--gl-ease), box-shadow .35s var(--gl-ease), border-color .35s var(--gl-ease);
+  }
+  /* one after another: tiles in a row, cards in a grid, sections down the page */
+  body.zt-glass main :is(.zt-bento, .ow-kpis, .ow-actions, .od-stats, .sd-stats, .zt-contact-grid, .row) > :nth-child(1) :is(.zt-tile, .ow-kpi, .ow-action, .card, .sd-stat, .zt-contact-card),
+  body.zt-glass main :is(.od-stats, .sd-stats) > :nth-child(1) { animation-delay: .05s; }
+  body.zt-glass main :is(.zt-bento, .ow-kpis, .ow-actions, .od-stats, .sd-stats, .zt-contact-grid, .row) > :nth-child(2) :is(.zt-tile, .ow-kpi, .ow-action, .card, .sd-stat, .zt-contact-card),
+  body.zt-glass main :is(.od-stats, .sd-stats) > :nth-child(2) { animation-delay: .12s; }
+  body.zt-glass main :is(.zt-bento, .ow-kpis, .ow-actions, .od-stats, .sd-stats, .zt-contact-grid, .row) > :nth-child(3) :is(.zt-tile, .ow-kpi, .ow-action, .card, .sd-stat, .zt-contact-card),
+  body.zt-glass main :is(.od-stats, .sd-stats) > :nth-child(3) { animation-delay: .19s; }
+  body.zt-glass main :is(.zt-bento, .ow-kpis, .ow-actions, .od-stats, .sd-stats, .zt-contact-grid, .row) > :nth-child(4) :is(.zt-tile, .ow-kpi, .ow-action, .card, .sd-stat, .zt-contact-card),
+  body.zt-glass main :is(.od-stats, .sd-stats) > :nth-child(4) { animation-delay: .26s; }
+  body.zt-glass main :is(.zt-bento, .ow-kpis, .ow-actions, .zt-contact-grid, .row) > :nth-child(n+5) :is(.zt-tile, .ow-kpi, .ow-action, .card, .zt-contact-card) { animation-delay: .33s; }
+  body.zt-glass main :is(.ow-sd, .sd-grid, .ow-grid, .od-split, .two) > :nth-child(2) :is(.card, .sp-card, .ow-panel, .od-card) { animation-delay: .2s; }
+
+  /* hover: lift the panel unless someone is typing in it or it holds a modal */
+  body.zt-glass main :is(.card, .zt-tile, .ow-kpi, .ow-action, .od-stats > li, .od-card, .sp-card, .sd-stat, .manager-card, .ec-hero, .zt-contact-card):not(.modal-content):not(:focus-within):not(:has(.modal)):hover {
+    transform: translateY(-4px);
+    border-color: rgba(220, 235, 75, .45) !important;
+    box-shadow: var(--gl-shadow-hover) !important;
+  }
+  body.zt-glass main :is(.zt-bento > :first-child .zt-tile, .zt-tile.is-lime, .ow-kpi.is-dark, .sd-stat.gold):hover { border-color: rgba(255, 255, 240, .8) !important; }
+  body.zt-glass main :is(.od-action, .ow-task, .manager-bid, .tc-choice label, .sm-item, .ow-conv, .list-group-item-action) { transition: transform .25s var(--gl-ease), background-color .25s, box-shadow .25s; }
+  body.zt-glass main :is(a.od-action, .manager-bid):hover { transform: translateY(-2px); }
+  body.zt-glass main .table > tbody > tr > * { transition: background-color .2s; }
+  .ec-ring .arc { transition: stroke-dashoffset 1.4s cubic-bezier(.2, .7, .2, 1) .2s; }
+  body.zt-glass main .progress-bar { animation: gl-grow 1.1s var(--gl-ease) backwards .25s; transform-origin: left; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.zt-glass main * { animation: none !important; }
+  body.zt-glass main :is(.card, .zt-tile, .btn, .ow-kpi, .sd-stat):hover { transform: none !important; }
+}
+@keyframes gl-rise { from { opacity: 0; transform: translateY(16px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes gl-grow { from { transform: scaleX(0); } }
+
+/* ================================================================== without backdrop-filter the panels stay solid */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.zt-glass main :is(.card, .zt-admin-table, .zt-contact-card, .manager-card, .manager-stat, .manager-search-panel, .ow-kpi, .ow-action, .ow-panel, .ow-pane,
+    .od-workflow, .od-stats > li, .od-card, .sp-card, .sd-stat, .tc-decision, .tc-seats, .ec-hero, .ec-steps, .zt-tile:not(.is-lime)) { background: var(--gl-panel-solid) !important; }
+}
+
+/* ================================================================== small screens */
+@media (max-width: 1100px) { .ec-top { grid-template-columns: 1fr; } }
+@media (max-width: 991.98px) {
+  body.zt-glass main[role="main"] { border-radius: 22px; min-height: 0; }
+}
+@media (max-width: 767.98px) {
+  body.zt-glass main[role="main"] { border-radius: 18px; padding: 12px !important; }
+  .ec-top .zt-bento { grid-template-columns: 1fr; }
+  .ec-steps { grid-template-columns: 1fr 1fr; }
+  .ec-hero { flex-direction: column; align-items: flex-start; }
+}
+
+/* ================================================================== supplier portal: search toolbar layout
+   content.css (which lays the toolbar out) is only loaded by the staff layout, so the portal gets the same layout here. */
+body.zt-glass.sp .zt-search-toolbar { width: 100%; }
+body.zt-glass.sp .zt-search-line { display: flex; align-items: stretch; gap: .65rem; width: 100%; }
+body.zt-glass.sp .zt-search-shell { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; overflow: visible; border-radius: 999px; }
+body.zt-glass.sp .zt-search-shell .zt-search-input { flex: 1 1 auto; min-width: 140px; min-height: 44px; border-radius: 999px 0 0 999px; padding-left: 1.1rem; }
+body.zt-glass.sp .zt-language-picker { position: relative; flex: 0 0 38px; width: 38px; height: 38px; overflow: visible; z-index: 5; }
+body.zt-glass.sp .zt-language-button { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; font-size: .88rem; font-weight: 800; cursor: pointer; }
+body.zt-glass.sp .zt-language-menu { position: absolute; top: calc(100% + 7px); right: 0; width: 126px; padding: 5px; display: grid; gap: 3px; border: 1px solid; border-radius: 14px; z-index: 30; }
+body.zt-glass.sp .zt-language-menu[hidden] { display: none; }
+body.zt-glass.sp .zt-language-menu button { width: 100%; min-height: 38px; display: flex; align-items: center; gap: 9px; padding: 6px 9px; border: 0; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
+body.zt-glass.sp .zt-language-menu button strong { width: 22px; text-align: center; font-size: 1rem; }
+body.zt-glass.sp .zt-language-menu button span { font-size: .85rem; }
+body.zt-glass.sp .zt-search-shell .zt-voice-button { flex: 0 0 38px; width: 38px; height: 38px; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; padding: 0; margin: 3px 4px 3px 5px; }
+body.zt-glass.sp .zt-search-submit, body.zt-glass.sp .zt-search-clear { flex: 0 0 auto; white-space: nowrap; min-height: 44px; padding-inline: 1.2rem; }
+@media (max-width: 767.98px) {
+  body.zt-glass.sp .zt-search-line { flex-wrap: wrap; }
+  body.zt-glass.sp .zt-search-shell { flex-basis: 100%; }
+}
+/* portal tables: long reference codes wrap and a wide table scrolls inside its card instead of running under the next column */
+body.zt-glass main :is(.sd-grid, .sd-col, .sm-wrap) > * { min-width: 0; }
+body.zt-glass main .sp-card:has(.sp-table) { overflow-x: auto; }
+body.zt-glass main .sp-table :is(small, b) { overflow-wrap: anywhere; }
+
+/* ================================================================== card heights follow their content */
+/* report number cards share a row height; their content sits in the middle instead of leaving a gap below */
+body.zt-glass main .card.text-center.h-100 > .card-body { display: flex; flex-direction: column; justify-content: center; }
+/* supplier messages: the conversation list is only as tall as its conversations, and the empty "choose a conversation" pane stays compact */
+body.zt-glass main .sm-wrap { align-items: start; }
+body.zt-glass main .sm-thread:has(.sm-pick) { min-height: 0; }
+body.zt-glass main .sm-thread:has(.sm-pick) .sm-pick { padding: 36px 24px; }
+/* side-by-side content cards (charts, lists) are only as tall as what they hold */
+body.zt-glass main .row > [class*="col"] > .card.h-100:not(.text-center) { height: auto !important; }
+
+/* ================================================================== shared chat layout (supplier Messages look, used by every messages page)
+   Moved out of Views/Messages/Index.cshtml so the staff Messages page, the clarification threads (CycleChat) and the
+   supplier portal all draw the same conversation list, bubbles and composer. */
+body.zt-glass main .sp-card { border-radius: var(--gl-radius); padding: 24px 26px; }
+body.zt-glass main .sp-card-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+body.zt-glass main .sp-card-h h2 { margin: 0; display: flex; align-items: center; gap: 10px; font-family: var(--gl-display); font-weight: 600; font-size: 1.3rem; }
+body.zt-glass main .sp-card-h h2::before { content: ""; width: 8px; height: 8px; border-radius: 50%; }
+body.zt-glass main .sp-eyebrow { font-family: var(--gl-mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+body.zt-glass main .sp-h1 { margin: 6px 0; font-family: var(--gl-display); font-weight: 700; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.05; letter-spacing: -.02em; }
+body.zt-glass main .sp-sub { margin: 0; font-size: 15.5px; }
+body.zt-glass main .sp-empty { padding: 30px 16px; text-align: center; font-size: 14.5px; border: 1.5px dashed var(--gl-line-2); border-radius: 18px; }
+body.zt-glass main .sp-alert { margin: 0 0 18px; padding: 13px 18px; border-radius: 16px; font-size: 14.5px; }
+body.zt-glass main .sp-chip { display: inline-flex; align-items: center; gap: 6px; }
+body.zt-glass main .sp-chip i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+body.zt-glass main .sm-head-block { margin-bottom: 18px; }
+
+body.zt-glass main .sm-wrap { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(0, 1.6fr); gap: 18px; align-items: start; }
+body.zt-glass main .sm-list { padding: 14px; display: flex; flex-direction: column; gap: 6px; max-height: calc(100vh - 250px); overflow: auto; margin: 0; list-style: none; }
+body.zt-glass main .sm-list > li { list-style: none; margin: 0; }
+body.zt-glass main .sm-item { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 12px; padding: 12px; border-radius: 16px; text-decoration: none; }
+body.zt-glass main .sm-av { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; font: 700 15px var(--gl-display); text-transform: uppercase; }
+body.zt-glass main .sm-item b { display: block; font-size: 14.5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.zt-glass main .sm-item small { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.zt-glass main .sm-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; }
+body.zt-glass main .sm-time { font: 500 11px var(--gl-mono); color: var(--gl-muted); }
+body.zt-glass main .sm-item .sp-chip { font-size: 10px !important; padding: 3px 8px !important; }
+body.zt-glass main .sm-thread { display: flex; flex-direction: column; padding: 0; overflow: hidden; min-height: 520px; }
+body.zt-glass main .sm-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 18px 24px; border-bottom: 1px solid var(--gl-line); }
+body.zt-glass main .sm-head > div { min-width: 0; flex: 1 1 200px; }
+body.zt-glass main .sm-head h2 { margin: 0; font-family: var(--gl-display); font-weight: 600; font-size: 1.3rem; overflow-wrap: anywhere; }
+body.zt-glass main .sm-head h2::before { display: none !important; }
+body.zt-glass main .sm-head small { display: block; font-size: 13px; }
+body.zt-glass main .sm-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+body.zt-glass main .sm-head-actions form { margin: 0; }
+body.zt-glass main .sm-msgs { list-style: none; margin: 0; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; flex: 1; overflow: auto; max-height: calc(100vh - 380px); }
+body.zt-glass main .sm-msg { max-width: 78%; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+body.zt-glass main .sm-msg.me { align-self: flex-end; align-items: flex-end; }
+body.zt-glass main .sm-bubble { padding: 13px 16px; border-radius: 18px 18px 18px 6px; border: 1px solid; font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+body.zt-glass main .sm-msg.me .sm-bubble { border-radius: 18px 18px 6px 18px; }
+body.zt-glass main .sm-who { font: 600 12px var(--gl-sans); color: var(--gl-muted); }
+body.zt-glass main .sm-who time { font: 500 11px var(--gl-mono); margin-left: 6px; }
+body.zt-glass main .sm-compose { display: flex; gap: 10px; align-items: flex-end; padding: 16px 20px; border-top: 1px solid var(--gl-line); margin: 0; }
+body.zt-glass main .sm-compose textarea { flex: 1; min-height: 52px; max-height: 180px; resize: vertical; font: inherit; font-size: 15px; padding: 13px 16px; border-radius: 18px !important; }
+body.zt-glass main .sm-send { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; border: 0; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+body.zt-glass main .sm-send:hover { transform: scale(1.06); box-shadow: 0 8px 20px -6px rgba(220, 235, 75, .5); }
+body.zt-glass main .sm-send:focus-visible { outline: 2px solid var(--gl-lime); outline-offset: 3px; }
+body.zt-glass main .sm-closed { margin: 0; padding: 14px 22px; border-top: 1px solid var(--gl-line); font-size: 14px; }
+body.zt-glass main .sm-pick { flex: 1; display: grid; place-items: center; text-align: center; padding: 40px 24px; color: var(--gl-muted); }
+body.zt-glass main .sm-pick b { display: block; margin: 14px 0 6px; font-family: var(--gl-display); font-size: 22px; }
+body.zt-glass main .sm-info { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; padding: 14px 18px; border-radius: 18px; font-size: 14px; line-height: 1.5; }
+body.zt-glass main .sm-form { display: grid; gap: 14px; max-width: 760px; }
+body.zt-glass main .sm-form .sm-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 980px) {
+  body.zt-glass main .sm-wrap { grid-template-columns: 1fr; }
+  body.zt-glass main .sm-list, body.zt-glass main .sm-msgs { max-height: none; }
+  body.zt-glass main .sm-msg { max-width: 92%; }
+}
+
+/* sourcing officer messages: same list, bubbles and composer as the shared chat */
+body.zt-glass main .ow-avatar { background: rgba(255, 255, 255, .12) !important; color: var(--gl-fg) !important; font-family: var(--gl-display); text-transform: uppercase; }
+body.zt-glass main .ow-conv.is-selected .ow-avatar, body.zt-glass main .ow-convo-head .ow-avatar { background: var(--gl-lime) !important; color: var(--gl-lime-ink) !important; }
+body.zt-glass main .ow-conv { border-radius: 16px !important; padding: 12px !important; }
+body.zt-glass main .ow-bubble { border-radius: 18px 18px 18px 6px !important; padding: 13px 16px !important; font-size: 14.5px; line-height: 1.55; }
+body.zt-glass main .ow-bubble-row.is-mine .ow-bubble { border-radius: 18px 18px 6px 18px !important; }
+body.zt-glass main .ow-bubble-meta { font: 600 12px var(--gl-sans); color: var(--gl-muted) !important; }
+body.zt-glass main .ow-bubble-meta strong { color: var(--gl-fg-2) !important; }
+body.zt-glass main .ow-bubble-meta time { font: 500 11px var(--gl-mono); }
+body.zt-glass main .ow-thread { padding: 22px 24px !important; gap: 14px !important; background: rgba(0, 0, 0, .1); }
+body.zt-glass main .ow-composer { padding: 0 !important; }
+body.zt-glass main .ow-composer .ow-note { margin: 14px 20px; }
+body.zt-glass main .ow-pane, body.zt-glass main .ow-panel { border-radius: var(--gl-radius) !important; }

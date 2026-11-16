@@ -2,20 +2,30 @@
 @using Sourcing_Tender_Management_System.Services
 @{
     ViewData["Title"] = "Evaluation committee";
+    var actionCount = Model.Count(r => r.ActionNeeded);
+    // share of assigned tenders that are not waiting on this member
+    var upToDate = Model.Count == 0 ? 100 : (int)Math.Round((Model.Count - actionCount) * 100.0 / Model.Count);
 }
 <div id="evaluation-search-results" class="manager-page">
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
-    <div class="manager-page-heading">
-        <h1 class="manager-title mb-1">Tender preparation and evaluation</h1>
-        <p class="manager-intro mb-0">Technical and financial members approve criteria and weights while the tender is a draft. After bidding and compliance, all four members evaluate the compliant offers.</p>
-    </div>
-    <div class="text-end"><span class="badge fs-6">@Model.Count(r => r.ActionNeeded) need your action</span></div>
+<div class="ec-top">
+    <section class="ec-hero" aria-labelledby="ec-title">
+        <div>
+            <p class="manager-kicker mb-1">Evaluation committee</p>
+            <h1 id="ec-title" class="manager-title mb-0">Tender preparation and evaluation</h1>
+            <p class="manager-intro">Technical and financial members approve criteria and weights while the tender is a draft. After bidding and compliance, all four members evaluate the compliant offers.</p>
+            <span class="ec-pill @(actionCount > 0 ? "is-warn" : "")">@actionCount need your action</span>
+        </div>
+        <div class="ec-ring" data-p="@upToDate" role="img" aria-label="@upToDate% of your tenders are up to date">
+            <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="track" cx="50" cy="50" r="42" /><circle class="arc" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" /></svg>
+            <div class="ec-ring-val" aria-hidden="true"><span class="ec-ring-count">0%</span><small>Up to date</small></div>
+        </div>
+    </section>
+    <ul class="zt-bento" aria-label="Committee summary">
+        <li><div class="zt-tile"><span class="zt-tile-label">Assigned tenders</span><span class="zt-tile-value">@Model.Count</span></div></li>
+        <li><div class="zt-tile @(actionCount > 0 ? "is-alert" : "")"><span class="zt-tile-label">Your action needed</span><span class="zt-tile-value">@actionCount</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Under evaluation</span><span class="zt-tile-value">@Model.Count(r => r.Tender.Status == TenderStatus.UnderEvaluation)</span></div></li>
+    </ul>
 </div>
-<ul class="zt-bento" aria-label="Committee summary">
-    <li><div class="zt-tile"><span class="zt-tile-label">Assigned tenders</span><span class="zt-tile-value">@Model.Count</span></div></li>
-    <li><div class="zt-tile @(Model.Any(r => r.ActionNeeded) ? "is-alert" : "")"><span class="zt-tile-label">Your action needed</span><span class="zt-tile-value">@Model.Count(r => r.ActionNeeded)</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Under evaluation</span><span class="zt-tile-value">@Model.Count(r => r.Tender.Status == TenderStatus.UnderEvaluation)</span></div></li>
-</ul>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 <section class="manager-search-panel mb-4" aria-label="Search assigned tenders">
@@ -30,10 +40,13 @@ else {
 <tr data-search-item><td><a asp-action="Evaluate" asp-route-id="@row.Tender.Id">@row.Tender.Title</a><br /><small>@row.Tender.TenderNumber</small></td>
 <td>@CommitteeWeighting.RoleLabel(row.Role)</td>
 <td><span class="badge">@row.Tender.Status</span></td>
-<td>@row.Stage @if (row.ActionNeeded) { <strong class="text-danger">· your action needed</strong> }</td>
+<td>@row.Stage @if (row.ActionNeeded) { <span class="ec-pill is-warn">Your action needed</span> }</td>
 <td>@(CommitteeWeighting.Agree(CommitteeWeighting.ReadProposals(row.Tender.EvaluationCriteria)) is { } w ? $"{w.Technical}% / {w.Financial}%" : "Not yet")</td></tr>
 }
 </tbody></table></div>
 }
 </section>
 </div>
+@section Scripts {
+    <script src="~/js/evaluation-committee.js" asp-append-version="true"></script>
+}
