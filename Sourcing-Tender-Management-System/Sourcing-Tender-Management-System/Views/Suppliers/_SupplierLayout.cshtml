@@ -89,18 +89,7 @@
         @if (TempData["Message"] is string msg) { <div class="sp-alert ok" role="status">@msg</div> }
         @if (TempData["Error"] is string err) { <div class="sp-alert bad" role="alert">@err</div> }
 
-        <main role="main" class="@(isAccount ? "sp-acc" : "")">
-            @if (isAccount)
-            {
-                <section class="sp-acc-hero" aria-label="Your account">
-                    <span class="sp-acc-av">@initial</span>
-                    <div>
-                        <span class="sp-eyebrow">Account settings</span>
-                        <h1 class="sp-h1">@displayName</h1>
-                        <p class="sp-sub">@supplierEmail@(companyName is null ? "" : " · " + companyName)</p>
-                    </div>
-                </section>
-            }
+        <main role="main">
             @RenderBody()
         </main>
     </div>
