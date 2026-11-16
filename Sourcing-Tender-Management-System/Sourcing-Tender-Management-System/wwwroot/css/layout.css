@@ -71,3 +71,6 @@
 @media (min-width: 992px) {
   .zt-sidebar-body { display: flex; flex-direction: column; gap: 22px; flex: 1 1 auto; }
 }
+/* Sidebar "needs action" count (Views/Shared/_Layout.cshtml) */
+.zt-nav a .zt-nav-count { margin-left: auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-grid; place-items: center;
+  font-size: 12px; font-weight: 700; line-height: 1; color: #2E3920; background: #C9A84C; }

@@ -2,85 +2,86 @@
 @using Sourcing_Tender_Management_System.Models
 @{
     ViewData["Title"] = "My Purchase Requests";
-    string StatusLabel(ProcurementRequestStatus status) => status switch
-    {
-        ProcurementRequestStatus.UnderReview => "Under review",
-        ProcurementRequestStatus.ConvertedToTender => "Tender created",
-        _ => status.ToString()
-    };
-    string StatusClass(ProcurementRequestStatus status) => status switch
-    {
-        ProcurementRequestStatus.Draft => "is-draft",
-        ProcurementRequestStatus.Returned or ProcurementRequestStatus.Rejected => "is-attention",
-        ProcurementRequestStatus.Approved or ProcurementRequestStatus.ConvertedToTender => "is-complete",
-        _ => "is-progress"
-    };
+    var count = Model.Count();
 }
-<div class="dr-page-head">
-    <div><span class="dr-eyebrow">Department workspace</span><h1>My purchase requests</h1><p>Track drafts, reviews, and requests sent to sourcing.</p></div>
-    <a class="btn btn-primary" asp-action="Create">+ New request</a>
+<div class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">My purchase requests</h1>
+        <p class="manager-intro mb-0">Track every request from draft to tender. Drafts and returned requests can still be edited.</p>
+    </div>
+    <div class="actions">
+        <a asp-action="Create" class="btn btn-primary"><span aria-hidden="true">+</span> Create request</a>
+    </div>
 </div>
-<nav class="dr-quick-links" aria-label="Request shortcuts"><a asp-action="Dashboard">Dashboard</a><a asp-controller="CycleChat" asp-action="Index">Messages</a></nav>
-<form method="get" asp-action="Index" class="zt-search-toolbar mb-3" role="search"
-      data-live-search data-search-response="document" data-results="department-request-results" data-search-status="department-request-status">
-    <label for="department-request-query" class="form-label">Request title</label>
-    <div class="zt-search-line"><div class="zt-search-shell"><input id="department-request-query" type="search" name="search" value="@ViewBag.Search" class="form-control zt-search-input" placeholder="Search by title" dir="auto" data-search-input /><partial name="_SearchVoiceTools" /></div><button type="submit" class="btn btn-primary zt-search-submit">Search</button><button type="button" class="btn btn-outline-secondary zt-search-clear" data-search-reset>Clear</button></div>
-    <div class="mt-3" style="max-width:360px"><label for="department-request-filter" class="form-label">Request status</label><select id="department-request-filter" name="status" class="form-select">
-        <option value="">All statuses</option>
-        @foreach (var status in Enum.GetValues<ProcurementRequestStatus>())
-        {
-            <option value="@status" selected="@(Convert.ToString(ViewBag.Status) == status.ToString())">@status</option>
-        }
-    </select></div>
-</form>
-<p id="department-request-status" role="status" class="small text-secondary"></p>
-<div id="department-request-results" aria-busy="false">
-<span hidden data-result-count="@ViewBag.TotalCount"></span>
-@if ((int)ViewBag.TotalCount > 0)
-{
-    var first = (((int)ViewBag.CurrentPage - 1) * 7) + 1;
-    var last = Math.Min((int)ViewBag.TotalCount, (int)ViewBag.CurrentPage * 7);
-    <div class="zt-list-summary"><span>Showing @first–@last of @ViewBag.TotalCount requests</span><span>Page @ViewBag.CurrentPage of @ViewBag.TotalPages</span></div>
-}
-<div class="table-responsive dr-request-table"><table class="table">
-    <thead><tr><th>Title</th><th>Priority</th><th>Required</th><th>Budget</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody>
-    @foreach (var r in Model)
+
+<section class="dp-panel mb-4" aria-label="Filter requests">
+    <form method="get" asp-action="Index" class="zt-search-toolbar dp-filter" role="search"
+          data-live-search data-search-response="document" data-results="department-request-results" data-search-status="department-request-status">
+        <div>
+            <label for="department-request-query" class="form-label">Request title or number</label>
+            <div class="zt-search-shell"><input id="department-request-query" type="search" name="search" value="@ViewBag.Search" class="form-control zt-search-input" placeholder="Search title or number" dir="auto" data-search-input /><partial name="_SearchVoiceTools" /></div>
+        </div>
+        <div>
+            <label for="department-request-filter" class="form-label">Status</label>
+            <select id="department-request-filter" name="status" class="form-select">
+                <option value="">All statuses</option>
+                @foreach (var status in Enum.GetValues<ProcurementRequestStatus>())
+                {
+                    <option value="@status" selected="@(Convert.ToString(ViewBag.Status) == status.ToString())">@(status == ProcurementRequestStatus.ConvertedToTender ? "Converted to tender" : status == ProcurementRequestStatus.UnderReview ? "Under review" : status.ToString())</option>
+                }
+            </select>
+        </div>
+        <div class="dp-filter-actions">
+            <button type="submit" class="btn btn-primary">Search</button>
+            <button type="button" class="btn btn-outline-secondary" data-search-reset>Clear</button>
+        </div>
+    </form>
+    <p id="department-request-status" role="status" class="small text-secondary dp-filter-status"></p>
+</section>
+
+<section class="card manager-card mb-4">
+    <div class="card-header dp-split"><h2 class="h5 mb-0">Requests</h2><span class="badge">@count @(count == 1 ? "request" : "requests")</span></div>
+    <div id="department-request-results" aria-busy="false">
+    @if (count == 0)
     {
-        <tr data-search-item>
-            <td><strong class="dr-request-title">@r.Title</strong></td><td>@r.Priority</td>
-            <td>@r.RequiredByDate?.ToString("dd MMM yyyy")</td><td>@r.EstimatedBudget.ToString("N2")</td>
-            <td><span class="dr-status @StatusClass(r.Status)">@StatusLabel(r.Status)</span></td>
-            <td><div class="dr-row-actions">
-                <a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@r.Id">View</a>
-                @if (r.Status == ProcurementRequestStatus.Draft || r.Status == ProcurementRequestStatus.Returned)
-                {
-                    <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@r.Id">Edit</a>
-                    <form asp-action="Submit" asp-route-id="@r.Id" method="post">
-                        <button class="btn btn-sm btn-primary" type="submit">Submit</button>
-                    </form>
-                }
-                @if (r.Status == ProcurementRequestStatus.Draft)
-                {
-                    <a class="dr-delete-link" asp-action="Delete" asp-route-id="@r.Id">Delete</a>
-                }
-            </div></td>
-        </tr>
+        <div class="empty-state"><p class="mb-3">No purchase requests found.</p><a asp-action="Create" class="btn btn-primary">Create a request</a></div>
     }
-    </tbody>
-</table></div>
-@if (!Model.Any()) { <div class="dr-empty"><strong>No purchase requests found</strong><span>Try changing the filters or create a new request.</span></div> }
-@if ((int)ViewBag.TotalPages > 1)
-{
-    <nav class="zt-pagination-bar" aria-label="Purchase request pages">
-        <ul class="pagination mb-0">
-            <li class="page-item @((int)ViewBag.CurrentPage == 1 ? "disabled" : null)"><a class="page-link" asp-action="Index" asp-route-search="@ViewBag.Search" asp-route-status="@ViewBag.Status" asp-route-page="@((int)ViewBag.CurrentPage - 1)">Previous</a></li>
-            @for (var number = 1; number <= (int)ViewBag.TotalPages; number++)
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0"><caption class="visually-hidden">My purchase requests</caption>
+            <thead><tr><th scope="col">Request</th><th scope="col">Priority</th><th scope="col">Required by</th><th scope="col" class="text-end">Budget</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+            @foreach (var r in Model)
             {
-                <li class="page-item @(number == (int)ViewBag.CurrentPage ? "active" : null)"><a class="page-link" asp-action="Index" asp-route-search="@ViewBag.Search" asp-route-status="@ViewBag.Status" asp-route-page="@number">@number</a></li>
+                var editable = r.Status == ProcurementRequestStatus.Draft || r.Status == ProcurementRequestStatus.Returned;
+                <tr data-search-item>
+                    <td><a class="dp-req-title" asp-action="Details" asp-route-id="@r.Id">@r.Title</a><span class="dp-num dp-num-wide" title="@r.RequestNumber">@r.RequestNumber</span></td>
+                    <td>@r.Priority</td>
+                    <td>@(r.RequiredByDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                    <td class="text-end money">@r.EstimatedBudget.ToString("N2")</td>
+                    <td><partial name="_RequestStatus" model="r.Status" /></td>
+                    <td class="text-end">
+                        <div class="actions">
+                            <a asp-action="Details" asp-route-id="@r.Id" class="btn btn-outline-primary btn-sm" aria-label="Details for @r.Title">Details</a>
+                            @if (editable)
+                            {
+                                <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-outline-secondary btn-sm" aria-label="Edit @r.Title">Edit</a>
+                                <form asp-action="Submit" asp-route-id="@r.Id" method="post">
+                                    <button type="submit" class="btn btn-primary btn-sm" aria-label="Submit @r.Title">Submit</button>
+                                </form>
+                            }
+                            @if (r.Status == ProcurementRequestStatus.Draft)
+                            {
+                                <a asp-action="Delete" asp-route-id="@r.Id" class="btn btn-outline-danger btn-sm" aria-label="Delete @r.Title">Delete</a>
+                            }
+                        </div>
+                    </td>
+                </tr>
             }
-            <li class="page-item @((int)ViewBag.CurrentPage == (int)ViewBag.TotalPages ? "disabled" : null)"><a class="page-link" asp-action="Index" asp-route-search="@ViewBag.Search" asp-route-status="@ViewBag.Status" asp-route-page="@((int)ViewBag.CurrentPage + 1)">Next</a></li>
-        </ul>
-    </nav>
-}
+            </tbody>
+        </table></div>
+    }
+    </div>
+</section>
 </div>

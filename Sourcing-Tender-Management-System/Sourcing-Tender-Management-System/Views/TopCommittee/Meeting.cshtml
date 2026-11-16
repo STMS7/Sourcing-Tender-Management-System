@@ -1,89 +1,165 @@
 @model MeetingPageViewModel
+@using Sourcing_Tender_Management_System.Services.TopCommittee
 @{
-    ViewData["Title"] = "Committee meeting - " + Model.TenderNumber;
+    ViewData["Title"] = "Committee meeting - " + Model.Title;
+    var scheduled = Model.ScheduledAtUtc;
+    var opensAt = scheduled?.AddMinutes(-MeetingJoinWindow.EarlyMinutes);
+    var joinable = opensAt != null && DateTime.UtcNow >= opensAt;
+    string Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToString("O");
 }
-
-<h1 class="h3 mb-3">Top Committee</h1>
-<partial name="_Nav" model="@("")" />
-
-<div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
-    <div>
-        <a asp-action="Details" asp-route-id="@Model.TenderId" class="small">&larr; Back to the tender</a>
-        <h2 class="h4 mb-1">Committee meeting: @Model.TenderNumber - @Model.Title</h2>
-        <div class="text-muted">A private video room for the committee members of this tender.</div>
+<div class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <a asp-action="Details" asp-route-id="@Model.TenderId" class="dp-crumb"><span aria-hidden="true">←</span> Back to the tender</a>
+        <h1 class="manager-title mb-1">Committee meeting</h1>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-semibold">@Model.Title</span>
+            <partial name="_Badge" model="@Model.Status.ToString()" />
+            <span class="dp-num" title="@Model.TenderNumber">@Model.TenderNumber</span>
+        </div>
     </div>
-    <div><partial name="_Badge" model="@Model.Status.ToString()" /></div>
 </div>
-
+<partial name="_Nav" model="@("")" />
 @Html.AntiForgeryToken()
 
-<div class="alert alert-info">
-    <strong>How to start:</strong> the first person presses <strong>Start meeting</strong>, then <strong>Join meeting</strong>.
-    The free video service asks the first person to press <strong>Log in</strong> (Google, GitHub or Facebook) so they become
-    the moderator; until then you will see "waiting for a moderator". The other members press the same buttons and enter
-    automatically once the moderator is in.
-</div>
+<div class="row g-4">
+<div class="col-xl-8">
 
-<div class="card mb-4" id="meeting-card" data-start-url="@Url.Action("StartMeeting", new { id = Model.TenderId })">
-    <div class="card-body">
-        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-            <button type="button" class="btn btn-primary" id="meeting-start">Start meeting</button>
-            <button type="button" class="btn btn-outline-secondary" id="meeting-newtab">Open in a new tab</button>
-            <button type="button" class="btn btn-outline-danger d-none" id="meeting-leave">Leave meeting</button>
-            <span class="badge text-bg-light d-none" id="meeting-count">0 in the meeting</span>
+    @* ---------- The agreed meeting ---------- *@
+    <section class="card manager-card mb-4">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Scheduled meeting</h2>
+            @if (scheduled != null) { <span class="dp-status @(joinable ? "is-approved" : "is-returned")">@(joinable ? "Room open" : "Upcoming")</span> }
         </div>
-        <div id="meeting-status" class="small text-muted" role="status" aria-live="polite">
-            Press <strong>Start meeting</strong>. Your browser will ask for permission to use the camera and microphone.
-        </div>
-        <div id="meeting-error" class="alert alert-danger mt-3 d-none" role="alert"></div>
-    </div>
-    <div id="meet" class="d-none" style="height:70vh;min-height:480px;border-top:1px solid var(--bs-border-color)"></div>
-</div>
-
-<div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <h2 class="h5">Committee members</h2>
-        @if (Model.Members.Count == 0)
+        @if (scheduled is DateTime at)
         {
-            <div class="text-muted">No members assigned.</div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <caption class="visually-hidden">Meeting details</caption>
+                    <tbody>
+                        <tr><th scope="row" class="w-25">When</th><td class="fw-semibold"><time class="device-local-time" datetime="@Utc(at)">@at.ToString("dd MMM yyyy HH:mm") UTC</time></td></tr>
+                        <tr><th scope="row">Requested by</th><td>@(Model.ScheduledBy ?? "—")</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(Model.ScheduleNote)) { <tr><th scope="row">Note</th><td class="preserve-lines">@Model.ScheduleNote</td></tr> }
+                        <tr><th scope="row">Room opens</th><td><time class="device-local-time" datetime="@Utc(opensAt!.Value)">@opensAt.Value.ToString("dd MMM yyyy HH:mm") UTC</time> (@MeetingJoinWindow.EarlyMinutes minutes before)</td></tr>
+                    </tbody>
+                </table>
+            </div>
         }
         else
         {
-            <ul class="list-group">
-                @foreach (var member in Model.Members)
-                {
-                    <li class="list-group-item">@member</li>
-                }
-            </ul>
+            <p class="empty-state">No meeting has been requested yet. Request one below so every member knows when to attend.</p>
         }
-    </div>
-    <div class="col-md-6">
-        <h2 class="h5">Recent joins</h2>
-        @if (Model.Activity.Count == 0)
+    </section>
+
+    @* ---------- Join (only once the room is open) ---------- *@
+    @if (joinable)
+    {
+        <section class="card manager-card mb-4" id="meeting-card" data-start-url="@Url.Action("StartMeeting", new { id = Model.TenderId })">
+            <div class="card-header dp-split"><h2 class="h5 mb-0">Join the meeting</h2><span class="badge d-none" id="meeting-count">0 in the meeting</span></div>
+            <div class="card-body">
+                <div class="actions mb-2">
+                    <button type="button" class="btn btn-primary" id="meeting-start">Join meeting</button>
+                    <button type="button" class="btn btn-outline-secondary" id="meeting-newtab">Open in a new tab</button>
+                    <button type="button" class="btn btn-outline-danger d-none" id="meeting-leave">Leave meeting</button>
+                </div>
+                <div id="meeting-status" class="small text-muted" role="status" aria-live="polite">
+                    Press <strong>Join meeting</strong>. Your browser will ask for permission to use the camera and microphone.
+                    The first person to join presses <strong>Log in</strong> on the video service to become the moderator.
+                </div>
+                <div id="meeting-error" class="alert alert-danger mt-3 d-none" role="alert"></div>
+            </div>
+            <div id="meet" class="d-none" style="height:70vh;min-height:480px;border-top:1px solid var(--sm-sand)"></div>
+        </section>
+    }
+    else if (opensAt is DateTime opens)
+    {
+        <div class="alert alert-info" role="status">
+            The video room opens at <strong><time class="device-local-time" datetime="@Utc(opens)">@opens.ToString("dd MMM yyyy HH:mm") UTC</time></strong>.
+            This page refreshes itself when it opens.
+        </div>
+        @if (opens - DateTime.UtcNow < TimeSpan.FromHours(24))
         {
-            <div class="text-muted">Nobody has joined yet.</div>
+            <script>setTimeout(function () { location.reload(); }, @((long)Math.Max(1000, (opens - DateTime.UtcNow).TotalMilliseconds + 1500)));</script>
         }
-        else
-        {
-            <ul class="list-group">
-                @foreach (var row in Model.Activity)
-                {
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>@row.Member</span>
-                        <span class="text-muted small">@row.At.ToString("yyyy-MM-dd HH:mm") UTC</span>
-                    </li>
-                }
-            </ul>
-        }
-    </div>
+    }
+
+    @* ---------- Request / move the meeting ---------- *@
+    <section class="card manager-card mb-4">
+        <div class="card-header"><h2 class="h5 mb-0">@(scheduled == null ? "Request a meeting" : "Change the meeting time")</h2></div>
+        <div class="card-body dp-form">
+            <form asp-action="RequestMeeting" asp-route-id="@Model.TenderId" method="post" id="meeting-request">
+                <input type="hidden" name="clientUtcOffsetMinutes" value="0" />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="meeting-when" class="form-label">Date and time (your device time)</label>
+                        <input id="meeting-when" name="scheduledAt" type="datetime-local" class="form-control" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="meeting-note" class="form-label">Note (optional)</label>
+                        <input id="meeting-note" name="note" class="form-control" maxlength="500" placeholder="e.g. Discuss the recommended supplier" />
+                    </div>
+                </div>
+                <div class="actions mt-3">
+                    <button type="submit" class="btn btn-primary">@(scheduled == null ? "Request meeting" : "Update meeting time")</button>
+                    <span class="dp-meta mt-0">Every committee member gets a notification with the date.</span>
+                </div>
+            </form>
+        </div>
+    </section>
 </div>
 
-<div class="small text-muted">
-    The room name is private and only given to the committee members of this tender. The video is carried by the
-    public Jitsi service, which receives your name and your camera and microphone stream while you are in the room.
-    The other members get a notification when the first person starts the meeting. If the video cannot start inside
-    this page, use <strong>Open in a new tab</strong>: it opens the same room.
+<div class="col-xl-4">
+    <section class="card manager-card mb-4">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Committee members</h2><span class="badge">@Model.Members.Count</span></div>
+        @if (Model.Members.Count == 0) { <p class="empty-state">No members assigned.</p> }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <caption class="visually-hidden">Committee members</caption>
+                    <tbody>@foreach (var member in Model.Members) { <tr><td>@member</td></tr> }</tbody>
+                </table>
+            </div>
+        }
+    </section>
+    <section class="card manager-card mb-4">
+        <div class="card-header"><h2 class="h5 mb-0">Recent joins</h2></div>
+        @if (Model.Activity.Count == 0) { <p class="empty-state">Nobody has joined yet.</p> }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <caption class="visually-hidden">Recent joins</caption>
+                    <thead><tr><th scope="col">Member</th><th scope="col">Joined</th></tr></thead>
+                    <tbody>
+                    @foreach (var row in Model.Activity)
+                    {
+                        <tr><td>@row.Member</td><td class="text-nowrap"><time class="device-local-time" datetime="@Utc(row.At)">@row.At.ToString("dd MMM HH:mm") UTC</time></td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+    <p class="dp-meta">The room name is private and only given to this tender's committee members. Video runs on the public Jitsi service, which receives your name, camera and microphone while you are in the room.</p>
 </div>
+</div>
+</div>
+
+<script>
+(function () {
+    var form = document.getElementById('meeting-request');
+    if (!form) return;
+    var input = document.getElementById('meeting-when');
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    var local = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+    input.min = local(new Date(Date.now() + 6 * 60000));
+    @if (scheduled is DateTime current) { <text>input.value = local(new Date('@Utc(current)'));</text> }
+    // The server stores UTC; send this device's offset with the local time it was given.
+    form.addEventListener('submit', function () {
+        form.querySelector('[name=clientUtcOffsetMinutes]').value = new Date(input.value).getTimezoneOffset();
+    });
+})();
+</script>
 
 @section Scripts {
     <script src="~/js/top-committee-meeting.js" asp-append-version="true"></script>

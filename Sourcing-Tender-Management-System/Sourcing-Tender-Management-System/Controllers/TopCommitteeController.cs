@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Sourcing_Tender_Management_System.Models;
@@ -100,6 +100,23 @@ public class TopCommitteeController(
         }
 
         return Json(new { ok = true, domain = result.Domain, room = result.RoomName, displayName = result.DisplayName, subject = result.Subject });
+    }
+
+    // POST /TopCommittee/RequestMeeting/5 — a member sets the meeting date (entered in device time) for the others.
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestMeeting(int id, DateTime? scheduledAt, int clientUtcOffsetMinutes, string? note)
+    {
+        if (scheduledAt is null || clientUtcOffsetMinutes is < -900 or > 900)
+            TempData["Error"] = "Choose a valid meeting date and time.";
+        else
+        {
+            // datetime-local carries device time; getTimezoneOffset() is the minutes to add to reach UTC.
+            var utc = DateTime.SpecifyKind(scheduledAt.Value.AddMinutes(clientUtcOffsetMinutes), DateTimeKind.Utc);
+            var error = await meetings.ScheduleAsync(id, userManager.GetUserId(User)!, utc, note);
+            if (error is null) TempData["Message"] = "Meeting requested. The other members were notified.";
+            else TempData["Error"] = error;
+        }
+        return RedirectToAction(nameof(Meeting), new { id });
     }
 
     // GET /TopCommittee/Statistics — site-wide numbers: suppliers, requests, tenders, decisions, dealings per supplier.

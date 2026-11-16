@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
@@ -100,7 +100,9 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         return state;
     }
 
+
     public async Task<IActionResult> Index(int page = 1)
+
     {
         var memberships = await MyMemberships().AsNoTracking().Include(m => m.Tender).ThenInclude(t => t.EvaluationCriteria)
             .Where(m => m.Tender.Status != TenderStatus.Cancelled &&
@@ -124,7 +126,10 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
                     !proposals.Any(p => p.Role == role);
             }
             else if (m.Tender.Status != TenderStatus.UnderEvaluation)
+            {
                 row.Stage = "Report sent to the sourcing officer";
+                row.Completed = true;
+            }
             else if (round.AgreedBid == null)
             {
                 row.Stage = "Technical/financial choosing a bid";
@@ -137,6 +142,7 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             }
             rows.Add(row);
         }
+
         const int pageSize = 7;
         rows = rows.OrderByDescending(r => r.ActionNeeded).ThenByDescending(r => r.Tender.CreatedAt).ToList();
         var total = rows.Count;
@@ -155,7 +161,18 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         var result = (ViewResult)await Index(1);
         var rows = (List<EvaluationCommitteeTenderRow>)result.Model!;
         return View(rows.Take(5).ToList());
+
     }
+
+    /// <summary>Landing page: what needs the member now, what is in progress and what is finished.</summary>
+    public async Task<IActionResult> Index() => View(await BuildRowsAsync());
+
+    /// <summary>How many assigned tenders wait on this member (same rule as the dashboard); used by the sidebar badge.</summary>
+    [NonAction]
+    public async Task<int> ActionNeededCountAsync() => (await BuildRowsAsync()).Count(r => r.ActionNeeded);
+
+    /// <summary>Every tender assigned to the member, searchable.</summary>
+    public async Task<IActionResult> Tenders() => View(await BuildRowsAsync());
 
     public async Task<IActionResult> Evaluate(int id)
     {

@@ -1,0 +1,17 @@
+@model BidStatus
+@{
+    var (css, text) = Model switch
+    {
+        BidStatus.Draft => ("is-draft", "Draft"),
+        BidStatus.Submitted => ("is-review", "Submitted"),
+        BidStatus.UnderReview or BidStatus.UnderEvaluation => ("is-review", "Under review"),
+        BidStatus.Compliant => ("is-approved", "Compliant"),
+        BidStatus.Accepted => ("is-converted", "Won"),
+        BidStatus.Withdrawn => ("is-draft", "Withdrawn"),
+        BidStatus.NonCompliant => ("is-rejected", "Not compliant"),
+        BidStatus.Rejected => ("is-rejected", "Not selected"),
+        BidStatus.Disqualified => ("is-rejected", "Disqualified"),
+        _ => ("is-draft", Model.ToString())
+    };
+}
+<span class="dp-status @css">@text</span>

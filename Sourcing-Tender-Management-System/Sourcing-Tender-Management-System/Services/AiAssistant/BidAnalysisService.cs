@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
@@ -28,6 +29,7 @@ public class BidAnalysisService(
     ApplicationDbContext db,
     IOllamaClient ollama,
     IOptions<OllamaOptions> options,
+    IMemoryCache cache,
     ILogger<BidAnalysisService> logger) : IBidAnalysisService
 {
     public const string ScoringMethod = "weighted-scoring-v1";
@@ -56,6 +58,12 @@ public class BidAnalysisService(
             : query.Where(b => b.ComplianceStatus == ComplianceDecision.Compliant);
         var bids = await query.Include(b => b.Supplier).Include(b => b.Items).Include(b => b.Evaluations)
             .AsSplitQuery().OrderBy(b => b.Id).ToListAsync(ct);
+
+        // Same bids, scores and weights give the same answer: reuse the last model result instead of waiting again.
+        var cacheKey = $"bid-analysis/{request.TenderId}/{request.Audience}/{request.IncludePendingCompliance}/{request.RecommendedBidId}/" +
+            string.Join(';', bids.Select(b => $"{b.Id}:{b.TotalAmount}:{b.DeliveryDays}:{b.ComplianceStatus}:{b.Items.Count}:{b.TechnicalSummary?.Length}:{b.Evaluations.Sum(e => e.TotalScore)}")) +
+            $"/{tender.TechnicalWeight}:{tender.FinancialWeight}";
+        if (cache.TryGetValue(cacheKey, out BidAnalysisViewModel? cached) && cached is not null) return cached;
 
         var result = BidScoring.Analyze(bids, tender.ItemCount, tender.TechnicalWeight, tender.FinancialWeight);
         if (result is null)
@@ -93,7 +101,10 @@ public class BidAnalysisService(
             model.Warnings.Add("No committee technical scores yet: the technical score is the share of tender items each bid quoted.");
 
         await AddNarrativeAsync(model, byId, tender.ItemCount, ct);
+        // The user closed the popup or left the page: nobody is waiting, so stop without saving or caching.
+        if (ct.IsCancellationRequested) return null;
         await SaveAsync(model, request, ct);
+        if (model.Narrative is not null) cache.Set(cacheKey, model, TimeSpan.FromHours(1));
         return model;
     }
 
@@ -126,8 +137,11 @@ public class BidAnalysisService(
             foreach (var row in model.Rows)
                 if (narrative.BidNotes.TryGetValue(row.Label, out var note)) row.AssistantNote = note;
         }
-        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException or JsonException
-                                   && !ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Request aborted by the browser; the caller returns without a result.
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException or JsonException)
         {
             logger.LogWarning(ex, "Ollama bid analysis failed");
             model.NarrativeUnavailableReason = ex is OperationCanceledException

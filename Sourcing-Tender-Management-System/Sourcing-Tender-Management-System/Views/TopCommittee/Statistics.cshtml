@@ -1,112 +1,120 @@
 @model TopCommitteeStatisticsViewModel
 @{
     ViewData["Title"] = "Statistics";
+    var decisionsTotal = Model.Decisions.AwaitingDecision + Model.Decisions.Approved + Model.Decisions.Rejected + Model.Decisions.ReturnedForDetails;
+    string Pct(int n, int total) => total == 0 ? "0%" : (n * 100.0 / total).ToString("0") + "%";
 }
-
-<div id="statistics-search-results">
-<h1 class="h3 mb-3">Top Committee</h1>
+<div id="statistics-search-results" class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Statistics</h1>
+        <p class="manager-intro mb-0">Site-wide figures · generated <time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.GeneratedAt, DateTimeKind.Utc).ToString("O")">@Model.GeneratedAt.ToString("dd MMM yyyy HH:mm") UTC</time></p>
+    </div>
+    <div class="actions"><a class="btn btn-primary" asp-action="DownloadStatistics">Download CSV (Excel)</a></div>
+</div>
 <partial name="_Nav" model="@("Statistics")" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="text-muted">Generated @Model.GeneratedAt.ToString("yyyy-MM-dd HH:mm") UTC</div>
-    <a class="btn btn-success" asp-action="DownloadStatistics">Download as CSV (Excel)</a>
-</div>
+<ul class="zt-bento" aria-label="Site totals">
+    <li><div class="zt-tile"><span class="zt-tile-label">Suppliers</span><span class="zt-tile-value">@Model.Totals.Suppliers</span><span class="zt-tile-note">@Model.Totals.ApprovedSuppliers approved</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Purchase requests</span><span class="zt-tile-value">@Model.Totals.ProcurementRequests</span><span class="zt-tile-note">from @Model.Totals.Departments departments</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Tenders</span><span class="zt-tile-value">@Model.Totals.Tenders</span><span class="zt-tile-note">@Model.Totals.Bids submitted bids</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Contracts</span><span class="zt-tile-value">@Model.Totals.Contracts</span><span class="zt-tile-note">Value @Model.Totals.ContractsValue.ToString("N2")</span></div></li>
+</ul>
 
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "statistics-search", ResultsId = "statistics-search-results", Label = "Search statistics and supplier dealings" })" />
-<div class="row g-3 mb-4">
-    @foreach (var (label, value) in new (string, string)[]
+<section class="manager-search-panel mb-4" aria-label="Search statistics">
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "statistics-search", ResultsId = "statistics-search-results", Label = "Search statistics and supplier dealings", Placeholder = "Supplier or status" })" />
+</section>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-6">
+        <section class="card manager-card h-100">
+            <div class="card-header dp-split"><h2 class="h5 mb-0">Top Committee decisions</h2><span class="badge">@decisionsTotal</span></div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <caption class="visually-hidden">Top Committee decisions</caption>
+                    <thead><tr><th scope="col">Outcome</th><th scope="col" class="text-end">Count</th><th scope="col" class="text-end">Share</th></tr></thead>
+                    <tbody>
+                        <tr data-search-item><td><span class="dp-status is-returned">Awaiting decision</span></td><td class="text-end money">@Model.Decisions.AwaitingDecision</td><td class="text-end">@Pct(Model.Decisions.AwaitingDecision, decisionsTotal)</td></tr>
+                        <tr data-search-item><td><partial name="_Badge" model="@("Approved")" /></td><td class="text-end money">@Model.Decisions.Approved</td><td class="text-end">@Pct(Model.Decisions.Approved, decisionsTotal)</td></tr>
+                        <tr data-search-item><td><partial name="_Badge" model="@("Rejected")" /></td><td class="text-end money">@Model.Decisions.Rejected</td><td class="text-end">@Pct(Model.Decisions.Rejected, decisionsTotal)</td></tr>
+                        <tr data-search-item><td><partial name="_Badge" model="@("ReturnedForDetails")" /></td><td class="text-end money">@Model.Decisions.ReturnedForDetails</td><td class="text-end">@Pct(Model.Decisions.ReturnedForDetails, decisionsTotal)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    @foreach (var (title, rows) in new (string, IEnumerable<(string Status, int Count)>)[]
     {
-        ("Suppliers", Model.Totals.Suppliers.ToString()),
-        ("Approved suppliers", Model.Totals.ApprovedSuppliers.ToString()),
-        ("Departments", Model.Totals.Departments.ToString()),
-        ("Purchase requests", Model.Totals.ProcurementRequests.ToString()),
-        ("Tenders", Model.Totals.Tenders.ToString()),
-        ("Submitted bids", Model.Totals.Bids.ToString()),
-        ("Contracts", Model.Totals.Contracts.ToString()),
-        ("Contracts value", Model.Totals.ContractsValue.ToString("N2"))
+        ("Tenders by status", Model.TenderStatuses.Select(s => (s.Status, s.Count))),
+        ("Suppliers by status", Model.SupplierStatuses.Select(s => (s.Status, s.Count))),
+        ("Purchase requests by status", Model.RequestStatuses.Select(s => (s.Status, s.Count)))
     })
     {
-        <div data-search-item class="col-6 col-md-3">
-            <div class="card text-center h-100"><div class="card-body">
-                <div class="h3 mb-0">@value</div>
-                <div class="text-muted">@label</div>
-            </div></div>
+        var list = rows.ToList();
+        var sum = list.Sum(x => x.Count);
+        <div class="col-xl-6">
+            <section class="card manager-card h-100">
+                <div class="card-header dp-split"><h2 class="h5 mb-0">@title</h2><span class="badge">@sum</span></div>
+                @if (list.Count == 0) { <p class="empty-state">No data yet.</p> }
+                else
+                {
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <caption class="visually-hidden">@title</caption>
+                        <thead><tr><th scope="col">Status</th><th scope="col" class="text-end">Count</th><th scope="col" class="text-end">Share</th></tr></thead>
+                        <tbody>
+                        @foreach (var s in list)
+                        {
+                            <tr data-search-item><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end money">@s.Count</td><td class="text-end">@Pct(s.Count, sum)</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                }
+            </section>
         </div>
     }
 </div>
 
-<div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <h2 class="h5">Top Committee decisions</h2>
-        <table class="table table-sm">
-            <tr data-search-item><td>Awaiting decision</td><td class="text-end">@Model.Decisions.AwaitingDecision</td></tr>
-            <tr data-search-item><td>Approved</td><td class="text-end">@Model.Decisions.Approved</td></tr>
-            <tr data-search-item><td>Rejected</td><td class="text-end">@Model.Decisions.Rejected</td></tr>
-            <tr data-search-item><td>Returned for details</td><td class="text-end">@Model.Decisions.ReturnedForDetails</td></tr>
-        </table>
-    </div>
-    <div class="col-md-6">
-        <h2 class="h5">Tenders by status</h2>
-        <table class="table table-sm">
-            @foreach (var s in Model.TenderStatuses)
+<section class="card manager-card mb-4">
+    <div class="card-header dp-split"><h2 class="h5 mb-0">Dealings with each supplier</h2><span class="badge">@Model.Suppliers.Count</span></div>
+    @if (Model.Suppliers.Count == 0) { <p class="empty-state">No suppliers yet.</p> }
+    else
+    {
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <caption class="visually-hidden">Dealings with each supplier</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Supplier</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="text-center">Invited</th>
+                    <th scope="col" class="text-center">Bids</th>
+                    <th scope="col" class="text-center">Won</th>
+                    <th scope="col" class="text-end">Awarded amount</th>
+                    <th scope="col" class="text-center">Contracts</th>
+                    <th scope="col" class="text-end">Contracts value</th>
+                    <th scope="col" class="text-center">POs</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var s in Model.Suppliers)
             {
-                <tr data-search-item><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
+                <tr data-search-item>
+                    <td class="fw-semibold">@s.CompanyName</td>
+                    <td><partial name="_Badge" model="@s.RegistrationStatus.ToString()" /></td>
+                    <td class="text-center">@s.Invitations</td>
+                    <td class="text-center">@s.BidsSubmitted</td>
+                    <td class="text-center">@s.TendersAwarded</td>
+                    <td class="text-end money">@s.AwardedAmount.ToString("N2")</td>
+                    <td class="text-center">@s.Contracts</td>
+                    <td class="text-end money">@s.ContractsValue.ToString("N2")</td>
+                    <td class="text-center">@s.PurchaseOrders</td>
+                </tr>
             }
+            </tbody>
         </table>
     </div>
-    <div class="col-md-6">
-        <h2 class="h5">Suppliers by status</h2>
-        <table class="table table-sm">
-            @foreach (var s in Model.SupplierStatuses)
-            {
-                <tr data-search-item><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
-            }
-        </table>
-    </div>
-    <div class="col-md-6">
-        <h2 class="h5">Purchase requests by status</h2>
-        <table class="table table-sm">
-            @foreach (var s in Model.RequestStatuses)
-            {
-                <tr data-search-item><td><partial name="_Badge" model="@s.Status" /></td><td class="text-end">@s.Count</td></tr>
-            }
-        </table>
-    </div>
-</div>
-
-<h2 class="h5">Dealings with each supplier</h2>
-<div class="table-responsive">
-    <table class="table table-hover align-middle">
-        <thead>
-            <tr>
-                <th>Supplier</th>
-                <th>Status</th>
-                <th class="text-center">Invitations</th>
-                <th class="text-center">Bids submitted</th>
-                <th class="text-center">Tenders awarded</th>
-                <th class="text-end">Awarded amount</th>
-                <th class="text-center">Contracts</th>
-                <th class="text-end">Contracts value</th>
-                <th class="text-center">Purchase orders</th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var s in Model.Suppliers)
-        {
-            <tr data-search-item>
-                <td class="fw-semibold">@s.CompanyName</td>
-                <td><partial name="_Badge" model="@s.RegistrationStatus.ToString()" /></td>
-                <td class="text-center">@s.Invitations</td>
-                <td class="text-center">@s.BidsSubmitted</td>
-                <td class="text-center">@s.TendersAwarded</td>
-                <td class="text-end">@s.AwardedAmount.ToString("N2")</td>
-                <td class="text-center">@s.Contracts</td>
-                <td class="text-end">@s.ContractsValue.ToString("N2")</td>
-                <td class="text-center">@s.PurchaseOrders</td>
-            </tr>
-        }
-        </tbody>
-    </table>
-</div>
-
+    }
+</section>
 </div>

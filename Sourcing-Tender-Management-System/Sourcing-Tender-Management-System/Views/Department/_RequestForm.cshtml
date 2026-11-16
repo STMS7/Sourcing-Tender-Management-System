@@ -1,48 +1,131 @@
 @model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @using Sourcing_Tender_Management_System.Models
 @{ var rows = Model.Items.ToList(); }
-<div asp-validation-summary="All" class="text-danger"></div>
+<div asp-validation-summary="All" class="mb-4"></div>
 <input type="hidden" asp-for="Id" />
-<div class="mb-2"><label>Title</label><input asp-for="Title" class="form-control" maxlength="200" required /></div>
-<div class="mb-2"><label>Description / reason</label><textarea asp-for="Description" class="form-control" maxlength="2000" required></textarea></div>
-<div class="mb-2"><label>Priority</label><select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<RequestPriority>()"></select></div>
-<div class="mb-2"><label>Required by</label><input asp-for="RequiredByDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" required /></div>
-<h4>Items (at least one)</h4>
-<table class="table table-bordered" id="itemsTable">
-<thead><tr><th>Item name</th><th>Specifications</th><th>Quantity</th><th>Unit</th><th>Estimated unit price</th></tr></thead>
-<tbody>
-@for (int i = 0; i < Model.Items.Count; i++)
-{
-    <tr>
-        <td><input type="hidden" name="Items[@i].CategoryId" value="@rows[i].CategoryId" /><input name="Items[@i].ItemName" value="@rows[i].ItemName" class="form-control" maxlength="250" /></td>
-        <td><input name="Items[@i].Specifications" value="@rows[i].Specifications" class="form-control" maxlength="2000" /></td>
-        <td><input name="Items[@i].Quantity" value="@rows[i].Quantity" type="number" step="0.001" min="0" class="form-control" /></td>
-        <td><input name="Items[@i].Unit" value="@rows[i].Unit" class="form-control" maxlength="30" /></td>
-        <td><input name="Items[@i].EstimatedUnitPrice" value="@rows[i].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" /></td>
-    </tr>
-}
-</tbody>
-</table>
-<button type="button" id="addItem" class="btn btn-secondary">Add another item</button>
-<button type="submit" class="btn btn-primary">Save Draft</button>
+<div class="row g-4">
+    <div class="col-xl-8">
+        <section class="card manager-card mb-4">
+            <div class="card-header"><h2 class="h5 mb-0 dp-has-step"><span class="dp-step" aria-hidden="true">1</span>Request information</h2></div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label">Title</label>
+                    <input asp-for="Title" class="form-control" maxlength="200" required placeholder="e.g. Laptops for the new finance team" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label">Description / reason</label>
+                    <textarea asp-for="Description" class="form-control" maxlength="2000" required placeholder="Why is this purchase needed?"></textarea>
+                    <div class="form-text">Up to 2000 characters.</div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Priority" class="form-label">Priority</label>
+                        <select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<RequestPriority>()"></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="RequiredByDate" class="form-label">Required by</label>
+                        <input asp-for="RequiredByDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" required min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card manager-card mb-4">
+            <div class="card-header dp-split">
+                <h2 class="h5 mb-0 dp-has-step"><span class="dp-step" aria-hidden="true">2</span>Items</h2>
+                <span class="form-text m-0">At least one, up to 30</span>
+            </div>
+            <div class="table-responsive"><table class="table align-middle mb-0 dp-items" id="itemsTable"><caption class="visually-hidden">Requested items</caption>
+            <thead><tr><th scope="col">Item name</th><th scope="col">Specifications</th><th scope="col" style="width:110px">Quantity</th><th scope="col" style="width:100px">Unit</th><th scope="col" style="width:140px">Unit price</th><th scope="col" class="text-end" style="width:120px">Total</th><th scope="col" style="width:56px"><span class="visually-hidden">Remove</span></th></tr></thead>
+            <tbody>
+            @for (int i = 0; i < Model.Items.Count; i++)
+            {
+                <tr>
+                    <td><input type="hidden" name="Items[@i].CategoryId" value="@rows[i].CategoryId" /><input name="Items[@i].ItemName" value="@rows[i].ItemName" class="form-control" maxlength="250" aria-label="Item name" /></td>
+                    <td><input name="Items[@i].Specifications" value="@rows[i].Specifications" class="form-control" maxlength="2000" aria-label="Specifications" /></td>
+                    <td><input name="Items[@i].Quantity" value="@rows[i].Quantity" type="number" step="0.001" min="0" class="form-control" aria-label="Quantity" /></td>
+                    <td><input name="Items[@i].Unit" value="@rows[i].Unit" class="form-control" maxlength="30" aria-label="Unit" placeholder="pcs" /></td>
+                    <td><input name="Items[@i].EstimatedUnitPrice" value="@rows[i].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" aria-label="Estimated unit price" /></td>
+                    <td class="text-end dp-line-total">0.00</td>
+                    <td><button type="button" class="btn btn-outline-danger dp-remove" data-remove-item aria-label="Remove item">×</button></td>
+                </tr>
+            }
+            </tbody>
+            </table></div>
+            <div class="dp-form-foot">
+                <button type="button" id="addItem" class="btn btn-outline-primary"><span aria-hidden="true">+</span> Add another item</button>
+                <span class="dp-grand">Estimated total <strong id="grandTotal">0.00</strong></span>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="dp-sticky">
+            <section class="card manager-card mb-4">
+                <div class="card-header"><h2 class="h5 mb-0">Save</h2></div>
+                <div class="dp-side-actions">
+                    <button type="submit" class="btn btn-primary">Save draft</button>
+                    <p>Saving keeps the request as a draft. Submit it for review from the request page when it is ready.</p>
+                </div>
+            </section>
+            <section class="card manager-card mb-4">
+                <div class="card-header"><h2 class="h5 mb-0">Tips</h2></div>
+                <ul class="dp-tips">
+                    <li>Use a clear title the sourcing officer can recognise.</li>
+                    <li>Explain the business reason in the description.</li>
+                    <li>Add specifications so suppliers can quote accurately.</li>
+                    <li>The budget is calculated from quantity × unit price.</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
 <template id="itemTemplate">
 <tr>
-<td><input name="Items[__INDEX__].ItemName" class="form-control" maxlength="250" /></td>
-<td><input name="Items[__INDEX__].Specifications" class="form-control" maxlength="2000" /></td>
-<td><input name="Items[__INDEX__].Quantity" type="number" step="0.001" min="0" class="form-control" value="0" /></td>
-<td><input name="Items[__INDEX__].Unit" class="form-control" maxlength="30" /></td>
-<td><input name="Items[__INDEX__].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" value="0" /></td>
+<td><input name="Items[__INDEX__].ItemName" class="form-control" maxlength="250" aria-label="Item name" /></td>
+<td><input name="Items[__INDEX__].Specifications" class="form-control" maxlength="2000" aria-label="Specifications" /></td>
+<td><input name="Items[__INDEX__].Quantity" type="number" step="0.001" min="0" class="form-control" value="0" aria-label="Quantity" /></td>
+<td><input name="Items[__INDEX__].Unit" class="form-control" maxlength="30" aria-label="Unit" placeholder="pcs" /></td>
+<td><input name="Items[__INDEX__].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" value="0" aria-label="Estimated unit price" /></td>
+<td class="text-end dp-line-total">0.00</td>
+<td><button type="button" class="btn btn-outline-danger dp-remove" data-remove-item aria-label="Remove item">×</button></td>
 </tr>
 </template>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const add = document.getElementById('addItem');
-    if (!add) return;
+    const body = document.querySelector('#itemsTable tbody');
+    if (!add || !body) return;
+    const fmt = n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const num = (row, field) => parseFloat(row.querySelector('[name$=".' + field + '"]')?.value) || 0;
+    function refresh() {
+        let total = 0;
+        const rows = body.querySelectorAll('tr');
+        rows.forEach(function (row, i) {
+            // Model binding needs contiguous indexes, so renumber after a removal.
+            row.querySelectorAll('[name^="Items["]').forEach(el => el.name = el.name.replace(/^Items\[\d+\]/, 'Items[' + i + ']'));
+            const line = num(row, 'Quantity') * num(row, 'EstimatedUnitPrice');
+            total += line;
+            row.querySelector('.dp-line-total').textContent = fmt(line);
+            row.querySelector('[data-remove-item]').disabled = rows.length === 1;
+        });
+        document.getElementById('grandTotal').textContent = fmt(total);
+        add.disabled = rows.length >= 30;
+    }
     add.addEventListener('click', function () {
-        const body = document.querySelector('#itemsTable tbody');
         const count = body.querySelectorAll('tr').length;
         if (count >= 30) return;
         body.insertAdjacentHTML('beforeend', document.getElementById('itemTemplate').innerHTML.replaceAll('__INDEX__', count));
+        refresh();
+        body.lastElementChild.querySelector('input:not([type=hidden])').focus();
     });
+    body.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-remove-item]');
+        if (!btn || body.querySelectorAll('tr').length === 1) return;
+        btn.closest('tr').remove();
+        refresh();
+    });
+    body.addEventListener('input', refresh);
+    refresh();
 });
 </script>

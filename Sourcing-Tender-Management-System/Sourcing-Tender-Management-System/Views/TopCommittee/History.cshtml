@@ -1,71 +1,92 @@
-@model TopCommitteeHistoryViewModel
+﻿@model TopCommitteeHistoryViewModel
 @{
     ViewData["Title"] = "Decision history";
 }
-
-<h1 class="h3 mb-3">Top Committee</h1>
+<div class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Decision history</h1>
+        <p class="manager-intro mb-0">Every tender the Top Committee has decided, with its votes and award.</p>
+    </div>
+</div>
 <partial name="_Nav" model="@("History")" />
 
-<form method="get" asp-action="History" class="zt-search-toolbar mb-3" role="search"
-      data-live-search data-search-response="document" data-results="top-history-results" data-search-status="top-history-status">
-    <label for="top-history-search" class="form-label">Tender number or title</label>
-    <div class="zt-search-line"><div class="zt-search-shell"><input id="top-history-search" type="search" name="search" value="@Model.Search" class="form-control zt-search-input" placeholder="Search by tender number or title" dir="auto" data-search-input /><partial name="_SearchVoiceTools" /></div><button class="btn btn-primary zt-search-submit" type="submit">Search</button><button class="btn btn-outline-secondary zt-search-clear" type="button" data-search-reset>Clear</button></div>
-</form>
-<p id="top-history-status" role="status" class="small text-secondary"></p>
-<div id="top-history-results" aria-busy="false">
-@if (Model.Decisions.Count == 0)
-{
-    <div class="alert alert-secondary">No decisions found.</div>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Tender</th>
-                    <th>Decided</th>
-                    <th>Outcome</th>
-                    <th class="text-center">Approve / Reject / Return</th>
-                    <th>Recommended supplier</th>
-                    <th>Awarded to</th>
-                    <th>Tender status</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var d in Model.Decisions)
-            {
-                <tr data-search-item>
-                    <td>
-                        <div class="fw-semibold">@d.TenderNumber</div>
-                        <div class="small text-muted">@d.Title</div>
-                        @if (d.Round > 1)
-                        {
-                            <span class="badge text-bg-secondary">Round @d.Round</span>
-                        }
-                    </td>
-                    <td>@d.DecidedAt?.ToString("yyyy-MM-dd")</td>
-                    <td><partial name="_Badge" model="@d.Outcome.ToString()" /></td>
-                    <td class="text-center">@d.ApprovedVotes / @d.RejectedVotes / @d.ReturnedVotes</td>
-                    <td>@(d.RecommendedSupplierName ?? "-")</td>
-                    <td>
-                        @if (d.AwardedSupplierName is not null)
-                        {
-                            <div>@d.AwardedSupplierName</div>
-                            <div class="small text-muted">@d.AwardedAmount?.ToString("N2")</div>
-                        }
-                        else
-                        {
-                            <span class="text-muted">-</span>
-                        }
-                    </td>
-                    <td><partial name="_Badge" model="@d.TenderStatus.ToString()" /></td>
-                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@d.TenderId">Details</a></td>
-                </tr>
-            }
-            </tbody>
-        </table>
+<ul class="zt-bento" aria-label="History summary">
+    <li><div class="zt-tile"><span class="zt-tile-label">Decisions</span><span class="zt-tile-value">@Model.Decisions.Count</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Approved</span><span class="zt-tile-value">@Model.Decisions.Count(d => d.Outcome.ToString() == "Approved")</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Rejected</span><span class="zt-tile-value">@Model.Decisions.Count(d => d.Outcome.ToString() == "Rejected")</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Returned for details</span><span class="zt-tile-value">@Model.Decisions.Count(d => d.Outcome.ToString().StartsWith("Returned"))</span></div></li>
+</ul>
+
+<section class="dp-panel mb-4" aria-label="Search decisions">
+    <form method="get" asp-action="History" class="zt-search-toolbar dp-filter" style="grid-template-columns:minmax(0,1fr) auto" role="search"
+          data-live-search data-search-response="document" data-results="top-history-results" data-search-status="top-history-status">
+        <div>
+            <label for="top-history-search" class="form-label">Tender number or title</label>
+            <div class="zt-search-shell"><input id="top-history-search" type="search" name="search" value="@Model.Search" class="form-control zt-search-input" placeholder="Search by tender number or title" dir="auto" data-search-input /><partial name="_SearchVoiceTools" /></div>
+        </div>
+        <div class="dp-filter-actions">
+            <button class="btn btn-primary" type="submit">Search</button>
+            <button class="btn btn-outline-secondary" type="button" data-search-reset>Clear</button>
+        </div>
+    </form>
+    <p id="top-history-status" role="status" class="small text-secondary dp-filter-status"></p>
+</section>
+
+<section class="card manager-card mb-4">
+    <div class="card-header dp-split"><h2 class="h5 mb-0">Decided tenders</h2><span class="badge">@Model.Decisions.Count</span></div>
+    <div id="top-history-results" aria-busy="false">
+    @if (Model.Decisions.Count == 0)
+    {
+        <p class="empty-state">No decisions found.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <caption class="visually-hidden">Top Committee decisions</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Tender</th>
+                        <th scope="col">Decided</th>
+                        <th scope="col">Outcome</th>
+                        <th scope="col" class="text-center">Votes<br /><span class="text-lowercase">✓ / ✗ / ↩</span></th>
+                        <th scope="col">Awarded to</th>
+                        <th scope="col">Tender status</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var d in Model.Decisions)
+                {
+                    <tr data-search-item>
+                        <td>
+                            <a class="dp-req-title" asp-action="Details" asp-route-id="@d.TenderId">@d.Title</a>
+                            <span class="dp-num dp-num-wide" title="@d.TenderNumber">@d.TenderNumber</span>
+                            @if (d.Round > 1) { <span class="badge mt-1">Round @d.Round</span> }
+                        </td>
+                        <td class="text-nowrap">@(d.DecidedAt?.ToString("dd MMM yyyy") ?? "—")</td>
+                        <td><partial name="_Badge" model="@d.Outcome.ToString()" /></td>
+                        <td class="text-center text-nowrap money">@d.ApprovedVotes / @d.RejectedVotes / @d.ReturnedVotes</td>
+                        <td>
+                            @if (d.AwardedSupplierName is not null)
+                            {
+                                <span class="fw-semibold d-block">@d.AwardedSupplierName</span>
+                                <span class="dp-meta mt-0 money">@d.AwardedAmount?.ToString("N2")</span>
+                            }
+                            else
+                            {
+                                <span class="dp-meta mt-0">Recommended: @(d.RecommendedSupplierName ?? "—")</span>
+                            }
+                        </td>
+                        <td><partial name="_Badge" model="@d.TenderStatus.ToString()" /></td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@d.TenderId" aria-label="Details for @d.Title">Details</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
     </div>
-}
+</section>
 </div>
