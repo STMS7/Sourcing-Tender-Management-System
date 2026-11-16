@@ -7,7 +7,6 @@
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     var razorPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
     var isAccount = razorPage.StartsWith("/Account/Manage");
-    
     var me = await UserManager.GetUserAsync(User);
     var supplierEmail = me?.Email ?? "";
     var supplierId = me?.SupplierId;

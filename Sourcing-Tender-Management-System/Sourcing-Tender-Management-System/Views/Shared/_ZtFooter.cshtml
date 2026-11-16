@@ -1,5 +1,19 @@
+<style>
+/* footer: the family grove at sunset */
+.zf2-grove{background:#0C1F14;isolation:isolate;margin-top:clamp(40px,5vw,72px);border-radius:clamp(28px,3vw,44px) clamp(28px,3vw,44px) 0 0;border-top:0;box-shadow:0 -24px 50px -30px rgba(23,64,42,.45)}
+.zf2-bg{position:absolute;inset:-12% 0 0;z-index:-1;background:url('/landing/images/footer-grove.webp') center 55%/cover no-repeat;will-change:transform}
+.zf2-shade{position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(8,22,14,.86) 0%,rgba(8,22,14,.7) 36%,rgba(8,22,14,.12) 62%,rgba(8,22,14,.25) 84%,rgba(8,22,14,.88) 100%),linear-gradient(90deg,rgba(8,22,14,.45),transparent 60%)}
+.zf2-grove .zf2-in{padding-bottom:28px}
+.zf2-grove .zf2-mid{padding-bottom:clamp(36px,5vw,80px)}
+.zf2-grove .zf2-top,.zf2-grove .zf2-bottom{border-color:rgba(251,243,223,.18)}
+.zf2-grove .zf2-h,.zf2-grove .zf2-cols a,.zf2-grove .zf2-brand span{text-shadow:0 2px 14px rgba(0,0,0,.45)}
+.zf2-grove .zf2-bottom{color:#D3D9C6}
+.zf2-grove .zf2-top-btn{background:rgba(8,22,14,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+@@media(prefers-reduced-motion:reduce){.zf2-bg{transform:none!important}}
+</style>
 <!-- Footer: the last pour -->
-  <footer class="zf2" id="zt-footer">
+  <footer class="zf2 zf2-grove" id="zt-footer">
+    <div class="zf2-bg" id="zf2-bg" aria-hidden="true"></div><div class="zf2-shade" aria-hidden="true"></div>
     <div class="zf2-in">
       <div class="zf2-top">
         <h2 class="zf2-h">Every great bottle starts<br><em>with a fair tender.</em></h2>
@@ -214,12 +228,6 @@
           <div><span>Contact</span><a href="/Home/Contact">Contact us</a><a href="mailto:fatima@zytona.com">fatima@zytona.com</a><a href="tel:07792574463" dir="ltr">0779 257 4463</a><span class="zf2-ph">Irbid, Jordan</span></div>
         </nav>
       </div>
-      <svg id="zf2-word" viewBox="0 0 1600 300" role="img" aria-label="Zaytouna">
-        <defs><clipPath id="zf2-clip"><text x="20" y="262" textLength="1560" lengthAdjust="spacingAndGlyphs" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="330">ZAYTOUNA</text></clipPath>
-        <linearGradient id="zf2-oilg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F3C437"/><stop offset=".5" stop-color="#E0A215"/><stop offset="1" stop-color="#8A5506"/></linearGradient></defs>
-        <text x="20" y="262" textLength="1560" lengthAdjust="spacingAndGlyphs" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="330" fill="none" stroke="rgba(251,243,223,.16)" stroke-width="2">ZAYTOUNA</text>
-        <g clip-path="url(#zf2-clip)"><g id="zf2-oil" transform="translate(0 300)"><path class="zf2-wave" d="M0 6 Q100 -8 200 6 T400 6 T600 6 T800 6 T1000 6 T1200 6 T1400 6 T1600 6 T1800 6 T2000 6 V400 H0Z" fill="url(#zf2-oilg)"/><path class="zf2-wave" d="M0 6 Q100 -8 200 6 T400 6 T600 6 T800 6 T1000 6 T1200 6 T1400 6 T1600 6 T1800 6 T2000 6" fill="none" stroke="#FFE38A" stroke-width="3" opacity=".8"/></g></g>
-      </svg>
       <div class="zf2-bottom"><span>&copy; 2026 Zaytouna Olive Oil Co. Training project.</span><span>Pressed with care, audited by default.</span><button type="button" class="zf2-top-btn" id="zf2-up">Back to top <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div>
     </div>
   </footer>
@@ -228,8 +236,8 @@
 (function(){var b=document.getElementById('zf2-up');if(b)b.addEventListener('click',function(){scrollTo({top:0,behavior:'smooth'})})})();
 </script>
 <script>
-// footer word fills with oil on its own as the page ends
-(function(){var fo=document.getElementById('zf2-oil');if(!fo)return;var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-function upd(){var vh=innerHeight,rem=document.documentElement.scrollHeight-vh-scrollY,f=reduce?1:Math.min(1,Math.max(0,1-rem/(vh*.42)));fo.setAttribute('transform','translate(0 '+(300-f*310).toFixed(1)+')')}
+// footer grove drifts slowly as you reach the end of the page
+(function(){var bg=document.getElementById('zf2-bg'),f=document.getElementById('zt-footer');if(!bg||!f||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+function upd(){var r=f.getBoundingClientRect(),p=Math.max(0,Math.min(1,(innerHeight-r.top)/(innerHeight+r.height)));bg.style.transform='translateY('+((p-1)*-60).toFixed(1)+'px) scale(1.04)'}
 addEventListener('scroll',function(){requestAnimationFrame(upd)},{passive:true});addEventListener('resize',upd);upd()})();
 </script>
