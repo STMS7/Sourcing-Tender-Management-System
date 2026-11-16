@@ -2,6 +2,8 @@
 @{
     Layout = null;
     ViewData["Title"] = "Supplier Registration";
+    var serverFailed = !ViewData.ModelState.IsValid;
+    var devBypass = ViewBag.DevelopmentBypass == true;
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -11,380 +13,522 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="/landing/logo/zaytouna-emblem.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@@12..96,500;12..96,600;12..96,700&family=DM+Mono:wght@@400;500&family=DM+Sans:opsz,wght@@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@@12..96,500;12..96,600;12..96,700;12..96,800&family=Cormorant+Garamond:ital,wght@@0,500;0,600;1,500&family=DM+Mono:wght@@400;500&family=DM+Sans:opsz,wght@@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
 <style>
-:root{--cream:#F5F0E1;--white:#FFFDF7;--deep:#3D4A2A;--green:#6B7B3A;--gold:#C9A84C;--grey:#7A7F6A;--beige:#E4DCC8;--light:#E8EBD9;--ink:#2B331F;--red:#A8442A}
+/* Supplier registration: "Your partnership file with Zaytouna". Scoped to .pf / .rg-* */
+:root{--deep:#10261A;--olive:#17402A;--olive2:#4E6B2F;--cream:#FBF3DF;--sheet:#FFFCF3;--sage:#EEF0DC;--muted:#5A6A5E;--lime:#DCEB4B;--gold:#E9C46A;--gold-d:#9C7A3C;--line:rgba(23,64,42,.16);--err:#9B3A1C;--ring:#E2E8C4}
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;background:var(--cream);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif}
-a{color:var(--green)}
-.rg{display:grid;grid-template-columns:minmax(300px,420px) 1fr;min-height:100vh}
-.rg-side{position:relative;overflow:hidden;background:var(--deep);color:#F5F0E1;padding:36px 36px 30px;display:flex;flex-direction:column}
-.rg-side::after{content:"";position:absolute;right:-120px;bottom:-120px;width:360px;height:360px;border-radius:50%;background:radial-gradient(closest-side,rgba(201,168,76,.22),transparent);pointer-events:none}
-.rg-brand{display:flex;align-items:center;gap:12px;color:#F5F0E1;text-decoration:none}
-.rg-brand img{width:54px;height:54px;object-fit:contain}
-.rg-brand b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:21px}.rg-brand b i{color:var(--gold);font-style:normal}
-.rg-brand small{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.7}
-.rg-side h1{margin:46px 0 10px;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:clamp(28px,2.6vw,38px);line-height:1.08}
-.rg-side h1 em{font-style:normal;color:var(--gold)}
-.rg-side>p{margin:0 0 34px;font-size:15px;line-height:1.6;color:#D6DAC5}
-.rg-steps{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.rg-steps li{position:relative;display:grid;grid-template-columns:38px 1fr;gap:12px;align-items:center;padding:10px 0;color:#AEB59C}
-.rg-steps li:not(:last-child)::after{content:"";position:absolute;left:18px;top:46px;height:calc(100% - 34px);width:2px;background:rgba(245,240,225,.15)}
-.rg-steps li.done:not(:last-child)::after{background:var(--gold)}
-.rg-num{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(245,240,225,.3);font-family:'DM Mono',monospace;font-size:13px;transition:background .3s,border-color .3s,color .3s}
-.rg-steps b{display:block;font-size:15px;color:inherit}.rg-steps small{font-size:12.5px;opacity:.75}
-.rg-steps li.on{color:#F5F0E1}.rg-steps li.on .rg-num{background:var(--gold);border-color:var(--gold);color:var(--deep);font-weight:600}
-.rg-steps li.done{color:#E8EBD9}.rg-steps li.done .rg-num{background:transparent;border-color:var(--gold);color:var(--gold)}
-.rg-steps li.wait .rg-num{border-style:dashed}
-.rg-side-foot{margin-top:auto;padding-top:30px;font-size:13px;color:#AEB59C}.rg-side-foot a{color:#F5F0E1}
-.rg-main{display:flex;align-items:flex-start;justify-content:center;padding:48px 40px}
-.rg-card{width:100%;max-width:760px}
-.rg-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.rg-kicker{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--green)}
-.rg-home{font-size:14px;color:var(--grey);text-decoration:none}.rg-home:hover{color:var(--deep)}
-.rg-bar{height:6px;border-radius:6px;background:var(--beige);overflow:hidden;margin-bottom:28px}
-.rg-bar i{display:block;height:100%;width:25%;border-radius:6px;background:linear-gradient(90deg,var(--green),var(--gold));transition:width .5s cubic-bezier(.2,.8,.2,1)}
-.rg-panel{background:var(--white);border:1px solid var(--beige);border-radius:24px;padding:36px 38px;box-shadow:0 30px 60px -44px rgba(61,74,42,.5)}
-.rg-step{display:none;animation:rg-in .45s cubic-bezier(.2,.8,.2,1)}
-.rg-step.on{display:block}
-@@keyframes rg-in{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
-.rg-step h2{margin:0 0 6px;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:30px;color:var(--deep)}
-.rg-step>p{margin:0 0 26px;color:var(--grey);font-size:15px;line-height:1.55}
-.rg-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px}
-.rg-full{grid-column:1/-1}
-.rg-f label{display:block;margin-bottom:7px;font-size:14px;font-weight:600;color:var(--deep)}
-.rg-f label .req{color:var(--gold)}
-.rg-f.is-req>label::after{content:" *";color:var(--gold)}
-.rg-f input,.rg-f textarea{width:100%;font:inherit;font-size:15.5px;color:var(--ink);background:#FBF8EF;border:1.5px solid var(--beige);border-radius:14px;padding:13px 15px;transition:border-color .2s,box-shadow .2s,background .2s}
-.rg-f textarea{min-height:90px;resize:vertical}
-.rg-f input:focus,.rg-f textarea:focus{outline:none;border-color:var(--green);background:#fff;box-shadow:0 0 0 4px rgba(107,123,58,.15)}
-.rg-f .input-validation-error{border-color:var(--red);background:#FDF3EF}
-.rg-f .field-validation-error,.rg-f .text-danger{display:block;margin-top:6px;font-size:13px;color:var(--red)}
-.rg-hint{margin-top:6px;font-size:12.5px;color:var(--grey)}
-.rg-summary{margin:0 0 22px;padding:14px 18px;border-radius:14px;background:#FDF3EF;border:1px solid #EBC9BD;color:var(--red);font-size:14px}
-.rg-summary ul{margin:0;padding-left:18px}.rg-summary.validation-summary-valid{display:none}
-.rg-dev{margin:0 0 20px;padding:12px 16px;border-radius:14px;background:#FBF1D6;border:1px solid #EBD9A4;color:#6A5414;font-size:14px}
-.rg-meter{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
-.rg-meter i{height:5px;border-radius:5px;background:var(--beige);transition:background .3s}
-.rg-meter[data-s="1"] i:nth-child(-n+1){background:var(--red)}.rg-meter[data-s="2"] i:nth-child(-n+2){background:var(--gold)}.rg-meter[data-s="3"] i:nth-child(-n+3){background:#9AAA4E}.rg-meter[data-s="4"] i{background:var(--green)}
-.rg-rules{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12.5px;color:var(--grey)}
-.rg-rules span::before{content:"○ ";color:var(--beige)}.rg-rules span.ok{color:var(--green)}.rg-rules span.ok::before{content:"● ";color:var(--green)}
-.rg-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.rg-f .rg-opt,.rg-opt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0;padding:20px 18px;border:2px dashed var(--beige);border-radius:20px;background:#FBF8EF;text-align:left;cursor:pointer;font:inherit;color:var(--ink);transition:border-color .2s,background .2s,transform .2s}
-.rg-opt:hover,.rg-opts.over .rg-opt{border-color:var(--green);background:var(--light);transform:translateY(-2px)}
-.rg-opt-ico{display:grid;place-items:center;width:50px;height:50px;margin-bottom:6px;border-radius:14px;background:var(--light);color:var(--deep)}
-.rg-opt:hover .rg-opt-ico{background:var(--deep);color:var(--gold)}
-.rg-opt b{font-size:15.5px;color:var(--deep)}.rg-opt small{font-size:12.5px;color:var(--grey);line-height:1.4}
-.rg-drop-hint{margin:10px 0 0;text-align:center;font-size:12.5px;color:var(--grey)}
-.rg-pages{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
-.rg-page{position:relative;width:86px;height:112px;border-radius:10px;overflow:hidden;border:1.5px solid var(--beige);background:#fff;box-shadow:0 8px 16px -12px rgba(61,74,42,.6)}
-.rg-page img{width:100%;height:100%;object-fit:cover}
-.rg-page span{position:absolute;left:6px;bottom:6px;padding:1px 7px;border-radius:99px;background:rgba(61,74,42,.85);color:#F5F0E1;font:600 11px 'DM Mono',monospace}
-.rg-page button{position:absolute;right:5px;top:5px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(255,253,247,.95);color:var(--red);font-size:16px;line-height:1;cursor:pointer}
-.rg-page-add{display:grid;place-items:center;width:86px;height:112px;border-radius:10px;border:1.5px dashed var(--green);background:var(--light);color:var(--deep);font:600 12px 'DM Sans',sans-serif;cursor:pointer;text-align:center;padding:6px}
-.rg-file-x{margin-left:auto;width:32px;height:32px;border-radius:50%;border:0;background:var(--white);color:var(--red);font-size:20px;line-height:1;cursor:pointer}
-.rg-cam{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(30,36,20,.75);backdrop-filter:blur(4px)}
+html,body{margin:0;background:var(--cream);color:var(--deep);font-family:'DM Sans',system-ui,sans-serif}
+a{color:var(--olive);text-underline-offset:3px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pf-skip{position:absolute;left:12px;top:-60px;z-index:50;padding:10px 16px;border-radius:8px;background:var(--olive);color:var(--cream)}
+.pf-skip:focus{top:12px}
+.pf-wrap{display:grid;grid-template-columns:minmax(0,.38fr) minmax(0,.62fr);gap:clamp(20px,3vw,40px);max-width:1280px;margin:0 auto;padding:clamp(16px,3vw,32px);align-items:start}
+/* ---- left column: brand, progress, summary ---- */
+.pf-side{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto;background:var(--deep);color:var(--cream);border-radius:20px;padding:28px 26px 22px;box-shadow:0 24px 50px -34px rgba(16,38,26,.8)}
+.pf-brand{display:flex;align-items:center;gap:12px;color:var(--cream);text-decoration:none}
+.pf-brand img{width:46px;height:46px}
+.pf-wm{display:block;font:600 26px/1 'Cormorant Garamond',Georgia,serif;letter-spacing:.02em}
+.pf-brand small{display:block;margin-top:4px;font:500 11px 'DM Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.pf-side h1{margin:26px 0 10px;font:800 clamp(30px,3vw,40px)/1.05 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em}
+.pf-lead{margin:0;font-size:16px;line-height:1.55;color:#D3D9C6}
+.pf-policy{margin:12px 0 0;font-size:14px;line-height:1.5;color:#B9C3AE}
+.pf-steps{list-style:none;margin:24px 0 0;padding:0;position:relative}
+.pf-steps::before{content:"";position:absolute;left:21px;top:22px;bottom:22px;width:2px;background:rgba(251,243,223,.2)}
+.pf-steps::after{content:"";position:absolute;left:21px;top:22px;width:2px;height:var(--pf-line,0px);background:var(--gold);transition:height .22s ease}
+.pf-steps li{position:relative;z-index:1}
+.pf-sb{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:4px 6px 4px 0;border:0;border-radius:12px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.pf-sb:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
+.pf-ic{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:2px solid rgba(251,243,223,.35);background:var(--deep);color:#D3D9C6;transition:background .2s,border-color .2s,color .2s}
+.pf-ic svg{width:20px;height:20px}
+.pf-ic .ck{display:none}
+.pf-sb b{display:block;font:700 16px 'DM Sans',sans-serif}
+.pf-sb small{display:block;margin-top:2px;font:500 11px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#B9C3AE}
+.pf-steps li.is-current .pf-ic{background:var(--cream);border-color:var(--cream);color:var(--olive)}
+.pf-steps li.is-current b{color:#fff}
+.pf-steps li.is-done .pf-ic{background:var(--gold);border-color:var(--gold);color:var(--deep)}
+.pf-steps li.is-done .ic{display:none}.pf-steps li.is-done .ck{display:block}
+/* summary */
+.pf-sum{margin-top:22px;padding:16px 16px 14px;border-radius:14px;background:rgba(251,243,223,.07);border:1px solid rgba(251,243,223,.16)}
+.pf-sum-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0}
+.pf-sum-h h2{margin:0;font:700 17px 'Bricolage Grotesque',sans-serif}
+.pf-sum-t{display:none;min-width:44px;min-height:44px;border:0;background:none;color:var(--gold);font:700 14px 'DM Sans',sans-serif;cursor:pointer}
+.pf-sum-t:focus-visible{outline:3px solid var(--lime);outline-offset:2px;border-radius:8px}
+.pf-sum dl{margin:12px 0 0}
+.pf-sum dt{font:500 11px 'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#B9C3AE}
+.pf-sum dd{margin:2px 0 10px;font-size:15px;line-height:1.4;overflow-wrap:anywhere;color:var(--cream)}
+.pf-sum dd.empty{color:#8FA08E;font-style:italic}
+.pf-sum dd .mark{display:inline-block;width:1.1em;color:var(--gold)}
+.pf-sum-note{margin:6px 0 0;font-size:13px;line-height:1.45;color:#B9C3AE}
+.pf-sum .pulse{animation:pf-pulse .7s ease-out}
+@@keyframes pf-pulse{from{background:rgba(233,196,106,.28)}to{background:transparent}}
+.pf-signin{margin:18px 0 0;font-size:14px;color:#D3D9C6}
+.pf-signin a{color:var(--gold)}
+/* ---- right column: the active step ---- */
+.pf-card{position:relative;background:var(--sheet);border:1px solid var(--line);border-radius:16px;padding:clamp(22px,3.4vw,40px);box-shadow:0 24px 40px -32px rgba(16,38,26,.5)}
+.pf-card-h{position:relative;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line)}
+.pf-card-h::after{content:"";position:absolute;top:0;right:0;width:84px;height:26px;background:var(--gold-d);opacity:.7;-webkit-mask:url(/img/olive-branch.svg) center/contain no-repeat;mask:url(/img/olive-branch.svg) center/contain no-repeat;pointer-events:none}
+.pf-kick{margin:0;font:500 12px 'DM Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--olive2)}
+.pf-step{border:0;margin:0;padding:0;min-width:0}
+.pf-step>legend{padding:0;margin:0 0 4px;float:left;width:100%}
+.pf-step h2{margin:0;font:800 clamp(24px,2.8vw,32px)/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.01em;color:var(--olive);outline:none}
+.pf-step .pf-intro{clear:both;margin:6px 0 20px;font-size:16px;line-height:1.5;color:var(--muted)}
+.pf-js .pf-step{display:none}
+.pf-js .pf-step.on{display:block;animation:pf-in .22s ease-out}
+@@keyframes pf-in{from{opacity:0;transform:translateX(12px)}}
+.pf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.pf-f{display:flex;flex-direction:column;gap:7px;min-width:0}
+.pf-full{grid-column:1/-1}
+.pf-f>label,.pf-lbl{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:15px;font-weight:700;color:var(--olive)}
+.pf-tag{font:500 11px 'DM Mono',monospace;letter-spacing:.06em;color:var(--muted);font-weight:500}
+.pf-in{width:100%;min-height:48px;padding:12px 14px;font:400 16px/1.4 'DM Sans',sans-serif;color:var(--deep);background:#FBF7EA;border:1px solid rgba(23,64,42,.3);border-radius:10px;transition:border-color .2s,box-shadow .2s}
+textarea.pf-in{min-height:96px;resize:vertical}
+.pf-in::placeholder{color:#7C8A80}
+.pf-in:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 4px var(--ring)}
+.pf-in[aria-invalid=true]{border-color:#B3472A}
+.pf-pw{position:relative}
+.pf-pw .pf-in{padding-right:84px}
+.pf-pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);min-height:36px;padding:0 12px;border:0;border-radius:8px;background:none;color:var(--olive);font:700 13px 'DM Sans',sans-serif;cursor:pointer}
+.pf-pw button:focus-visible{outline:3px solid var(--olive);outline-offset:1px}
+.pf-err{font-size:14px;line-height:1.4;color:var(--err)}
+.pf-err:empty{display:none}
+.pf-help{font-size:14px;line-height:1.45;color:var(--muted)}
+.pf-rules{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0;padding:0;list-style:none;font-size:14px;color:var(--muted)}
+.pf-rules li::before{content:"\25CB\00a0";color:var(--muted)}
+.pf-rules li.ok{color:var(--olive);font-weight:600}
+.pf-rules li.ok::before{content:"\2713\00a0";color:var(--olive2)}
+.pf-errsum{margin:0 0 18px;padding:12px 16px;border:1px solid #E3B9A6;border-radius:10px;background:#FBEDE6;color:#7A2E12;font-size:15px}
+.pf-errsum[hidden],.pf-note[hidden]{display:none}
+.pf-errsum p{margin:0 0 4px;font-weight:700}.pf-errsum ul{margin:0;padding-left:18px}.pf-errsum a{color:inherit}
+.pf-note{margin:0 0 16px;padding:12px 16px;border-radius:10px;background:var(--sage);border:1px solid #C9D6A0;color:var(--olive);font-size:15px}
+.pf-dev{margin:0 0 16px;padding:12px 16px;border-radius:10px;background:#FFF4D6;border:1px solid #E6CF86;color:#5A4A12;font-size:14px}
+.validation-summary-valid{display:none}
+.validation-summary-errors{margin:0 0 18px;padding:12px 16px;border:1px solid #E3B9A6;border-radius:10px;background:#FBEDE6;color:#7A2E12;font-size:15px}
+.validation-summary-errors ul{margin:0;padding-left:18px}
+/* address helpers */
+.rg-loc{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:2px}
+.rg-loc-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1.5px solid var(--olive);border-radius:999px;background:transparent;color:var(--olive);font:700 14px 'DM Sans',sans-serif;cursor:pointer}
+.rg-loc-btn svg{width:16px;height:16px}
+.rg-loc-btn:hover{background:var(--olive);color:var(--cream)}
+.rg-loc-btn:focus-visible,.pf-btn:focus-visible,.rg-opt:focus-visible,.rg-file-x:focus-visible,.rg-page button:focus-visible{outline:3px solid var(--olive);outline-offset:2px;box-shadow:0 0 0 6px var(--ring)}
+.rg-loc-status{font-size:14px;color:var(--muted)}.rg-loc-status.err{color:var(--err)}.rg-loc-status.ok{color:var(--olive)}
+.rg-confirm{margin-top:8px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--sage);font-size:14px}
+.rg-confirm p{margin:0 0 8px;overflow-wrap:anywhere}.rg-confirm div{display:flex;gap:8px;flex-wrap:wrap}
+.rg-map-wrap{margin-top:8px}
+#rg-map{height:280px;border-radius:12px;border:1px solid var(--line)}
+.rg-map-hint{margin-top:6px;font-size:13px;color:var(--muted)}
+/* document */
+.rg-opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.rg-opts.over{outline:2px dashed var(--olive);outline-offset:6px;border-radius:12px}
+.rg-opt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:48px;padding:16px;border:1.5px solid var(--line);border-radius:12px;background:#FBF7EA;color:var(--deep);text-align:left;font:inherit;cursor:pointer;transition:border-color .2s,background .2s}
+.rg-opt:hover{border-color:var(--olive);background:#fff}
+.rg-opt b{font-size:15px;color:var(--olive)}.rg-opt small{font-size:13px;color:var(--muted)}
+.rg-opt-ico{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--sage);color:var(--olive)}.rg-opt-ico svg{width:20px;height:20px}
+.rg-drop-hint{margin:8px 0 0;font-size:13px;color:var(--muted)}
+.pf-doc-meta{margin:10px 0 0;font:500 12px 'DM Mono',monospace;letter-spacing:.04em;color:var(--muted)}
+.rg-pages{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.rg-page{position:relative;width:84px;height:112px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#fff}
+.rg-page img{width:100%;height:100%;object-fit:cover}.rg-page span{position:absolute;left:4px;bottom:4px;padding:1px 6px;border-radius:6px;background:rgba(16,38,26,.8);color:#fff;font-size:11px}
+.rg-page button{position:absolute;right:3px;top:3px;width:28px;height:28px;border:0;border-radius:50%;background:rgba(16,38,26,.85);color:#fff;font-size:16px;cursor:pointer}
+.rg-page-add{width:84px;height:112px;border:1.5px dashed var(--olive);border-radius:8px;background:none;color:var(--olive);font:700 13px 'DM Sans',sans-serif;cursor:pointer}
+.rg-file{display:none;align-items:center;gap:12px;margin-top:14px;padding:12px 14px;border:1px solid #C9D6A0;border-radius:12px;background:var(--sage)}
+.rg-file.on{display:flex;animation:pf-in .22s ease-out}
+.rg-file i{font:700 12px 'DM Mono',monospace;font-style:normal;padding:6px 8px;border-radius:6px;background:var(--olive);color:var(--cream)}
+.rg-file span{min-width:0;flex:1}.rg-file b{display:block;font-size:15px;overflow-wrap:anywhere}.rg-file small{display:block;font-size:13px;color:var(--muted)}
+.rg-file-x{min-height:44px;padding:0 14px;border:1.5px solid var(--olive);border-radius:999px;background:none;color:var(--olive);font:700 13px 'DM Sans',sans-serif;cursor:pointer}
+.pf-js #OfficialDocument{display:none}
+.pf:not(.pf-js) .rg-opts,.pf:not(.pf-js) .rg-drop-hint,.pf:not(.pf-js) .rg-loc{display:none}
+.rg-cam{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(16,38,26,.8)}
 .rg-cam[hidden]{display:none}
-.rg-cam-box{width:min(720px,100%);background:var(--white);border-radius:24px;overflow:hidden;box-shadow:0 40px 80px -30px rgba(0,0,0,.6)}
-.rg-cam-top{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--beige)}
-.rg-cam-top b{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;color:var(--deep)}.rg-cam-top span{font:500 12px 'DM Mono',monospace;color:var(--grey)}
-.rg-cam-x{margin-left:auto;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--beige);background:none;font-size:20px;cursor:pointer;color:var(--deep)}
-.rg-cam-view{position:relative;background:#111;aspect-ratio:4/3}
-.rg-cam-view video{width:100%;height:100%;object-fit:cover;display:block}
-.rg-cam-frame{position:absolute;inset:8% 14%;border:2px dashed rgba(245,240,225,.8);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.25)}
-.rg-cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
-.rg-cam-flash.on{animation:rg-flash .35s ease-out}
-@@keyframes rg-flash{0%{opacity:.85}100%{opacity:0}}
-.rg-cam-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px}
-.rg-shutter{width:68px;height:68px;border-radius:50%;border:5px solid var(--beige);background:var(--gold);cursor:pointer;box-shadow:inset 0 0 0 4px var(--white);transition:transform .15s}
-.rg-shutter:active{transform:scale(.92)}
-.rg-cam-tip{margin:0;padding:0 18px 16px;font-size:13px;color:var(--grey);text-align:center}
-@@media (max-width:700px){.rg-opts{grid-template-columns:1fr}.rg-cam-bar .rg-btn{padding:0 14px;min-height:44px;font-size:13.5px}}
-.rg-file{display:none;align-items:center;gap:14px;margin-top:14px;padding:14px 16px;border-radius:16px;background:var(--light);border:1px solid #D5DBBE}
-.rg-file.on{display:flex}
-.rg-file i{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--deep);color:var(--gold);font-style:normal;font-family:'DM Mono',monospace;font-size:11px;font-weight:600}
-.rg-file b{display:block;font-size:14.5px;color:var(--deep);word-break:break-all}.rg-file small{font-size:12.5px;color:var(--grey)}
-.rg-loc{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
-.rg-loc-btn{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 14px;border-radius:999px;border:1.5px solid var(--beige);background:var(--white);color:var(--deep);font:600 13.5px 'DM Sans',sans-serif;cursor:pointer;transition:border-color .2s,background .2s}
-.rg-loc-btn:hover,.rg-loc-btn[aria-expanded="true"]{border-color:var(--green);background:var(--light)}
-.rg-loc-btn[disabled]{opacity:.6;cursor:wait}
-.rg-loc-status{font-size:13px;color:var(--grey)}.rg-loc-status.err{color:var(--red)}.rg-loc-status.ok{color:var(--green)}
-.rg-map-wrap{margin-top:12px;border:1.5px solid var(--beige);border-radius:16px;overflow:hidden;background:var(--light)}
-#rg-map{height:280px}
-.rg-map-hint{padding:9px 14px;font-size:12.5px;color:var(--grey);background:var(--white);border-top:1px solid var(--beige)}
-.leaflet-container{font-family:'DM Sans',sans-serif}
-.rg-review{display:grid;gap:14px}
-.rg-rev{border:1px solid var(--beige);border-radius:18px;padding:18px 20px;background:#FBF8EF}
-.rg-rev-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.rg-rev-h span{font-family:'DM Mono',monospace;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
-.rg-rev-h button{border:0;background:none;font:600 13.5px 'DM Sans',sans-serif;color:var(--green);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.rg-rev dl{margin:0;display:grid;grid-template-columns:repeat(2,1fr);gap:10px 20px}
-.rg-rev dt{font-size:12px;color:var(--grey)}.rg-rev dd{margin:2px 0 0;font-size:14.5px;font-weight:600;color:var(--ink);word-break:break-word}
-.rg-rev dd.empty{color:#B4B7A6;font-weight:400}
-.rg-next-note{display:flex;gap:14px;align-items:flex-start;margin-top:18px;padding:16px 18px;border-radius:16px;background:#FBF1D6;border:1px solid #EBD9A4;font-size:14px;line-height:1.5;color:#5E4C12}
-.rg-next-note i{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--gold);color:var(--deep);font-style:normal;font-weight:700}
-.rg-nav{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:30px;padding-top:24px;border-top:1px solid var(--beige)}
-.rg-btn{display:inline-flex;align-items:center;gap:10px;min-height:50px;padding:0 26px;border-radius:999px;border:0;font:700 15.5px 'DM Sans',sans-serif;cursor:pointer;text-decoration:none;transition:background .2s,transform .2s,box-shadow .2s}
-.rg-btn.primary{background:var(--deep);color:#F5F0E1}.rg-btn.primary:hover{background:var(--green);transform:translateY(-1px)}
-.rg-btn.gold{background:var(--gold);color:var(--deep);box-shadow:0 14px 30px -16px rgba(201,168,76,.9)}.rg-btn.gold:hover{transform:translateY(-1px)}
-.rg-btn.ghost{background:transparent;color:var(--deep);border:1.5px solid var(--beige)}.rg-btn.ghost:hover{border-color:var(--deep)}
-.rg-btn[hidden]{display:none}
-.rg-count{font-family:'DM Mono',monospace;font-size:12.5px;color:var(--grey)}
-.rg-login{margin-top:20px;text-align:center;font-size:14px;color:var(--grey)}
-@@media (max-width:900px){.rg{grid-template-columns:1fr}.rg-side{padding:24px 22px}.rg-side h1{margin-top:24px}.rg-steps{grid-auto-flow:column;grid-auto-columns:1fr;overflow-x:auto}.rg-steps li{grid-template-columns:1fr;justify-items:center;text-align:center}.rg-steps li::after{display:none}.rg-steps small,.rg-side-foot{display:none}.rg-main{padding:24px 14px}.rg-panel{padding:26px 20px}.rg-grid,.rg-rev dl{grid-template-columns:1fr}}
-@@media (prefers-reduced-motion:reduce){.rg-step{animation:none}.rg-bar i{transition:none}}
+.rg-cam-box{width:100%;max-width:560px;border-radius:16px;background:var(--sheet);padding:16px}
+.rg-cam-top{display:flex;align-items:center;gap:10px;justify-content:space-between}.rg-cam-top b{font-size:17px}
+.rg-cam-x{width:44px;height:44px;border:0;border-radius:50%;background:var(--sage);font-size:22px;cursor:pointer}
+.rg-cam-view{position:relative;margin:12px 0;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3}
+.rg-cam-view video{width:100%;height:100%;object-fit:cover}
+.rg-cam-frame{position:absolute;inset:8%;border:2px solid rgba(255,255,255,.7);border-radius:8px;pointer-events:none}
+.rg-cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}.rg-cam-flash.on{animation:pf-flash .25s ease-out}
+@@keyframes pf-flash{from{opacity:.7}to{opacity:0}}
+.rg-cam-bar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.rg-shutter{width:60px;height:60px;border-radius:50%;border:4px solid var(--olive);background:#fff;cursor:pointer}
+.rg-cam-tip{margin:10px 0 0;font-size:13px;color:var(--muted)}
+/* review */
+.pf-review{display:grid;gap:14px}
+.pf-rev{border:1px solid var(--line);border-radius:12px;background:#FBF7EA;padding:14px 16px}
+.pf-rev-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.pf-rev-h h3{margin:0;font:700 17px 'Bricolage Grotesque',sans-serif;color:var(--olive)}
+.pf-rev-h button{min-height:44px;padding:0 14px;border:1.5px solid var(--olive);border-radius:999px;background:none;color:var(--olive);font:700 13px 'DM Sans',sans-serif;cursor:pointer}
+.pf-rev-h button:focus-visible{outline:3px solid var(--olive);outline-offset:2px;box-shadow:0 0 0 6px var(--ring)}
+.pf-rev dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;margin:0}
+.pf-rev dt{font:500 11px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pf-rev dd{margin:2px 0 0;font-size:15px;overflow-wrap:anywhere;white-space:pre-line}
+.pf-rev dd.empty{color:var(--muted);font-style:italic}.pf-rev dd.missing{color:var(--err);font-weight:700;font-style:normal}
+.pf-after{margin:16px 0 0;padding:14px 16px;border-radius:12px;background:var(--sage);color:var(--olive);font-size:15px;line-height:1.5}
+.pf:not(.pf-js) .pf-review-step{display:none}
+/* actions */
+.pf-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+.pf-nav .pf-count{font:500 12px 'DM Mono',monospace;color:var(--muted);margin:0 auto 0 4px}
+.pf-btn{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 26px;border:1.5px solid transparent;border-radius:999px;font:700 16px 'DM Sans',sans-serif;cursor:pointer;text-decoration:none;transition:background .2s,color .2s}
+.pf-btn svg{width:18px;height:18px}
+.pf-btn.primary{background:var(--olive);color:var(--cream)}.pf-btn.primary:hover{background:var(--deep)}
+.pf-btn.ghost{background:transparent;border-color:var(--olive);color:var(--olive)}.pf-btn.ghost:hover{background:var(--sage)}
+.pf-btn[aria-disabled=true]{opacity:.75;cursor:progress}
+.pf-btn[hidden]{display:none}
+.pf:not(.pf-js) #pf-next,.pf:not(.pf-js) #pf-back,.pf:not(.pf-js) .pf-count,.pf:not(.pf-js) .pf-js-only{display:none}
+.pf:not(.pf-js) #pf-submit{display:inline-flex}
+.pf:not(.pf-js) .pf-step{margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+/* narrow screens: progress first, expandable summary, one-column fields */
+@@media (max-width:960px){
+ .pf-wrap{grid-template-columns:minmax(0,1fr)}
+ .pf-side{position:static;max-height:none;overflow:visible;padding:22px 18px 18px}
+ .pf-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-top:20px}
+ .pf-steps::before{left:12%;right:12%;top:22px;bottom:auto;width:auto;height:2px}
+ .pf-steps::after{left:12%;top:22px;width:var(--pf-line,0px);height:2px;transition:width .22s ease}
+ .pf-sb{flex-direction:column;gap:6px;padding:0;text-align:center;justify-content:flex-start}
+ .pf-sb small{display:none}.pf-sb b{font-size:13px}
+ .pf-js .pf-sum-t{display:inline-flex;align-items:center}
+ .pf-js .pf-sum-body{display:none}.pf-js .pf-sum.open .pf-sum-body{display:block}
+}
+@@media (max-width:640px){.pf-grid{grid-template-columns:minmax(0,1fr)}.rg-opts{grid-template-columns:minmax(0,1fr)}.pf-rev dl{grid-template-columns:minmax(0,1fr)}.pf-nav{flex-wrap:wrap}.pf-btn{padding:0 20px}}
+@@media (prefers-reduced-motion:reduce){.pf-js .pf-step.on,.rg-file.on,.pf-sum .pulse,.rg-cam-flash.on{animation:none}.pf-steps::after,.pf-ic,.pf-in,.pf-btn,.rg-opt{transition:none}}
 </style>
-
 </head>
 <body>
-<div class="rg">
-  <aside class="rg-side">
-    <a class="rg-brand" href="/"><img src="/landing/logo/zaytouna-emblem-white-transparent.svg" alt=""><span><b>Zaytouna<i>.</i></b><small>Sourcing portal</small></span></a>
-    <h1>Become a <em>Zaytouna</em> supplier.</h1>
-    <p>Four short steps. We review every application by hand, then open the portal for you.</p>
-    <ol class="rg-steps" id="rg-steps">
-      <li data-s="0" class="on"><span class="rg-num">1</span><span><b>Company</b><small>Who you are</small></span></li>
-      <li data-s="1"><span class="rg-num">2</span><span><b>Account</b><small>How you sign in</small></span></li>
-      <li data-s="2"><span class="rg-num">3</span><span><b>Document</b><small>Your registration certificate</small></span></li>
-      <li data-s="3"><span class="rg-num">4</span><span><b>Review</b><small>Check and submit</small></span></li>
-      <li class="wait"><span class="rg-num">&#10003;</span><span><b>Admin approval</b><small>We review your application</small></span></li>
+<div class="pf" id="pf">
+ <a class="pf-skip" href="#pf-main">Skip to the form</a>
+ <div class="pf-wrap">
+  <aside class="pf-side" aria-label="Your application">
+   <a class="pf-brand" href="/"><img src="/landing/logo/zaytouna-emblem-white-transparent.svg" alt=""><span><span class="pf-wm">Zaytouna</span><small>Sourcing portal</small></span></a>
+   <h1>Become a Zaytouna supplier.</h1>
+   <p class="pf-lead">Prepare your company profile, add your registration document, and review your application.</p>
+   <p class="pf-policy">@(devBypass ? "Development testing: administrator approval is temporarily deferred. Your application will still be saved as Pending." : "An administrator reviews every application before supplier access is approved.")</p>
+
+   <nav class="pf-js-only" aria-label="Application steps">
+    <ol class="pf-steps" id="pf-steps">
+     <li data-s="0"><button type="button" class="pf-sb" data-go="0"><span class="pf-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M10 21v-4h4v4"/></svg><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span><span><b>Company</b><small class="pf-st">Upcoming</small></span></button></li>
+     <li data-s="1"><button type="button" class="pf-sb" data-go="1"><span class="pf-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span><span><b>Account</b><small class="pf-st">Upcoming</small></span></button></li>
+     <li data-s="2"><button type="button" class="pf-sb" data-go="2"><span class="pf-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span><span><b>Documents</b><small class="pf-st">Upcoming</small></span></button></li>
+     <li data-s="3"><button type="button" class="pf-sb" data-go="3"><span class="pf-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 14l2 2 4-4"/></svg><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span><span><b>Review</b><small class="pf-st">Upcoming</small></span></button></li>
     </ol>
-    <div class="rg-side-foot">Already registered? <a href="/Auth/Login">Sign in</a></div>
+   </nav>
+
+   <section class="pf-sum pf-js-only" id="pf-sum" aria-labelledby="pf-sum-h">
+    <div class="pf-sum-h"><h2 id="pf-sum-h">Your partnership file</h2><button type="button" class="pf-sum-t" id="pf-sum-t" aria-expanded="false" aria-controls="pf-sum-body">Show</button></div>
+    <div class="pf-sum-body" id="pf-sum-body">
+     <dl>
+      <dt>Company</dt><dd id="sum-company" data-ph="Company name will appear here."></dd>
+      <dt>Contact person</dt><dd id="sum-contact" data-ph="Contact person will appear here."></dd>
+      <dt>Email</dt><dd id="sum-email" data-ph="Email will appear here."></dd>
+      <dt>Registration document</dt><dd id="sum-doc" data-ph="Document name will appear here."></dd>
+     </dl>
+     <p class="pf-sum-note">Not submitted yet. Administrator review happens after you submit.</p>
+    </div>
+   </section>
+
+   <p class="pf-signin">Already registered? <a href="/Auth/Login">Sign in</a> &middot; <a href="/">Back to Zaytouna</a></p>
   </aside>
 
-  <main class="rg-main">
-    <div class="rg-card">
-      <div class="rg-top"><span class="rg-kicker" id="rg-kicker">Step 1 of 4</span><a class="rg-home" href="/">&larr; Back to home</a></div>
-      <div class="rg-bar" aria-hidden="true"><i id="rg-bar"></i></div>
+  <main class="pf-main" id="pf-main">
+   <form class="pf-card" id="rg-form" asp-controller="Suppliers" asp-action="Register" method="post" enctype="multipart/form-data">
+    <div class="pf-card-h"><p class="pf-kick" id="pf-kick">Your partnership file</p></div>
+    <div asp-validation-summary="ModelOnly" id="rg-summary"></div>
+    <div class="pf-errsum" id="pf-errsum" role="alert" tabindex="-1" hidden></div>
+    <p class="sr" id="pf-live" role="status" aria-live="polite"></p>
 
-      <form class="rg-panel" id="rg-form" asp-controller="Suppliers" asp-action="Register" method="post" enctype="multipart/form-data" novalidate>
-        @if (ViewBag.DevelopmentBypass == true)
-        {
-            <div class="rg-dev">Development testing: administrator approval is temporarily deferred. Your application will still be recorded as Pending.</div>
-        }
-        <div asp-validation-summary="ModelOnly" class="rg-summary" role="alert"></div>
+    <!-- Step 1: Company -->
+    <fieldset class="pf-step on" data-step="0">
+     <legend><h2 id="pf-h0" tabindex="-1">Company details</h2></legend>
+     <p class="pf-intro">Tell us about your company. Optional fields can be left blank.</p>
+     <div class="pf-grid">
+      <div class="pf-f pf-full"><label asp-for="CompanyName">Company name <span class="pf-tag">Required</span></label>
+       <input asp-for="CompanyName" class="pf-in" maxlength="200" autocomplete="organization" required aria-describedby="err-CompanyName" />
+       <span asp-validation-for="CompanyName" class="pf-err" id="err-CompanyName"></span></div>
+      <div class="pf-f"><label asp-for="RegistrationNumber">Registration number <span class="pf-tag">Required</span></label>
+       <input asp-for="RegistrationNumber" class="pf-in" maxlength="100" required aria-describedby="err-RegistrationNumber" />
+       <span asp-validation-for="RegistrationNumber" class="pf-err" id="err-RegistrationNumber"></span></div>
+      <div class="pf-f"><label asp-for="TaxNumber">Tax number <span class="pf-tag">Optional</span></label>
+       <input asp-for="TaxNumber" class="pf-in" maxlength="100" aria-describedby="err-TaxNumber" />
+       <span asp-validation-for="TaxNumber" class="pf-err" id="err-TaxNumber"></span></div>
+      <div class="pf-f"><label asp-for="LicenseNumber">License number <span class="pf-tag">Optional</span></label>
+       <input asp-for="LicenseNumber" class="pf-in" maxlength="100" aria-describedby="err-LicenseNumber" />
+       <span asp-validation-for="LicenseNumber" class="pf-err" id="err-LicenseNumber"></span></div>
+      <div class="pf-f"><label asp-for="LicenseExpiresAt">License expiry date <span class="pf-tag">Optional</span></label>
+       <input asp-for="LicenseExpiresAt" class="pf-in" aria-describedby="err-LicenseExpiresAt" />
+       <span asp-validation-for="LicenseExpiresAt" class="pf-err" id="err-LicenseExpiresAt"></span></div>
+      <div class="pf-f"><label asp-for="PhoneNumber">Phone number <span class="pf-tag">Optional</span></label>
+       <input asp-for="PhoneNumber" class="pf-in" type="tel" maxlength="30" autocomplete="tel" aria-describedby="err-PhoneNumber" />
+       <span asp-validation-for="PhoneNumber" class="pf-err" id="err-PhoneNumber"></span></div>
+      <div class="pf-f pf-full"><label asp-for="Address">Address <span class="pf-tag">Optional</span></label>
+       <textarea asp-for="Address" class="pf-in" rows="3" maxlength="500" autocomplete="street-address" id="Address" placeholder="Street, building, city" aria-describedby="err-Address rg-loc-status"></textarea>
+       <div class="rg-loc">
+        <button type="button" class="rg-loc-btn" id="rg-geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Use my current location</button>
+        <button type="button" class="rg-loc-btn" id="rg-pick" aria-expanded="false" aria-controls="rg-map-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>Pick on the map</button>
+        <span class="rg-loc-status" id="rg-loc-status" role="status"></span>
+       </div>
+       <div class="rg-confirm" id="rg-confirm" hidden><p id="rg-confirm-t"></p><div><button type="button" class="rg-loc-btn" id="rg-confirm-yes">Use this address</button><button type="button" class="rg-loc-btn" id="rg-confirm-no">Keep mine</button></div></div>
+       <div class="rg-map-wrap" id="rg-map-wrap" hidden><div id="rg-map"></div><div class="rg-map-hint">Click the map or drag the pin to your company&rsquo;s location.</div></div>
+       <span asp-validation-for="Address" class="pf-err" id="err-Address"></span></div>
+     </div>
+    </fieldset>
 
-        <!-- Step 1 -->
-        <section class="rg-step on" data-step="0" aria-labelledby="rg-h1">
-          <h2 id="rg-h1">Company information</h2>
-          <p>Tell us about your company. Fields marked <b style="color:var(--gold)">*</b> are required.</p>
-          <div class="rg-grid">
-              <div class="rg-f is-req"><label asp-for="CompanyName"></label>
-                <input asp-for="CompanyName" autocomplete="organization" required />
-                <span asp-validation-for="CompanyName"></span></div>
-              <div class="rg-f is-req"><label asp-for="RegistrationNumber"></label>
-                <input asp-for="RegistrationNumber" required />
-                <span asp-validation-for="RegistrationNumber"></span></div>
-              <div class="rg-f"><label asp-for="TaxNumber"></label>
-                <input asp-for="TaxNumber"  />
-                <span asp-validation-for="TaxNumber"></span></div>
-              <div class="rg-f"><label asp-for="LicenseNumber"></label>
-                <input asp-for="LicenseNumber"  />
-                <span asp-validation-for="LicenseNumber"></span></div>
-              <div class="rg-f"><label asp-for="LicenseExpiresAt"></label>
-                <input asp-for="LicenseExpiresAt"  />
-                <span asp-validation-for="LicenseExpiresAt"></span></div>
-              <div class="rg-f"><label asp-for="PhoneNumber"></label>
-                <input asp-for="PhoneNumber" autocomplete="tel" />
-                <span asp-validation-for="PhoneNumber"></span></div>
-              <div class="rg-f rg-full"><label asp-for="Address"></label>
-                <textarea asp-for="Address" rows="3" maxlength="500" autocomplete="street-address" id="Address" placeholder="Street, building, city"></textarea>
-                <div class="rg-loc">
-                  <button type="button" class="rg-loc-btn" id="rg-geo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>Use my current location</button>
-                  <button type="button" class="rg-loc-btn" id="rg-pick" aria-expanded="false" aria-controls="rg-map-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>Pick on the map</button>
-                  <span class="rg-loc-status" id="rg-loc-status" role="status"></span>
-                </div>
-                <div class="rg-map-wrap" id="rg-map-wrap" hidden><div id="rg-map"></div><div class="rg-map-hint">Click the map or drag the pin to your company&rsquo;s location.</div></div>
-                <span asp-validation-for="Address"></span></div>
-          </div>
-        </section>
+    <!-- Step 2: Account -->
+    <fieldset class="pf-step" data-step="1">
+     <legend><h2 id="pf-h1" tabindex="-1">Your account</h2></legend>
+     <p class="pf-intro">The person we contact about tenders, and the email and password you will use to sign in.</p>
+     <div class="pf-grid">
+      <div class="pf-f"><label asp-for="FullName">Contact person name <span class="pf-tag">Required</span></label>
+       <input asp-for="FullName" class="pf-in" maxlength="150" autocomplete="name" required aria-describedby="err-FullName" />
+       <span asp-validation-for="FullName" class="pf-err" id="err-FullName"></span></div>
+      <div class="pf-f"><label asp-for="Email">Email address <span class="pf-tag">Required</span></label>
+       <input asp-for="Email" class="pf-in" type="email" maxlength="256" autocomplete="email" required aria-describedby="err-Email" />
+       <span asp-validation-for="Email" class="pf-err" id="err-Email"></span></div>
+      <div class="pf-f"><label asp-for="Password">Password <span class="pf-tag">Required</span></label>
+       <div class="pf-pw"><input asp-for="Password" class="pf-in" type="password" autocomplete="new-password" required id="Password" aria-describedby="pf-pw-rules err-Password" /><button type="button" class="pf-js-only" data-pw="Password" aria-pressed="false" aria-label="Show password">Show</button></div>
+       <ul class="pf-rules" id="pf-pw-rules" aria-label="Password requirements"><li data-r="len">6 or more characters</li><li data-r="up">An uppercase letter</li><li data-r="low">A lowercase letter</li><li data-r="num">A number</li><li data-r="sym">A symbol</li></ul>
+       <span asp-validation-for="Password" class="pf-err" id="err-Password"></span></div>
+      <div class="pf-f"><label asp-for="ConfirmPassword">Confirm password <span class="pf-tag">Required</span></label>
+       <div class="pf-pw"><input asp-for="ConfirmPassword" class="pf-in" type="password" autocomplete="new-password" required id="ConfirmPassword" aria-describedby="err-ConfirmPassword" /><button type="button" class="pf-js-only" data-pw="ConfirmPassword" aria-pressed="false" aria-label="Show confirmation password">Show</button></div>
+       <span asp-validation-for="ConfirmPassword" class="pf-err" id="err-ConfirmPassword"></span></div>
+     </div>
+    </fieldset>
 
-        <!-- Step 2 -->
-        <section class="rg-step" data-step="1" aria-labelledby="rg-h2">
-          <h2 id="rg-h2">Contact &amp; account</h2>
-          <p>The person we contact about tenders, and the email and password used to sign in.</p>
-          <div class="rg-grid">
-              <div class="rg-f is-req"><label asp-for="FullName"></label>
-                <input asp-for="FullName" autocomplete="name" required />
-                <span asp-validation-for="FullName"></span></div>
-              <div class="rg-f is-req"><label asp-for="Email"></label>
-                <input asp-for="Email" autocomplete="email" required />
-                <span asp-validation-for="Email"></span></div>
-              <div class="rg-f is-req"><label asp-for="Password"></label>
-                <input asp-for="Password" autocomplete="new-password" required id="Password" aria-describedby="rg-pw-rules" />
-                <div class="rg-meter" id="rg-meter" data-s="0" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-                <div class="rg-rules" id="rg-pw-rules"><span data-r="len">6+ characters</span><span data-r="up">Uppercase</span><span data-r="low">Lowercase</span><span data-r="num">Number</span><span data-r="sym">Symbol</span></div>
-                <span asp-validation-for="Password"></span></div>
-              <div class="rg-f is-req"><label asp-for="ConfirmPassword"></label>
-                <input asp-for="ConfirmPassword" autocomplete="new-password" required />
-                <span asp-validation-for="ConfirmPassword"></span></div>
-          </div>
-        </section>
+    <!-- Step 3: Documents -->
+    <fieldset class="pf-step" data-step="2">
+     <legend><h2 id="pf-h2" tabindex="-1">Registration document</h2></legend>
+     <p class="pf-intro">Your company registration certificate, as one PDF of up to 5 MB. Photos or a camera picture are turned into a single PDF in your browser.</p>
+     <div class="pf-note" id="pf-reselect" @(serverFailed ? "" : "hidden")>The page was reloaded after a problem, and for security your browser cannot keep the file you chose. Please select your document again.</div>
+     <div class="pf-f">
+      <label asp-for="OfficialDocument" class="pf-lbl">Company registration document (PDF, maximum 5 MB) <span class="pf-tag">Required</span></label>
+      <input asp-for="OfficialDocument" type="file" accept="application/pdf,.pdf" id="OfficialDocument" aria-describedby="err-OfficialDocument" />
+      <input type="file" id="rg-pdf" accept="application/pdf,.pdf" hidden />
+      <input type="file" id="rg-imgs" accept="image/*" multiple hidden />
+      <input type="file" id="rg-camfile" accept="image/*" capture="environment" hidden />
+      <div class="rg-opts" id="rg-drop">
+       <label class="rg-opt" for="rg-pdf" tabindex="0"><span class="rg-opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><b>Choose a PDF</b><small>Already scanned? Select the file.</small></label>
+       <label class="rg-opt" for="rg-imgs" tabindex="0"><span class="rg-opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="m21 17-5-5-8 7"/></svg></span><b>Upload photos</b><small>JPG or PNG, one or more pages.</small></label>
+       <button type="button" class="rg-opt" id="rg-cam-btn"><span class="rg-opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><b>Take a photo</b><small>Use your phone or laptop camera.</small></button>
+      </div>
+      <p class="rg-drop-hint">You can also drag a PDF or photos onto the boxes above.</p>
+      <div class="rg-pages" id="rg-pages" hidden></div>
+      <div class="rg-file" id="rg-file"><i>PDF</i><span><b id="rg-fname"></b><small id="rg-fsize"></small></span><button type="button" class="rg-file-x" id="rg-clear" aria-label="Remove the selected document">Remove</button></div>
+      <span class="pf-err" id="err-OfficialDocument" aria-live="polite"></span>
+      <span asp-validation-for="OfficialDocument" class="pf-err" id="err-OfficialDocumentSrv"></span>
+     </div>
+    </fieldset>
 
-        <!-- Step 3 -->
-        <section class="rg-step" data-step="2" aria-labelledby="rg-h3">
-          <h2 id="rg-h3">Official document</h2>
-          <p>Your company registration certificate. Upload a PDF, upload photos, or take a photo with your camera. Photos are turned into one PDF for you.</p>
-          <div class="rg-f">
-            <input asp-for="OfficialDocument" type="file" accept="application/pdf,.pdf" id="OfficialDocument" hidden />
-            <input type="file" id="rg-pdf" accept="application/pdf,.pdf" hidden />
-            <input type="file" id="rg-imgs" accept="image/*" multiple hidden />
-            <input type="file" id="rg-camfile" accept="image/*" capture="environment" hidden />
-            <div class="rg-opts" id="rg-drop">
-              <label class="rg-opt" for="rg-pdf"><span class="rg-opt-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M9 14h6M9 17h4"/></svg></span><b>Upload a PDF</b><small>Already scanned? Choose the file.</small></label>
-              <label class="rg-opt" for="rg-imgs"><span class="rg-opt-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></span><b>Upload photos</b><small>JPG or PNG, one or more pages.</small></label>
-              <button type="button" class="rg-opt" id="rg-cam-btn"><span class="rg-opt-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="14" r="3.5"/></svg></span><b>Take a photo</b><small>Use your phone or laptop camera.</small></button>
-            </div>
-            <p class="rg-drop-hint">or drag a PDF or photos onto the boxes above</p>
-            <div class="rg-pages" id="rg-pages" hidden></div>
-            <div class="rg-file" id="rg-file"><i>PDF</i><span><b id="rg-fname"></b><small id="rg-fsize"></small></span><button type="button" class="rg-file-x" id="rg-clear" aria-label="Remove document">&times;</button></div>
-            <span class="field-validation-error" id="rg-ferr" hidden></span>
-            <span asp-validation-for="OfficialDocument"></span>
-          </div>
-        </section>
+    <!-- Step 4: Review -->
+    <fieldset class="pf-step pf-review-step" data-step="3">
+     <legend><h2 id="pf-h3" tabindex="-1">Review and submit</h2></legend>
+     <p class="pf-intro">Check what you are about to send. Use Edit to change any section.</p>
+     <div class="pf-review">
+      <section class="pf-rev" aria-labelledby="rv-c"><div class="pf-rev-h"><h3 id="rv-c">Company</h3><button type="button" data-go="0" aria-label="Edit company details">Edit</button></div>
+       <dl><div><dt>Company name</dt><dd data-v="CompanyName" data-req></dd></div><div><dt>Registration number</dt><dd data-v="RegistrationNumber" data-req></dd></div><div><dt>Tax number</dt><dd data-v="TaxNumber"></dd></div><div><dt>License number</dt><dd data-v="LicenseNumber"></dd></div><div><dt>License expiry</dt><dd data-v="LicenseExpiresAt"></dd></div><div><dt>Phone</dt><dd data-v="PhoneNumber"></dd></div><div style="grid-column:1/-1"><dt>Address</dt><dd data-v="Address"></dd></div></dl></section>
+      <section class="pf-rev" aria-labelledby="rv-a"><div class="pf-rev-h"><h3 id="rv-a">Account and contact</h3><button type="button" data-go="1" aria-label="Edit account details">Edit</button></div>
+       <dl><div><dt>Contact person</dt><dd data-v="FullName" data-req></dd></div><div><dt>Email</dt><dd data-v="Email" data-req></dd></div><div><dt>Password</dt><dd data-v="Password" data-req></dd></div></dl></section>
+      <section class="pf-rev" aria-labelledby="rv-d"><div class="pf-rev-h"><h3 id="rv-d">Document</h3><button type="button" data-go="2" aria-label="Edit document">Edit</button></div>
+       <dl><div style="grid-column:1/-1"><dt>Registration document</dt><dd data-v="OfficialDocument" data-req></dd></div></dl></section>
+     </div>
+     <p class="pf-after">@(devBypass ? "Development testing is enabled: your application is saved as Pending and you can sign in with your email and password." : "Your application will be reviewed before supplier access is approved.")</p>
+    </fieldset>
 
-        <div class="rg-cam" id="rg-cam" hidden role="dialog" aria-modal="true" aria-label="Take a photo of your document">
-          <div class="rg-cam-box">
-            <div class="rg-cam-top"><b>Take a photo</b><span id="rg-cam-count">0 pages</span><button type="button" class="rg-cam-x" id="rg-cam-close" aria-label="Close camera">&times;</button></div>
-            <div class="rg-cam-view"><video id="rg-video" autoplay playsinline muted></video><span class="rg-cam-frame" aria-hidden="true"></span><span class="rg-cam-flash" id="rg-flash"></span></div>
-            <div class="rg-cam-bar"><button type="button" class="rg-btn ghost" id="rg-cam-flip">Switch camera</button><button type="button" class="rg-shutter" id="rg-shot" aria-label="Capture page"></button><button type="button" class="rg-btn primary" id="rg-cam-done">Done</button></div>
-            <p class="rg-cam-tip">Place the certificate inside the frame, in good light. Capture each page, then press Done.</p>
-          </div>
-        </div>
-
-        <!-- Step 4 -->
-        <section class="rg-step" data-step="3" aria-labelledby="rg-h4">
-          <h2 id="rg-h4">Review &amp; submit</h2>
-          <p>Take a last look. You can go back and edit any section.</p>
-          <div class="rg-review">
-            <div class="rg-rev"><div class="rg-rev-h"><span>Company</span><button type="button" data-go="0">Edit</button></div>
-              <dl><div><dt>Company name</dt><dd data-v="CompanyName"></dd></div><div><dt>Registration number</dt><dd data-v="RegistrationNumber"></dd></div><div><dt>Tax number</dt><dd data-v="TaxNumber"></dd></div><div><dt>License number</dt><dd data-v="LicenseNumber"></dd></div><div><dt>License expiry</dt><dd data-v="LicenseExpiresAt"></dd></div><div><dt>Phone</dt><dd data-v="PhoneNumber"></dd></div><div style="grid-column:1/-1"><dt>Address</dt><dd data-v="Address"></dd></div></dl></div>
-            <div class="rg-rev"><div class="rg-rev-h"><span>Account</span><button type="button" data-go="1">Edit</button></div>
-              <dl><div><dt>Contact person</dt><dd data-v="FullName"></dd></div><div><dt>Email</dt><dd data-v="Email"></dd></div><div><dt>Password</dt><dd>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</dd></div></dl></div>
-            <div class="rg-rev"><div class="rg-rev-h"><span>Document</span><button type="button" data-go="2">Edit</button></div>
-              <dl><div style="grid-column:1/-1"><dt>Registration certificate</dt><dd data-v="OfficialDocument"></dd></div></dl></div>
-          </div>
-          <div class="rg-next-note"><i>!</i><span><b>What happens next?</b> An administrator reviews your company and document. You&rsquo;ll be able to sign in to the supplier portal as soon as your account is approved.</span></div>
-        </section>
-
-        <div class="rg-nav">
-          <button type="button" class="rg-btn ghost" id="rg-back" hidden>&larr; Back</button>
-          <span class="rg-count" id="rg-count">1 / 4</span>
-          <button type="button" class="rg-btn primary" id="rg-next">Next &rarr;</button>
-          <button type="submit" class="rg-btn gold" id="rg-submit" hidden>Submit for approval</button>
-        </div>
-      </form>
-      <p class="rg-login">Already have an account? <a href="/Auth/Login">Sign in</a></p>
+    <div class="pf-nav">
+     <button type="button" class="pf-btn ghost pf-js-only" id="pf-back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Back</button>
+     <span class="pf-count pf-js-only" id="pf-count">Step 1 of 4</span>
+     <button type="button" class="pf-btn primary pf-js-only" id="pf-next">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+     <button type="submit" class="pf-btn primary" id="pf-submit" hidden>Submit application<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </div>
+   </form>
   </main>
+ </div>
+
+ <div class="rg-cam" id="rg-cam" hidden role="dialog" aria-modal="true" aria-label="Take a photo of your document">
+  <div class="rg-cam-box">
+   <div class="rg-cam-top"><b>Take a photo</b><span id="rg-cam-count">0 pages</span><button type="button" class="rg-cam-x" id="rg-cam-close" aria-label="Close camera">&times;</button></div>
+   <div class="rg-cam-view"><video id="rg-video" autoplay playsinline muted></video><span class="rg-cam-frame" aria-hidden="true"></span><span class="rg-cam-flash" id="rg-flash"></span></div>
+   <div class="rg-cam-bar"><button type="button" class="pf-btn ghost" id="rg-cam-flip">Switch camera</button><button type="button" class="rg-shutter" id="rg-shot" aria-label="Capture page"></button><button type="button" class="pf-btn primary" id="rg-cam-done">Done</button></div>
+   <p class="rg-cam-tip">Place the certificate inside the frame, in good light. Capture each page, then press Done.</p>
+  </div>
+ </div>
 </div>
-<script src="~/lib/jquery/dist/jquery.min.js"></script>
-<partial name="_ValidationScriptsPartial" />
 <script>
 (function(){
-var form=document.getElementById('rg-form'),steps=[].slice.call(form.querySelectorAll('.rg-step')),side=[].slice.call(document.querySelectorAll('#rg-steps li[data-s]')),
-back=document.getElementById('rg-back'),next=document.getElementById('rg-next'),sub=document.getElementById('rg-submit'),bar=document.getElementById('rg-bar'),kick=document.getElementById('rg-kicker'),cnt=document.getElementById('rg-count'),cur=0,N=steps.length;
-var $v=window.jQuery&&jQuery.fn.validate?jQuery(form).validate():null;
-function show(i,focus){cur=i;steps.forEach(function(s,k){s.classList.toggle('on',k===i)});
-side.forEach(function(l,k){l.classList.toggle('on',k===i);l.classList.toggle('done',k<i)});
-bar.style.width=((i+1)/N*100)+'%';kick.textContent='Step '+(i+1)+' of '+N;cnt.textContent=(i+1)+' / '+N;
-back.hidden=i===0;next.hidden=i===N-1;sub.hidden=i!==N-1;if(i===N-1)fillReview();
-if(focus){var el=steps[i].querySelector('input:not([type=file]),textarea');if(el)el.focus({preventScroll:true});window.scrollTo({top:0,behavior:'smooth'})}}
-function fileOk(){var inp=document.getElementById('OfficialDocument'),err=document.getElementById('rg-ferr'),f=inp.files&&inp.files[0],msg='';
-if(!f)msg='Please add your company registration document: a PDF, photos, or a camera photo.';else if(!/\.pdf$/i.test(f.name))msg='The document must be a PDF file.';else if(f.size>5*1024*1024)msg='The document must be 5 MB or smaller.';
-err.textContent=msg;err.hidden=!msg;return !msg}
-function valid(i){var ok=true;steps[i].querySelectorAll('input,textarea').forEach(function(el){if(el.type==='file')return;if($v){if(!$v.element(el))ok=false}else if(!el.checkValidity())ok=false});
-if(i===2&&!fileOk())ok=false;if(!ok){var bad=steps[i].querySelector('.input-validation-error,:invalid');if(bad&&bad.focus)bad.focus()}return ok}
-next.addEventListener('click',function(){if(valid(cur))show(Math.min(N-1,cur+1),true)});
-back.addEventListener('click',function(){show(Math.max(0,cur-1),true)});
-form.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.tagName==='INPUT'&&cur<N-1){e.preventDefault();next.click()}});
-form.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){show(+b.dataset.go,true)})});
-form.addEventListener('submit',function(e){for(var k=0;k<N-1;k++){if(!valid(k)){e.preventDefault();show(k,true);return}}sub.disabled=true;sub.textContent='Submitting…'});
-// review
-function fillReview(){form.querySelectorAll('[data-v]').forEach(function(dd){var n=dd.dataset.v,el=form.querySelector('[name="'+n+'"]'),v='';
-if(n==='OfficialDocument'){v=el.files&&el.files[0]?el.files[0].name+(srcKind==='photos'?' ('+pages.length+' page'+(pages.length>1?'s':'')+' from photos)':''):''}else v=(el&&el.value||'').trim();
-if(n==='LicenseExpiresAt'&&v){var d=new Date(v);if(!isNaN(d))v=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
-dd.textContent=v||'Not provided';dd.classList.toggle('empty',!v)})}
-// file: PDF, photos or camera. Photos become one PDF in the browser, so the server still receives a PDF.
-var inp=document.getElementById('OfficialDocument'),box=document.getElementById('rg-file'),pagesEl=document.getElementById('rg-pages'),dropEl=document.getElementById('rg-drop'),pages=[],srcKind='';
-function setFile(file,kind){var dt=new DataTransfer();if(file)dt.items.add(file);inp.files=dt.files;srcKind=kind||'';
-box.classList.toggle('on',!!file);if(file){document.getElementById('rg-fname').textContent=file.name;document.getElementById('rg-fsize').textContent=(file.size/1024/1024).toFixed(2)+' MB'+(kind==='photos'?' · '+pages.length+' page'+(pages.length>1?'s':'')+' from photos':'');fileOk()}}
+var root=document.getElementById('pf'),form=document.getElementById('rg-form');
+root.classList.add('pf-js');form.setAttribute('novalidate','');
+var steps=[].slice.call(form.querySelectorAll('.pf-step')),N=steps.length,
+ stepLis=[].slice.call(document.querySelectorAll('#pf-steps li')),back=document.getElementById('pf-back'),next=document.getElementById('pf-next'),sub=document.getElementById('pf-submit'),
+ kick=document.getElementById('pf-kick'),cnt=document.getElementById('pf-count'),live=document.getElementById('pf-live'),errsum=document.getElementById('pf-errsum'),stepsOl=document.getElementById('pf-steps');
+var TITLES=['Company details','Your account','Registration document','Review and submit'],NAMES=['Company','Account','Documents','Review'];
+var cur=0,passed=[false,false,false,false],busy=false,reduce=matchMedia('(prefers-reduced-motion: reduce)');
+var STEP_OF={CompanyName:0,RegistrationNumber:0,TaxNumber:0,LicenseNumber:0,LicenseExpiresAt:0,PhoneNumber:0,Address:0,FullName:1,Email:1,Password:1,ConfirmPassword:1,OfficialDocument:2};
+var FIELDS=[['CompanyName','RegistrationNumber','TaxNumber','LicenseNumber','LicenseExpiresAt','PhoneNumber','Address'],['FullName','Email','Password','ConfirmPassword'],['OfficialDocument'],[]];
+var LABEL={CompanyName:'Company name',RegistrationNumber:'Registration number',TaxNumber:'Tax number',LicenseNumber:'License number',LicenseExpiresAt:'License expiry date',PhoneNumber:'Phone number',Address:'Address',FullName:'Contact person name',Email:'Email address',Password:'Password',ConfirmPassword:'Confirm password',OfficialDocument:'Registration document'};
+function inp(n){return form.querySelector('[name="'+n+'"]')}
+function errEl(n){return document.getElementById('err-'+n)}
+function raw(n){var e=inp(n);return e.type==='file'?(e.files&&e.files[0]||null):(n==='Password'||n==='ConfirmPassword'?e.value:(e.value||'').trim())}
+function todayUtc(){return new Date().toISOString().slice(0,10)}
+var PHONE=null;try{PHONE=new RegExp('^(\\+\\s?)?((?<!\\+.*)\\(\\+?\\d+([\\s\\-\\.]?\\d+)?\\)|\\d+)([\\s\\-\\.]?(\\(\\d+([\\s\\-\\.]?\\d+)?\\)|\\d+))*(\\s?(x|ext\\.?)\\s?\\d+)?$')}catch(e){}
+function pwMissing(v){var m=[];if(v.length<6)m.push('at least 6 characters');if(!/[A-Z]/.test(v))m.push('an uppercase letter');if(!/[a-z]/.test(v))m.push('a lowercase letter');if(!/\d/.test(v))m.push('a number');if(!/[^A-Za-z0-9]/.test(v))m.push('a symbol');return m}
+var RULES={
+ CompanyName:function(v){if(!v)return 'Enter your company name.';if(v.length>200)return 'Company name must be 200 characters or fewer.'},
+ RegistrationNumber:function(v){if(!v)return 'Enter your registration number.';if(v.length>100)return 'Registration number must be 100 characters or fewer.'},
+ TaxNumber:function(v){if(v.length>100)return 'Tax number must be 100 characters or fewer.'},
+ LicenseNumber:function(v){if(v.length>100)return 'License number must be 100 characters or fewer.'},
+ LicenseExpiresAt:function(v){if(v&&v<todayUtc())return 'The license has expired. Enter a future date or leave this blank.'},
+ PhoneNumber:function(v){if(v&&v.length>30)return 'Phone number must be 30 characters or fewer.';if(v&&PHONE&&!PHONE.test(v))return 'Enter a valid phone number, for example +962 6 123 4567.'},
+ Address:function(v){if(v.length>500)return 'Address must be 500 characters or fewer.'},
+ FullName:function(v){if(!v)return 'Enter the contact person’s name.';if(v.length>150)return 'Name must be 150 characters or fewer.'},
+ Email:function(v){if(!v)return 'Enter your email address.';if(v.length>256)return 'Email must be 256 characters or fewer.';if(!/^[^\s@@]+@@[^\s@@]+$/.test(v))return 'Enter a valid email address, like name@company.com.'},
+ Password:function(v){if(!v)return 'Create a password.';var m=pwMissing(v);if(m.length)return 'Your password still needs '+m.join(', ')+'.'},
+ ConfirmPassword:function(v){if(!v)return 'Repeat your password.';if(v!==inp('Password').value)return 'The two passwords do not match.'},
+ OfficialDocument:function(f){if(!f)return 'Add your company registration document: a PDF, photos, or a camera picture.';if(f.name.length>255)return 'Use a document filename of up to 255 characters.';if(!/\.pdf$/i.test(f.name))return 'Only PDF documents are supported.';if(f.size<5||f.size>5*1024*1024)return 'The PDF must be between 5 bytes and 5 MB.'}
+};
+function setErr(n,msg){var e=inp(n),s=errEl(n);if(s){s.textContent=msg||'';s.classList.toggle('field-validation-error',!!msg);s.classList.toggle('field-validation-valid',!msg)}
+ if(n==='OfficialDocument'){var sv=document.getElementById('err-OfficialDocumentSrv');if(sv)sv.textContent=''}
+ var t=n==='OfficialDocument'?document.getElementById('rg-drop'):e;if(msg){e.setAttribute('aria-invalid','true');if(t)t.setAttribute('aria-invalid','true')}else{e.removeAttribute('aria-invalid');if(t)t.removeAttribute('aria-invalid')}}
+function check(n,show){var m=RULES[n](raw(n))||'';if(show)setErr(n,m);return m}
+function stepErrors(i,show){var out=[];FIELDS[i].forEach(function(n){var m=check(n,show);if(m)out.push([n,m])});return out}
+
+/* ---- navigation ---- */
+function statusFor(i){return i===cur?'Current':passed[i]?'Completed':'Upcoming'}
+function paint(){
+ stepLis.forEach(function(li,i){var cl=li.classList,b=li.firstElementChild,st=li.querySelector('.pf-st');cl.toggle('is-current',i===cur);cl.toggle('is-done',passed[i]&&i!==cur&&i<3);st.textContent=statusFor(i);
+  if(i===cur)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current')});
+ var reach=0;for(var k=0;k<N-1;k++)if(passed[k])reach=k+1;reach=Math.max(reach,cur);
+ var h=stepLis[0].offsetHeight||52,vertical=getComputedStyle(stepsOl).display!=='grid';
+ stepsOl.style.setProperty('--pf-line',vertical?(reach*(stepLis[1]?stepLis[1].offsetTop-stepLis[0].offsetTop:h))+'px':(reach/(N-1)*(stepsOl.offsetWidth*.76))+'px');
+ kick.textContent='Step '+(cur+1)+' of '+N+' · '+NAMES[cur];cnt.textContent='Step '+(cur+1)+' of '+N;
+ back.hidden=cur===0;next.hidden=cur===N-1;sub.hidden=cur!==N-1}
+function go(i,focus){
+ if(i<0||i>=N)return;errsum.hidden=true;cur=i;
+ steps.forEach(function(s,k){s.classList.toggle('on',k===i)});
+ if(i===N-1)fillReview();paint();
+ if(focus){var h=document.getElementById('pf-h'+i);if(h){h.focus({preventScroll:true});var r=h.getBoundingClientRect();if(r.top<0||r.top>innerHeight*.6)h.scrollIntoView({block:'start',behavior:reduce.matches?'auto':'smooth'})}
+  live.textContent='Step '+(i+1)+' of '+N+': '+TITLES[i]}}
+function showErrors(i,errs){
+ errsum.innerHTML='';var p=document.createElement('p');p.textContent=errs.length===1?'One thing needs your attention:':errs.length+' things need your attention:';errsum.appendChild(p);
+ var ul=document.createElement('ul');errs.forEach(function(x){var li=document.createElement('li'),a=document.createElement('a');a.href='#';a.textContent=LABEL[x[0]]+': '+x[1];a.addEventListener('click',function(ev){ev.preventDefault();var t=x[0]==='OfficialDocument'?document.getElementById('rg-drop').querySelector('label,button'):inp(x[0]);if(t)t.focus()});li.appendChild(a);ul.appendChild(li)});
+ errsum.appendChild(ul);errsum.hidden=false;errsum.focus()}
+function tryAdvance(target){
+ if(target<=cur){go(target,true);return}
+ for(var k=cur;k<target;k++){var errs=stepErrors(k,true);if(errs.length){passed[k]=false;if(k!==cur)go(k,false);else{errsum.hidden=true}paint();showErrors(k,errs);return}passed[k]=true}
+ go(target,true)}
+next.addEventListener('click',function(){tryAdvance(cur+1)});
+back.addEventListener('click',function(){go(cur-1,true)});
+[].forEach.call(document.querySelectorAll('[data-go]'),function(b){b.addEventListener('click',function(){tryAdvance(+b.dataset.go)})});
+form.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.type!=='file'&&cur<N-1){e.preventDefault();next.click()}});
+form.addEventListener('submit',function(e){
+ if(busy){e.preventDefault();return}
+ for(var k=0;k<N-1;k++){var errs=stepErrors(k,true);if(errs.length){e.preventDefault();go(k,false);showErrors(k,errs);return}passed[k]=true}
+ busy=true;sub.setAttribute('aria-disabled','true');sub.setAttribute('aria-busy','true');sub.firstChild.textContent='Submitting…'});
+addEventListener('pageshow',function(e){if(e.persisted){busy=false;sub.removeAttribute('aria-disabled');sub.removeAttribute('aria-busy');sub.firstChild.textContent='Submit application'}});
+
+/* ---- live feedback: validate on leaving a field, then keep it current ---- */
+function refreshPassed(){for(var k=0;k<N-1;k++)if(passed[k]&&stepErrors(k,false).length)passed[k]=false;paint()}
+Object.keys(STEP_OF).forEach(function(n){var e=inp(n);if(!e||n==='OfficialDocument')return;
+ /* no blur validation: an error appearing between mouse-down and mouse-up would shift the Next button and swallow the click */
+ e.addEventListener('input',function(){if(e.getAttribute('aria-invalid')==='true')check(n,true);if(n==='Password'&&inp('ConfirmPassword').getAttribute('aria-invalid')==='true')check('ConfirmPassword',true);sum();refreshPassed()});
+ e.addEventListener('change',function(){sum();refreshPassed()})});
+
+/* ---- password ---- */
+[].forEach.call(document.querySelectorAll('[data-pw]'),function(b){b.addEventListener('click',function(){var e=document.getElementById(b.dataset.pw),show=e.type==='password';e.type=show?'text':'password';b.textContent=show?'Hide':'Show';b.setAttribute('aria-pressed',show?'true':'false');b.setAttribute('aria-label',(show?'Hide ':'Show ')+(b.dataset.pw==='Password'?'password':'confirmation password'))})});
+var pwEl=document.getElementById('Password'),rules=[].slice.call(document.querySelectorAll('#pf-pw-rules li'));
+pwEl.addEventListener('input',function(){var v=pwEl.value,t={len:v.length>=6,up:/[A-Z]/.test(v),low:/[a-z]/.test(v),num:/\d/.test(v),sym:/[^A-Za-z0-9]/.test(v)};rules.forEach(function(r){r.classList.toggle('ok',t[r.dataset.r])})});
+
+/* ---- summary (text only; never the password) ---- */
+var sumEls={company:document.getElementById('sum-company'),contact:document.getElementById('sum-contact'),email:document.getElementById('sum-email'),doc:document.getElementById('sum-doc')},sumPrev={};
+function setSum(k,v){var d=sumEls[k],has=!!v;d.classList.toggle('empty',!has);d.textContent=has?v:d.dataset.ph;if(has&&!sumPrev[k]&&!reduce.matches){d.classList.remove('pulse');void d.offsetWidth;d.classList.add('pulse')}sumPrev[k]=has}
+function sum(){var f=raw('OfficialDocument');setSum('company',raw('CompanyName'));setSum('contact',raw('FullName'));setSum('email',raw('Email'));setSum('doc',f?f.name:'')}
+var sumBox=document.getElementById('pf-sum'),sumT=document.getElementById('pf-sum-t');
+sumT.addEventListener('click',function(){var o=sumBox.classList.toggle('open');sumT.setAttribute('aria-expanded',o?'true':'false');sumT.textContent=o?'Hide':'Show'});
+/* ---- review ---- */
+function fillReview(){[].forEach.call(form.querySelectorAll('[data-v]'),function(dd){var n=dd.dataset.v,req=dd.hasAttribute('data-req'),v='';dd.className='';
+ if(n==='Password'){v=inp('Password').value?'•••••••• (hidden)':''}
+ else if(n==='OfficialDocument'){var f=raw(n);v=f?f.name+' ('+fmt(f.size)+(srcKind==='photos'?', '+pages.length+' page'+(pages.length>1?'s':'')+' from photos':'')+')':''}
+ else v=raw(n);
+ if(n==='LicenseExpiresAt'&&v){var d=new Date(v+'T00:00:00');if(!isNaN(d))v=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
+ if(v)dd.textContent=v;else{dd.textContent=req?'Required: still to complete':'Not provided';dd.className=req?'missing':'empty'}})}
+/* ---- document: PDF, photos or camera. Photos become one PDF in the browser; the server still receives a PDF. ---- */
+var inpDoc=document.getElementById('OfficialDocument'),box=document.getElementById('rg-file'),pagesEl=document.getElementById('rg-pages'),dropEl=document.getElementById('rg-drop'),pages=[],srcKind='';
+function fmt(b){return b>=1048576?(b/1048576).toFixed(2)+' MB':Math.max(1,Math.round(b/1024))+' KB'}
+function setFile(file,kind){var dt=new DataTransfer();if(file)dt.items.add(file);inpDoc.files=dt.files;srcKind=kind||'';
+ box.classList.toggle('on',!!file);document.getElementById('pf-reselect').hidden=true;
+ if(file){document.getElementById('rg-fname').textContent='Document selected: '+file.name;document.getElementById('rg-fsize').textContent=fmt(file.size)+(kind==='photos'?' · '+pages.length+' page'+(pages.length>1?'s':'')+' from photos':'')+' · not submitted yet';check('OfficialDocument',true)}else setErr('OfficialDocument','');
+ if(file&&!errsum.hidden)errsum.hidden=true;sum();refreshPassed()}
 function loadImg(src){return new Promise(function(res,rej){var im=new Image();im.onload=function(){res(im)};im.onerror=rej;im.src=src})}
 function toJpeg(source,maxSide,q){var w=source.videoWidth||source.naturalWidth||source.width,h=source.videoHeight||source.naturalHeight||source.height,k=Math.min(1,maxSide/Math.max(w,h)),c=document.createElement('canvas');
-c.width=Math.round(w*k);c.height=Math.round(h*k);var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(source,0,0,c.width,c.height);return {url:c.toDataURL('image/jpeg',q),w:c.width,h:c.height}}
+ c.width=Math.round(w*k);c.height=Math.round(h*k);var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(source,0,0,c.width,c.height);return {url:c.toDataURL('image/jpeg',q),w:c.width,h:c.height}}
 function b64bytes(url){var b=atob(url.split(',')[1]),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 function buildPdf(imgs){var enc=new TextEncoder(),chunks=[],off=[],len=0;function put(x){var u=typeof x==='string'?enc.encode(x):x;chunks.push(u);len+=u.length}
-put(new Uint8Array([37,80,68,70,45,49,46,52,10,37,226,227,207,211,10]));var n=imgs.length,total=2+n*3,kids=[];
-for(var i=0;i<n;i++)kids.push((3+i*3)+' 0 R');
-off[1]=len;put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');off[2]=len;put('2 0 obj\n<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+n+' >>\nendobj\n');
-imgs.forEach(function(im,i){var P=3+i*3,I=P+1,C=P+2,W=595,H=842,s=Math.min((W-40)/im.w,(H-40)/im.h),dw=im.w*s,dh=im.h*s,cx=(W-dw)/2,cy=(H-dh)/2,cs='q '+dw.toFixed(2)+' 0 0 '+dh.toFixed(2)+' '+cx.toFixed(2)+' '+cy.toFixed(2)+' cm /Im'+i+' Do Q';
-off[P]=len;put(P+' 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /XObject << /Im'+i+' '+I+' 0 R >> >> /Contents '+C+' 0 R >>\nendobj\n');
-off[I]=len;put(I+' 0 obj\n<< /Type /XObject /Subtype /Image /Width '+im.w+' /Height '+im.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+im.bytes.length+' >>\nstream\n');put(im.bytes);put('\nendstream\nendobj\n');
-off[C]=len;put(C+' 0 obj\n<< /Length '+cs.length+' >>\nstream\n'+cs+'\nendstream\nendobj\n')});
-var x=len,xr='xref\n0 '+(total+1)+'\n0000000000 65535 f \n';for(var k=1;k<=total;k++)xr+=('0000000000'+off[k]).slice(-10)+' 00000 n \n';put(xr+'trailer\n<< /Size '+(total+1)+' /Root 1 0 R >>\nstartxref\n'+x+'\n%%EOF\n');
-return new Blob(chunks,{type:'application/pdf'})}
+ put(new Uint8Array([37,80,68,70,45,49,46,52,10,37,226,227,207,211,10]));var n=imgs.length,total=2+n*3,kids=[];
+ for(var i=0;i<n;i++)kids.push((3+i*3)+' 0 R');
+ off[1]=len;put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');off[2]=len;put('2 0 obj\n<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+n+' >>\nendobj\n');
+ imgs.forEach(function(im,i){var P=3+i*3,I=P+1,C=P+2,W=595,H=842,s=Math.min((W-40)/im.w,(H-40)/im.h),dw=im.w*s,dh=im.h*s,cx=(W-dw)/2,cy=(H-dh)/2,cs='q '+dw.toFixed(2)+' 0 0 '+dh.toFixed(2)+' '+cx.toFixed(2)+' '+cy.toFixed(2)+' cm /Im'+i+' Do Q';
+  off[P]=len;put(P+' 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /XObject << /Im'+i+' '+I+' 0 R >> >> /Contents '+C+' 0 R >>\nendobj\n');
+  off[I]=len;put(I+' 0 obj\n<< /Type /XObject /Subtype /Image /Width '+im.w+' /Height '+im.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+im.bytes.length+' >>\nstream\n');put(im.bytes);put('\nendstream\nendobj\n');
+  off[C]=len;put(C+' 0 obj\n<< /Length '+cs.length+' >>\nstream\n'+cs+'\nendstream\nendobj\n')});
+ var x=len,xr='xref\n0 '+(total+1)+'\n0000000000 65535 f \n';for(var k=1;k<=total;k++)xr+=('0000000000'+off[k]).slice(-10)+' 00000 n \n';put(xr+'trailer\n<< /Size '+(total+1)+' /Root 1 0 R >>\nstartxref\n'+x+'\n%%EOF\n');
+ return new Blob(chunks,{type:'application/pdf'})}
 async function rebuild(){renderPages();if(!pages.length){setFile(null);return}
-var tries=[[1800,.82],[1400,.7],[1100,.6],[900,.5]],blob=null;
-for(var t=0;t<tries.length;t++){var imgs=[];for(var i=0;i<pages.length;i++){var j=toJpeg(pages[i].img,tries[t][0],tries[t][1]);imgs.push({w:j.w,h:j.h,bytes:b64bytes(j.url)})}blob=buildPdf(imgs);if(blob.size<=4.8*1024*1024)break}
-setFile(new File([blob],'company-document.pdf',{type:'application/pdf'}),'photos')}
-function renderPages(){pagesEl.hidden=!pages.length;pagesEl.innerHTML='';pages.forEach(function(p,i){var d=document.createElement('div');d.className='rg-page';d.innerHTML='<img alt="Page '+(i+1)+'"><span>'+(i+1)+'</span><button type="button" aria-label="Remove page '+(i+1)+'">&times;</button>';d.querySelector('img').src=p.thumb;
-d.querySelector('button').onclick=function(){pages.splice(i,1);rebuild()};pagesEl.appendChild(d)});
-if(pages.length){var add=document.createElement('button');add.type='button';add.className='rg-page-add';add.innerHTML='+ Add<br>page';add.onclick=function(){document.getElementById('rg-imgs').click()};pagesEl.appendChild(add)}}
-async function addImages(files){var err=document.getElementById('rg-ferr');for(var i=0;i<files.length;i++){var f=files[i];if(!/^image\//.test(f.type)){continue}
-try{var url=URL.createObjectURL(f),im=await loadImg(url);var c=toJpeg(im,1800,.85),img=await loadImg(c.url);pages.push({img:img,thumb:toJpeg(im,260,.7).url});URL.revokeObjectURL(url)}catch(e){err.textContent='One of the photos could not be read. Try a JPG or PNG.';err.hidden=false}}
-await rebuild()}
+ var tries=[[1800,.82],[1400,.7],[1100,.6],[900,.5]],blob=null;
+ for(var t=0;t<tries.length;t++){var imgs=[];for(var i=0;i<pages.length;i++){var j=toJpeg(pages[i].img,tries[t][0],tries[t][1]);imgs.push({w:j.w,h:j.h,bytes:b64bytes(j.url)})}blob=buildPdf(imgs);if(blob.size<=4.8*1024*1024)break}
+ setFile(new File([blob],'company-document.pdf',{type:'application/pdf'}),'photos')}
+function renderPages(){pagesEl.hidden=!pages.length;pagesEl.textContent='';pages.forEach(function(p,i){var d=document.createElement('div');d.className='rg-page';var im=document.createElement('img');im.alt='Page '+(i+1);im.src=p.thumb;var sp=document.createElement('span');sp.textContent=i+1;var bt=document.createElement('button');bt.type='button';bt.setAttribute('aria-label','Remove page '+(i+1));bt.textContent='×';bt.onclick=function(){pages.splice(i,1);rebuild()};d.appendChild(im);d.appendChild(sp);d.appendChild(bt);pagesEl.appendChild(d)});
+ if(pages.length){var add=document.createElement('button');add.type='button';add.className='rg-page-add';add.textContent='+ Add page';add.onclick=function(){document.getElementById('rg-imgs').click()};pagesEl.appendChild(add)}}
+async function addImages(files){for(var i=0;i<files.length;i++){var f=files[i];if(!/^image\//.test(f.type))continue;
+ try{var url=URL.createObjectURL(f),im=await loadImg(url);var c=toJpeg(im,1800,.85),img=await loadImg(c.url);pages.push({img:img,thumb:toJpeg(im,260,.7).url});URL.revokeObjectURL(url)}catch(e){setErr('OfficialDocument','One of the photos could not be read. Try a JPG or PNG.')}}
+ await rebuild()}
 document.getElementById('rg-pdf').addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;pages=[];renderPages();setFile(f,'pdf');e.target.value=''});
 document.getElementById('rg-imgs').addEventListener('change',function(e){if(srcKind==='pdf'){pages=[]}addImages([].slice.call(e.target.files));e.target.value=''});
 document.getElementById('rg-camfile').addEventListener('change',function(e){if(srcKind==='pdf'){pages=[]}addImages([].slice.call(e.target.files));e.target.value=''});
-document.getElementById('rg-clear').addEventListener('click',function(){pages=[];renderPages();setFile(null)});
+document.getElementById('rg-clear').addEventListener('click',function(){pages=[];renderPages();setFile(null);document.getElementById('rg-drop').querySelector('label').focus()});
+[].forEach.call(dropEl.querySelectorAll('label.rg-opt'),function(l){l.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();l.click()}})});
 ['dragenter','dragover'].forEach(function(ev){dropEl.addEventListener(ev,function(e){e.preventDefault();dropEl.classList.add('over')})});
 ['dragleave','drop'].forEach(function(ev){dropEl.addEventListener(ev,function(){dropEl.classList.remove('over')})});
 dropEl.addEventListener('drop',function(e){e.preventDefault();var fs=[].slice.call(e.dataTransfer.files);var pdf=fs.filter(function(f){return /pdf$/i.test(f.type)||/\.pdf$/i.test(f.name)})[0];
-if(pdf){pages=[];renderPages();setFile(pdf,'pdf')}else{if(srcKind==='pdf')pages=[];addImages(fs)}});
-// camera
+ if(pdf){pages=[];renderPages();setFile(pdf,'pdf')}else{if(srcKind==='pdf')pages=[];addImages(fs)}});
 var cam=document.getElementById('rg-cam'),video=document.getElementById('rg-video'),stream=null,facing='environment';
 function camCount(){document.getElementById('rg-cam-count').textContent=pages.length+' page'+(pages.length===1?'':'s')}
 async function startCam(){if(stream)stream.getTracks().forEach(function(t){t.stop()});stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream}
 function stopCam(){if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}cam.hidden=true}
 document.getElementById('rg-cam-btn').addEventListener('click',async function(){if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){document.getElementById('rg-camfile').click();return}
-if(srcKind==='pdf'){pages=[];setFile(null)}cam.hidden=false;camCount();try{await startCam()}catch(e){stopCam();var err=document.getElementById('rg-ferr');err.textContent=e&&e.name==='NotAllowedError'?'Camera permission was blocked. You can upload photos instead.':'No camera was found. You can upload photos instead.';err.hidden=false}});
+ if(srcKind==='pdf'){pages=[];setFile(null)}cam.hidden=false;camCount();try{await startCam()}catch(e){stopCam();setErr('OfficialDocument',e&&e.name==='NotAllowedError'?'Camera permission was blocked. You can upload photos instead.':'No camera was found. You can upload photos instead.')}});
 document.getElementById('rg-shot').addEventListener('click',async function(){if(!video.videoWidth)return;var f=document.getElementById('rg-flash');f.classList.remove('on');void f.offsetWidth;f.classList.add('on');
-var c=toJpeg(video,1800,.85),img=await loadImg(c.url);pages.push({img:img,thumb:toJpeg(video,260,.7).url});camCount();renderPages()});
+ var c=toJpeg(video,1800,.85),img=await loadImg(c.url);pages.push({img:img,thumb:toJpeg(video,260,.7).url});camCount();renderPages()});
 document.getElementById('rg-cam-flip').addEventListener('click',function(){facing=facing==='environment'?'user':'environment';startCam().catch(function(){})});
 document.getElementById('rg-cam-done').addEventListener('click',function(){stopCam();rebuild()});
 document.getElementById('rg-cam-close').addEventListener('click',function(){stopCam();rebuild()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!cam.hidden){stopCam();rebuild()}});
-// password
-var pw=document.getElementById('Password'),meter=document.getElementById('rg-meter'),rules=document.querySelectorAll('#rg-pw-rules span');
-pw.addEventListener('input',function(){var v=pw.value,t={len:v.length>=6,up:/[A-Z]/.test(v),low:/[a-z]/.test(v),num:/\d/.test(v),sym:/[^A-Za-z0-9]/.test(v)},n=0;
-rules.forEach(function(r){r.classList.toggle('ok',t[r.dataset.r]);if(t[r.dataset.r])n++});meter.dataset.s=v?Math.max(1,Math.min(4,n-1)):0});
-// server errors: open the first step that has one
-var first=-1;steps.forEach(function(s,k){if(first<0&&s.querySelector('.field-validation-error:not(:empty),.input-validation-error'))first=k});
-var summary=form.querySelector('.rg-summary');if(first<0&&summary&&summary.textContent.trim()&&!summary.classList.contains('validation-summary-valid'))first=0;
-show(first<0?0:first,false);
-})();
-</script>
-<script>
-// Address helpers: current location or a pin on the map, written into the Address field.
-(function(){
-var addr=document.getElementById('Address'),st=document.getElementById('rg-loc-status'),geo=document.getElementById('rg-geo'),pick=document.getElementById('rg-pick'),wrap=document.getElementById('rg-map-wrap'),map=null,pin=null,L0=null;
+
+/* ---- address helpers: current location or a map pin; never replaces typed text without asking ---- */
+var addr=document.getElementById('Address'),st=document.getElementById('rg-loc-status'),geo=document.getElementById('rg-geo'),pick=document.getElementById('rg-pick'),wrap=document.getElementById('rg-map-wrap'),conf=document.getElementById('rg-confirm'),map=null,pin=null,lastAuto='',pending='';
 function say(t,c){st.textContent=t;st.className='rg-loc-status'+(c?' '+c:'')}
 function loadLeaflet(cb){if(window.L)return cb();var css=document.createElement('link');css.rel='stylesheet';css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
-var js=document.createElement('script');js.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';js.onload=cb;js.onerror=function(){say('The map could not load. Check your internet connection.','err')};document.head.appendChild(js)}
+ var js=document.createElement('script');js.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';js.onload=cb;js.onerror=function(){say('The map could not load. You can still type your address.','err')};document.head.appendChild(js)}
+function applyAddress(txt){txt=txt.slice(0,500);var cur=addr.value.trim();if(!cur||cur===lastAuto){addr.value=txt;lastAuto=txt;conf.hidden=true;addr.dispatchEvent(new Event('input',{bubbles:true}));say('Location added to the address.','ok')}
+ else{pending=txt;document.getElementById('rg-confirm-t').textContent='Replace your address with: '+txt.replace(/\n/g,' — ')+'?';conf.hidden=false;say('Your typed address was kept.')}}
+document.getElementById('rg-confirm-yes').addEventListener('click',function(){addr.value=pending;lastAuto=pending;conf.hidden=true;addr.dispatchEvent(new Event('input',{bubbles:true}));say('Address replaced.','ok');addr.focus()});
+document.getElementById('rg-confirm-no').addEventListener('click',function(){conf.hidden=true;say('Your typed address was kept.');addr.focus()});
+function write(name,lat,lng){applyAddress((name?name+'\n':'')+'Location: '+(+lat).toFixed(5)+', '+(+lng).toFixed(5))}
 function fill(lat,lng){say('Finding the address…');
-fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=en&lat='+lat+'&lon='+lng,{headers:{'Accept':'application/json'}})
-.then(function(r){return r.json()}).then(function(d){var name=(d&&d.display_name)||'';write(name,lat,lng);say('Location added to the address.','ok')})
-.catch(function(){write('',lat,lng);say('Pin saved. Add the street name yourself if you like.','ok')})}
-function write(name,lat,lng){var coords='Location: '+(+lat).toFixed(5)+', '+(+lng).toFixed(5);var txt=(name?name+'\n':'')+coords;addr.value=txt.slice(0,500);addr.dispatchEvent(new Event('input',{bubbles:true}))}
+ fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=en&lat='+lat+'&lon='+lng,{headers:{'Accept':'application/json'}})
+ .then(function(r){return r.json()}).then(function(d){write((d&&d.display_name)||'',lat,lng)}).catch(function(){write('',lat,lng)})}
 function place(lat,lng,zoom){if(!map)return;if(!pin){pin=L.marker([lat,lng],{draggable:true}).addTo(map);pin.on('dragend',function(){var p=pin.getLatLng();fill(p.lat,p.lng)})}else pin.setLatLng([lat,lng]);map.setView([lat,lng],zoom||map.getZoom())}
 function openMap(cb){wrap.hidden=false;pick.setAttribute('aria-expanded','true');loadLeaflet(function(){if(!map){map=L.map('rg-map',{scrollWheelZoom:false}).setView([32.0,35.9],8);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-map.on('click',function(e){place(e.latlng.lat,e.latlng.lng);fill(e.latlng.lat,e.latlng.lng)})}setTimeout(function(){map.invalidateSize();if(cb)cb()},60)})}
-pick.addEventListener('click',function(){if(!wrap.hidden&&!cb){wrap.hidden=true;pick.setAttribute('aria-expanded','false');return}openMap()});var cb=null;
-geo.addEventListener('click',function(){if(!navigator.geolocation){say('Your browser cannot share its location.','err');return}
-geo.disabled=true;say('Asking your browser for your location…');
-navigator.geolocation.getCurrentPosition(function(p){geo.disabled=false;var la=p.coords.latitude,lo=p.coords.longitude;openMap(function(){place(la,lo,16)});fill(la,lo)},
-function(e){geo.disabled=false;say(e.code===1?'Location permission was blocked. You can pick on the map instead.':'Your location could not be found. Try the map instead.','err')},{enableHighAccuracy:true,timeout:12000})});
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+ map.on('click',function(e){place(e.latlng.lat,e.latlng.lng);fill(e.latlng.lat,e.latlng.lng)})}setTimeout(function(){map.invalidateSize();if(cb)cb()},60)})}
+pick.addEventListener('click',function(){if(!wrap.hidden){wrap.hidden=true;pick.setAttribute('aria-expanded','false');return}openMap()});
+geo.addEventListener('click',function(){if(!navigator.geolocation){say('Your browser cannot share its location. Type your address instead.','err');return}
+ geo.disabled=true;say('Asking your browser for your location…');
+ navigator.geolocation.getCurrentPosition(function(p){geo.disabled=false;var la=p.coords.latitude,lo=p.coords.longitude;openMap(function(){place(la,lo,16)});fill(la,lo)},
+ function(e){geo.disabled=false;say(e.code===1?'Location permission was blocked. You can type your address or pick it on the map.':'Your location could not be found. Type your address or try the map.','err')},{enableHighAccuracy:true,timeout:12000})});
+
+/* ---- start: show the step that holds a server-side error ---- */
+var first=-1;
+Object.keys(STEP_OF).forEach(function(n){var s=n==='OfficialDocument'?document.getElementById('err-OfficialDocumentSrv'):errEl(n);if(s&&s.textContent.trim()){var e=inp(n);e.setAttribute('aria-invalid','true');s.classList.add('field-validation-error');if(first<0||STEP_OF[n]<first)first=STEP_OF[n]}});
+var srvSum=document.getElementById('rg-summary');
+if(srvSum&&srvSum.textContent.trim()&&!srvSum.classList.contains('validation-summary-valid')){var f2=/password/i.test(srvSum.textContent)?1:0;if(first<0||f2<first)first=f2}
+sum();paint();
+if(first>=0){for(var k=0;k<first;k++)passed[k]=stepErrors(k,false).length===0;go(first,true);var bad=steps[first].querySelector('[aria-invalid=true]');if(bad&&first!==2)bad.focus();}else go(0,false);
+addEventListener('resize',paint);
 })();
 </script>
 </body>

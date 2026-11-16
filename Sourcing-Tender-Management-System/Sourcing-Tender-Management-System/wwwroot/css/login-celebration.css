@@ -8,3 +8,6 @@
 @keyframes zt-film-in { from {opacity:0;transform:translateY(4px);} to {opacity:1;transform:translateY(0);} }
 @media (max-height:480px) { .zt-oil-film { border-radius:12px; } }
 @media (prefers-reduced-motion:reduce) { .zt-oil-success { display:none; } }
+.zt-oil-skip { position:fixed; right:16px; bottom:16px; z-index:151; min-height:44px; padding:0 18px; border:1.5px solid #17402A; border-radius:999px; background:#FBF3DFE6; color:#17402A; font:700 14px 'DM Sans',system-ui,sans-serif; cursor:pointer; }
+.zt-oil-skip:hover { background:#17402A; color:#FBF3DF; }
+.zt-oil-skip:focus-visible { outline:3px solid #17402A; outline-offset:3px; }

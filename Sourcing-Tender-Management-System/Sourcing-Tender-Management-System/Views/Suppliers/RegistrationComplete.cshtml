@@ -128,11 +128,12 @@ a{color:var(--green)}
 <main class="dn">
   <div class="dn-card">
     <div class="dn-ico" aria-hidden="true"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><path d="M30 52 L45 66 L71 37"/></svg></div>
-    <h1>Application received</h1>
+    <h1>Your application has been received.</h1>
+    <p class="dn-pend" style="display:inline-block;margin:0 0 14px;padding:6px 14px;border-radius:999px;background:#FFF4D6;border:1px solid #E6CF86;color:#5A4A12;font:600 13px 'DM Mono',monospace;letter-spacing:.06em">Status: Pending review</p>
     <p class="dn-msg" role="status">@(TempData["SupplierMessage"] ?? "Your registration has been received. An administrator will review it shortly.")</p>
     <ol class="dn-track" aria-label="Application progress">
       <li class="done"><i>&#10003;</i><b>Submitted</b></li>
-      <li class="now"><i>2</i><b>Admin review</b></li>
+      <li class="now"><i>2</i><b>Review</b></li>
       <li><i>3</i><b>Approved</b></li>
       <li><i>4</i><b>Start bidding</b></li>
     </ol>
