@@ -1,22 +1,61 @@
 @model IEnumerable<Sourcing_Tender_Management_System.Models.Clarification>
-@{ ViewData["Title"] = "Clarification Inbox"; }
-<div id="clarification-search-results">
-<h2>Clarification Inbox</h2>
-<p>Only conversations in which you are a participant are listed. Start from a request, tender or bid.</p>
-<p><a asp-controller="Department" asp-action="Index">Department Requests</a></p>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "clarification-search", ResultsId = "clarification-search-results", Label = "Search your clarification conversations" })" />
-<table class="table table-bordered">
-<thead><tr><th>Subject</th><th>Context</th><th>From</th><th>To</th><th>Status</th><th>Created</th></tr></thead>
-<tbody>
-@foreach (var c in Model)
-{
-    <tr data-search-item>
-        <td><a asp-action="Thread" asp-route-id="@c.Id">@c.Subject</a></td>
-        <td>@(c.ProcurementRequestId.HasValue ? "Request #" + c.ProcurementRequestId : c.TenderId.HasValue ? "Tender #" + c.TenderId : "Bid #" + c.BidId)</td>
-        <td>@c.AskedByUser?.FullName</td><td>@c.RecipientUser?.FullName</td><td>@c.Status</td><td>@c.AskedAt.ToLocalTime()</td>
-    </tr>
+@using Sourcing_Tender_Management_System.Models
+@{
+    ViewData["Title"] = "Clarification Inbox";
+    var me = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var list = Model.ToList();
+    string StatusCss(ClarificationStatus s) => s switch { ClarificationStatus.Pending => "is-returned", ClarificationStatus.Answered => "is-review", _ => "is-approved" };
 }
-</tbody>
-</table>
+<div id="clarification-search-results" class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Clarifications</h1>
+        <p class="manager-intro mb-0">Conversations you take part in. Start a new one from a request, tender or bid.</p>
+    </div>
+    @if (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
+    {
+        <div class="actions"><a asp-controller="Department" asp-action="Index" class="btn btn-outline-primary">My requests</a></div>
+    }
+</div>
 
+<ul class="zt-bento" aria-label="Clarification summary">
+    <li><div class="zt-tile"><span class="zt-tile-label">Conversations</span><span class="zt-tile-value">@list.Count</span></div></li>
+    <li><div class="zt-tile @(list.Any(c => c.Status == ClarificationStatus.Pending && c.RecipientUserId == me) ? "is-alert" : "")"><span class="zt-tile-label">Awaiting answer</span><span class="zt-tile-value">@list.Count(c => c.Status == ClarificationStatus.Pending)</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Answered</span><span class="zt-tile-value">@list.Count(c => c.Status == ClarificationStatus.Answered)</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Resolved</span><span class="zt-tile-value">@list.Count(c => c.Status == ClarificationStatus.Resolved)</span></div></li>
+</ul>
+
+<section class="manager-search-panel mb-4" aria-label="Search clarifications">
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "clarification-search", ResultsId = "clarification-search-results", Label = "Search your clarification conversations", Placeholder = "Subject, person or context" })" />
+</section>
+
+<section class="card manager-card mb-4">
+    <div class="card-header"><h2 class="h5 mb-0">Inbox</h2></div>
+    @if (list.Count == 0)
+    {
+        <p class="empty-state">No clarification conversations yet. Open a request and choose “Ask for clarification”.</p>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0"><caption class="visually-hidden">Clarification conversations</caption>
+        <thead><tr><th scope="col">Subject</th><th scope="col">Context</th><th scope="col">With</th><th scope="col">Status</th><th scope="col">Asked</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+        <tbody>
+        @foreach (var c in list)
+        {
+            var mine = c.AskedByUserId == me;
+            var other = mine ? c.RecipientUser?.FullName : c.AskedByUser?.FullName;
+            <tr data-search-item>
+                <td><a class="dp-req-title" asp-action="Thread" asp-route-id="@c.Id">@c.Subject</a><span class="dp-meta mt-0">@(mine ? "You asked" : "Asked to you")</span></td>
+                <td>@(c.ProcurementRequestId.HasValue ? "Request #" + c.ProcurementRequestId : c.TenderId.HasValue ? "Tender #" + c.TenderId : "Bid #" + c.BidId)</td>
+                <td>
+                    <span class="dp-person"><span class="dp-avatar" aria-hidden="true">@(string.IsNullOrWhiteSpace(other) ? "?" : other.Trim()[..1].ToUpperInvariant())</span><span>@(other ?? "—")</span></span>
+                </td>
+                <td><span class="dp-status @StatusCss(c.Status)">@c.Status</span></td>
+                <td class="text-nowrap">@c.AskedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</td>
+                <td class="text-end"><a asp-action="Thread" asp-route-id="@c.Id" class="btn btn-outline-primary btn-sm" aria-label="Open @c.Subject">Open</a></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>
 </div>

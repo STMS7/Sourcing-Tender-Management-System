@@ -3,37 +3,168 @@
     ViewData["Title"] = "Offer Details";
     var canWithdraw = Model.Status == BidStatus.Submitted && Model.Tender.Status == TenderStatus.Published
         && Model.Tender.SubmissionDeadline > DateTime.UtcNow && (Model.Tender.PublishedAt is null || Model.Tender.PublishedAt <= DateTime.UtcNow);
-}
-<div id="supplier-offer-details-search-results">
-<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Offer Details</h1><a asp-action="Offers" class="btn btn-outline-secondary align-self-start">Back to my offers</a></div>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-offer-details-search", ResultsId = "supplier-offer-details-search-results", Label = "Search offered items and attached documents" })" />
-<partial name="_OfferSummary" model="Model" />
-<h2 class="h5">Offer documents</h2>
-@if (Model.Documents.Count == 0) { <p class="text-muted">No documents attached.</p> }
-else
-{
-    <ul class="list-group mb-4">
-    @foreach (var doc in Model.Documents.OrderBy(x => x.Id))
+    var subtotal = Model.Items.Sum(x => x.TotalPrice);
+    var (compCss, compText) = Model.ComplianceStatus switch
     {
-        <li data-search-item class="list-group-item d-flex flex-wrap justify-content-between gap-2"><span class="text-break">@doc.DocumentType — @doc.FileName</span><a asp-action="Download" asp-route-id="@doc.Id">Download PDF</a></li>
-    }
-    </ul>
+        ComplianceDecision.Compliant => ("is-approved", "Compliant"),
+        ComplianceDecision.NonCompliant => ("is-rejected", "Not compliant"),
+        ComplianceDecision.PendingClarification => ("is-returned", "Clarification needed"),
+        _ => ("is-draft", "Pending review")
+    };
+    var (resultCss, resultTitle, resultText) = Model.Status switch
+    {
+        BidStatus.Accepted => ("alert-success", "Congratulations, your offer won.", "The sourcing team will contact you about the next steps."),
+        BidStatus.Rejected => ("alert-secondary", "Your offer was not selected.", "Thank you for taking part. Keep an eye on new invitations."),
+        BidStatus.Withdrawn => ("alert-secondary", "You withdrew this offer.", "Withdrawn offers are not evaluated."),
+        BidStatus.Disqualified or BidStatus.NonCompliant => ("alert-warning", "This offer did not pass the review.", Model.DisqualificationReason ?? "See the reason below."),
+        _ => ("alert-info", "Your offer is being reviewed.", "You will get a notification when there is a decision.")
+    };
+    string Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToString("O");
 }
-<div class="d-flex flex-wrap gap-2 mb-4">
-    <a asp-action="Report" asp-route-id="@Model.Id" class="btn btn-outline-primary">View report / print</a>
-    <a asp-action="Export" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Download summary (CSV)</a>
-</div>
-@if (canWithdraw)
-{
-    <div class="card border-warning mb-4"><div class="card-body">
-        <h2 class="h5">Withdraw offer</h2>
-        <p>Withdrawal is available before the tender deadline. This portal does not currently allow resubmitting a withdrawn offer.</p>
-        <form asp-action="Withdraw" method="post">
-            <input type="hidden" name="id" value="@Model.Id" />
-            <div class="form-check mb-3"><input type="checkbox" name="confirmed" value="true" class="form-check-input" id="confirm-withdraw" required /><label for="confirm-withdraw" class="form-check-label">I confirm that I want to withdraw this offer.</label></div>
-            <button type="submit" class="btn btn-outline-danger">Withdraw offer</button>
-        </form>
-    </div></div>
-}
+<partial name="_WorkspaceLook" />
+<div class="zt-app sp-ws">
+<div id="supplier-offer-details-search-results" class="manager-page ec-page dp-page">
+    <div class="dp-head">
+        <div class="manager-page-heading">
+            <a asp-action="Offers" class="dp-crumb"><span aria-hidden="true">←</span> My offers</a>
+            <h1 class="manager-title mb-1">@Model.Tender.Title</h1>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <partial name="_BidStatus" model="Model.Status" />
+                <span class="dp-num" title="@Model.BidNumber">@Model.BidNumber</span>
+            </div>
+        </div>
+        <div class="actions">
+            <a asp-action="Report" asp-route-id="@Model.Id" class="btn btn-outline-primary">View report / print</a>
+            <a asp-action="Export" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Download CSV</a>
+        </div>
+    </div>
 
+    <div class="alert @resultCss" role="status"><strong>@resultTitle</strong> @resultText</div>
+
+    <ul class="zt-bento" aria-label="Offer summary">
+        <li><div class="zt-tile"><span class="zt-tile-label">Total</span><span class="zt-tile-value" style="font-size:1.6rem">@Model.TotalAmount.ToString("N2")</span><span class="zt-tile-note">@Model.Currency</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Delivery</span><span class="zt-tile-value">@Model.DeliveryDays</span><span class="zt-tile-note">days</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Items</span><span class="zt-tile-value">@Model.Items.Count</span><span class="zt-tile-note">@Model.Documents.Count documents attached</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Valid until</span><span class="zt-tile-value" style="font-size:1.4rem">@(Model.ValidUntil?.ToString("dd MMM yyyy") ?? "—")</span><span class="zt-tile-note">Offer validity</span></div></li>
+    </ul>
+
+    <section class="manager-search-panel mb-4" aria-label="Search this offer">
+        <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "supplier-offer-details-search", ResultsId = "supplier-offer-details-search-results", Label = "Search offered items and attached documents", Placeholder = "Item, brand or document" })" />
+    </section>
+
+    <div class="row g-4">
+        <div class="col-xl-8">
+            <section class="card manager-card mb-4">
+                <div class="card-header dp-split"><h2 class="h5 mb-0">Offered items</h2><span class="badge">@Model.Items.Count</span></div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <caption class="visually-hidden">Offered items</caption>
+                        <thead><tr><th scope="col">Item</th><th scope="col" class="text-end">Quantity</th><th scope="col" class="text-end">Unit price</th><th scope="col" class="text-end">Total</th></tr></thead>
+                        <tbody>
+                        @foreach (var item in Model.Items.OrderBy(x => x.Id))
+                        {
+                            <tr data-search-item>
+                                <td>
+                                    <span class="fw-semibold d-block">@item.TenderItem.ItemName</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.BrandOrModel)) { <span class="dp-meta mt-0">@item.BrandOrModel</span> }
+                                    @if (!string.IsNullOrWhiteSpace(item.TechnicalResponse)) { <span class="d-block small mt-1 text-break">@item.TechnicalResponse</span> }
+                                </td>
+                                <td class="text-end text-nowrap">@item.TenderItem.Quantity.ToString("0.###") @item.TenderItem.Unit</td>
+                                <td class="text-end money">@item.UnitPrice.ToString("N2")</td>
+                                <td class="text-end money fw-semibold">@item.TotalPrice.ToString("N2")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card manager-card mb-4">
+                <div class="card-header"><h2 class="h5 mb-0">Financial summary (@Model.Currency)</h2></div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <caption class="visually-hidden">Financial summary</caption>
+                        <tbody>
+                            <tr><th scope="row">Items subtotal</th><td class="text-end money">@subtotal.ToString("N2")</td></tr>
+                            <tr><th scope="row">Tax</th><td class="text-end money">@Model.TaxAmount.ToString("N2")</td></tr>
+                            <tr><th scope="row">Fees</th><td class="text-end money">@Model.FeesAmount.ToString("N2")</td></tr>
+                            <tr><th scope="row">Shipping</th><td class="text-end money">@Model.ShippingAmount.ToString("N2")</td></tr>
+                            <tr><th scope="row">Installation</th><td class="text-end money">@Model.InstallationAmount.ToString("N2")</td></tr>
+                            <tr><th scope="row">Maintenance</th><td class="text-end money">@Model.MaintenanceAmount.ToString("N2")</td></tr>
+                            <tr class="dp-total"><th scope="row">Total</th><td class="text-end money">@Model.TotalAmount.ToString("N2") @Model.Currency</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card manager-card mb-4">
+                <div class="card-header dp-split"><h2 class="h5 mb-0">Offer documents</h2><span class="badge">@Model.Documents.Count</span></div>
+                @if (Model.Documents.Count == 0) { <p class="empty-state">No documents attached.</p> }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <caption class="visually-hidden">Offer documents</caption>
+                            <thead><tr><th scope="col">Document</th><th scope="col">File</th><th scope="col"><span class="visually-hidden">Download</span></th></tr></thead>
+                            <tbody>
+                            @foreach (var doc in Model.Documents.OrderBy(x => x.Id))
+                            {
+                                <tr data-search-item><td class="fw-semibold">@doc.DocumentType</td><td class="text-break">@doc.FileName</td><td class="text-end"><a asp-action="Download" asp-route-id="@doc.Id" class="btn btn-sm btn-outline-primary">Download</a></td></tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="dp-sticky">
+                <section class="card manager-card mb-4">
+                    <div class="card-header"><h2 class="h5 mb-0">Offer</h2></div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <caption class="visually-hidden">Offer details</caption>
+                            <tbody>
+                                <tr><th scope="row">Status</th><td><partial name="_BidStatus" model="Model.Status" /></td></tr>
+                                <tr><th scope="row">Compliance</th><td><span class="dp-status @compCss">@compText</span></td></tr>
+                                <tr><th scope="row">Submitted</th><td><time class="device-local-time" datetime="@Utc(Model.SubmittedAt)">@Model.SubmittedAt.ToString("dd MMM yyyy HH:mm")</time></td></tr>
+                                <tr><th scope="row">Tender</th><td><span class="dp-num dp-num-wide" title="@Model.Tender.TenderNumber">@Model.Tender.TenderNumber</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.DisqualificationReason))
+                    {
+                        <div class="alert alert-warning m-3"><strong>Review note:</strong> @Model.DisqualificationReason</div>
+                    }
+                </section>
+
+                <section class="card manager-card mb-4">
+                    <div class="card-header"><h2 class="h5 mb-0">Technical summary</h2></div>
+                    <p class="dp-desc pt-3">@(string.IsNullOrWhiteSpace(Model.TechnicalSummary) ? "—" : Model.TechnicalSummary)</p>
+                </section>
+
+                <section class="card manager-card mb-4">
+                    <div class="card-header"><h2 class="h5 mb-0">Payment terms</h2></div>
+                    <p class="dp-desc pt-3">@(string.IsNullOrWhiteSpace(Model.PaymentTerms) ? "—" : Model.PaymentTerms)</p>
+                </section>
+
+                @if (canWithdraw)
+                {
+                    <section class="card manager-card mb-4">
+                        <div class="card-header"><h2 class="h5 mb-0">Withdraw offer</h2></div>
+                        <div class="card-body">
+                            <p class="small">Possible until the tender deadline. A withdrawn offer cannot be resubmitted.</p>
+                            <form asp-action="Withdraw" method="post">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <div class="form-check mb-3"><input type="checkbox" name="confirmed" value="true" class="form-check-input" id="confirm-withdraw" required /><label for="confirm-withdraw" class="form-check-label">I confirm that I want to withdraw this offer.</label></div>
+                                <button type="submit" class="btn btn-outline-danger w-100">Withdraw offer</button>
+                            </form>
+                        </div>
+                    </section>
+                }
+            </div>
+        </div>
+    </div>
+</div>
 </div>

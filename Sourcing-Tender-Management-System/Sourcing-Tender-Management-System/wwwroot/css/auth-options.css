@@ -1,0 +1,39 @@
+/* Login's biometric dialog only. */
+.auth-options-dialog [hidden] { display:none !important; }
+.auth-options-dialog .auth-face-method { padding-top:0; border-top:0; }
+.zt-auth .auth-methods.auth-methods-expanded { display:grid; }
+.zt-auth .auth-options-dialog { width:min(460px,calc(100% - 32px)); padding:28px; border:1px solid #D4D7BE; border-radius:16px; max-height:calc(100dvh - 32px); scrollbar-color:#A8B297 #FBF3DF; }
+.auth-options-dialog::backdrop { background:#10261A80; backdrop-filter:blur(5px); }
+.auth-options-dialog .auth-options-header { align-items:center; gap:20px; }
+.auth-options-dialog .auth-options-header h2 { font-size:28px; line-height:1.15; margin:0; letter-spacing:-.025em; }
+.auth-options-dialog .auth-options-close { width:36px; height:36px; border-radius:8px; }
+.auth-options-close svg { width:18px; height:18px; }
+.auth-options-close:hover { background:#EEF0DC; }
+.auth-options-dialog .auth-options-intro { font-size:12px; line-height:1.65; margin:12px 0 22px; max-width:34ch; }
+.zt-auth .auth-options-dialog #bio-root { margin:0 !important; }
+.auth-bio-methods { display:grid; gap:16px; }
+.auth-bio-method { display:flex; align-items:center; gap:14px; width:100%; min-height:78px; padding:16px; text-align:left; border:1px solid #B9C0AB; border-radius:10px; background:#FFFCF3; color:#17402A; transition:border-color 150ms,background 150ms; }
+.auth-bio-method:hover { background:#EEF0DC; border-color:#4E6B2F; }
+.auth-bio-method:disabled { opacity:.6; cursor:wait; }
+.auth-bio-icon { width:38px; height:38px; flex-shrink:0; display:grid; place-items:center; background:#EEF0DC; border-radius:8px; }
+.auth-bio-icon svg { width:24px; height:24px; }
+.auth-bio-copy { flex:1; min-width:0; }
+.auth-bio-copy strong { display:block; font-size:13px; font-weight:600; line-height:1.4; }
+.auth-bio-copy small { display:block; color:#5A6A5E; font-size:11px; line-height:1.5; margin-top:4px; }
+.auth-bio-arrow { font-size:18px; }
+.auth-face-method { padding-top:17px; border-top:1px solid #D4D7BE; }
+.auth-face-email { margin-bottom:12px; }
+.auth-face-email label { display:block; font-size:12px; font-weight:600; color:#17402A; margin-bottom:7px; }
+.auth-options-dialog .auth-face-email .form-control { min-height:44px; padding:10px 12px; font-size:13px; }
+.auth-face-email p { color:#5A6A5E; font-size:11px; line-height:1.5; margin:7px 0 0; }
+.auth-face-email [aria-invalid=true] { border-color:#B4411E; }
+.zt-auth .auth-options-dialog #bio-status { padding:12px 14px; margin:0 0 16px; line-height:1.65; overflow-wrap:anywhere; border-radius:8px; font-size:12px; }
+.zt-auth .auth-options-dialog #bio-root details { padding-top:14px; margin-top:16px !important; border-top:1px solid #D4D7BE; font-size:11px !important; }
+.zt-auth .auth-options-dialog #bio-root summary { font-size:11px; color:#3A4A3E !important; line-height:1.6; padding:6px 0; }
+.zt-auth .auth-options-dialog #bio-root details li { margin-bottom:8px; font-size:11px; line-height:1.65; }
+.zt-auth .auth-options-dialog #bioHint { margin-top:14px !important; padding:12px; line-height:1.6; }
+.auth-options-footer { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; border-top:1px solid #D4D7BE; padding-top:18px; margin-top:18px; font-size:11px; }
+.auth-options-footer button { border:0; padding:6px 0; background:none; color:#17402A; text-decoration:underline; text-underline-offset:4px; font:600 11px 'DM Sans',sans-serif; }
+.auth-options-footer a { color:#17402A; padding-block:6px; }
+@media(max-width:480px) { .zt-auth .auth-options-dialog { padding:22px; }.auth-options-dialog .auth-options-header h2 { font-size:25px; }.auth-bio-method { padding:13px; gap:10px; }.auth-options-footer { align-items:flex-start; flex-direction:column; gap:4px; } }
+@media(prefers-reduced-motion:reduce) { .auth-bio-method { transition:none; } }

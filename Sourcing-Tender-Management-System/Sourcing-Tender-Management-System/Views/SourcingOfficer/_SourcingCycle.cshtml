@@ -1,0 +1,16 @@
+@model int
+@{
+    var steps = new[] { "Review department request", "Prepare tender & suppliers", "Receive supplier offers", "Check compliance", "Hand off to evaluation" };
+}
+<link rel="stylesheet" href="~/css/sourcing-cycle.css" asp-append-version="true" />
+<section class="so-cycle" aria-label="Your sourcing cycle">
+    <h2>Your sourcing cycle</h2>
+    <ol>
+    @for (var i = 0; i < steps.Length; i++) {
+        <li class="@(i < Model ? "so-step-done" : i == Model ? "so-step-current" : "")" aria-current="@(i == Model ? "step" : null)">
+            <span class="so-step-number" aria-hidden="true">@(i + 1)</span>
+            <span>@steps[i]@if (i < Model) { <span class="visually-hidden"> — completed</span> }</span>
+        </li>
+    }
+    </ol>
+</section>

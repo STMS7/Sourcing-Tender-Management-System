@@ -1,29 +1,81 @@
 @model Sourcing_Tender_Management_System.Models.Clarification
 @using Sourcing_Tender_Management_System.Models
-@{ ViewData["Title"] = "Clarification"; }
-<div id="thread-search-results">
-<h2>@Model.Subject</h2>
-<p>Status: <strong>@Model.Status</strong> | Asked: @Model.AskedAt.ToLocalTime()</p>
-<p>From: @Model.AskedByUser?.FullName | To: @Model.RecipientUser?.FullName</p>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "thread-search", ResultsId = "thread-search-results", Label = "Search this question and its responses" })" />
-<p data-search-item>@Model.Question</p>
-<h3>Responses</h3>
-@foreach (var r in Model.Responses.OrderBy(r => r.RespondedAt))
-{
-    <div data-search-item class="border p-2 mb-2"><strong>@r.RespondedByUser?.FullName</strong> — @r.RespondedAt.ToLocalTime()<p>@r.ResponseText</p></div>
+@{
+    ViewData["Title"] = "Clarification";
+    var me = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var statusCss = Model.Status switch { ClarificationStatus.Pending => "is-returned", ClarificationStatus.Answered => "is-review", _ => "is-approved" };
+    string Initial(string? name) => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+    var responses = Model.Responses.OrderBy(r => r.RespondedAt).ToList();
 }
-@if (ViewBag.CanReply == true)
-{
-    <form asp-action="Reply" asp-route-id="@Model.Id" method="post">
-        <label>Reply</label><textarea name="response" required maxlength="3000" class="form-control"></textarea>
-        <button type="submit">Send response</button>
-    </form>
-}
-@if (Model.Status != ClarificationStatus.Resolved &&
-    Model.AskedByUserId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
-{
-    <form asp-action="Resolve" asp-route-id="@Model.Id" method="post"><button type="submit">Mark Resolved</button></form>
-}
-<p><a asp-action="Index">Back to inbox</a></p>
+<div id="thread-search-results" class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <a asp-action="Index" class="dp-crumb"><span aria-hidden="true">←</span> Clarifications</a>
+        <h1 class="manager-title mb-1">@Model.Subject</h1>
+        <div class="d-flex flex-wrap align-items-center gap-2"><span class="dp-status @statusCss">@Model.Status</span><span class="dp-meta mt-0">Asked @Model.AskedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span></div>
+    </div>
+    @if (Model.Status != ClarificationStatus.Resolved && Model.AskedByUserId == me)
+    {
+        <form asp-action="Resolve" asp-route-id="@Model.Id" method="post" class="actions"><button type="submit" class="btn btn-outline-primary">Mark resolved</button></form>
+    }
+</div>
 
+<div class="row g-4">
+    <div class="col-xl-8">
+        <section class="manager-search-panel mb-4" aria-label="Search this conversation">
+            <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "thread-search", ResultsId = "thread-search-results", Label = "Search this question and its responses" })" />
+        </section>
+
+        <section class="card manager-card mb-4">
+            <div class="card-header dp-split"><h2 class="h5 mb-0">Conversation</h2><span class="badge">@responses.Count @(responses.Count == 1 ? "reply" : "replies")</span></div>
+            <div class="dp-thread">
+                <div class="dp-msg is-question @(Model.AskedByUserId == me ? "is-mine" : null)" data-search-item>
+                    <div class="dp-msg-head"><strong>@(Model.AskedByUser?.FullName ?? "—") · Question</strong><span>@Model.AskedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span></div>
+                    <p>@Model.Question</p>
+                </div>
+                @foreach (var r in responses)
+                {
+                    <div class="dp-msg @(r.RespondedByUserId == me ? "is-mine" : null)" data-search-item>
+                        <div class="dp-msg-head"><strong>@(r.RespondedByUser?.FullName ?? "—")</strong><span>@r.RespondedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span></div>
+                        <p>@r.ResponseText</p>
+                    </div>
+                }
+                @if (responses.Count == 0)
+                {
+                    <p class="empty-state py-2">No replies yet.</p>
+                }
+            </div>
+            @if (ViewBag.CanReply == true)
+            {
+                <form asp-action="Reply" asp-route-id="@Model.Id" method="post" class="dp-form dp-form-foot d-block">
+                    <label for="thread-reply" class="form-label">Your reply</label>
+                    <textarea id="thread-reply" name="response" required maxlength="3000" class="form-control mb-3" placeholder="Write a reply"></textarea>
+                    <div class="actions justify-content-end"><button type="submit" class="btn btn-primary">Send response</button></div>
+                </form>
+            }
+        </section>
+    </div>
+    <div class="col-xl-4">
+        <section class="card manager-card mb-4">
+            <div class="card-header"><h2 class="h5 mb-0">Participants</h2></div>
+            <div class="card-body d-grid gap-3">
+                <div class="dp-person"><span class="dp-avatar" aria-hidden="true">@Initial(Model.AskedByUser?.FullName)</span><span><strong class="d-block">@(Model.AskedByUser?.FullName ?? "—")</strong><span class="dp-meta mt-0">Asked the question</span></span></div>
+                <div class="dp-person"><span class="dp-avatar" aria-hidden="true">@Initial(Model.RecipientUser?.FullName)</span><span><strong class="d-block">@(Model.RecipientUser?.FullName ?? "—")</strong><span class="dp-meta mt-0">Recipient</span></span></div>
+            </div>
+        </section>
+        <section class="card manager-card mb-4">
+            <div class="card-header"><h2 class="h5 mb-0">Context</h2></div>
+            <div class="card-body">
+                @if (Model.ProcurementRequestId.HasValue && (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment")))
+                {
+                    <a asp-controller="Department" asp-action="Details" asp-route-id="@Model.ProcurementRequestId" class="btn btn-outline-primary w-100">Open request #@Model.ProcurementRequestId</a>
+                }
+                else
+                {
+                    <p class="mb-0">@(Model.ProcurementRequestId.HasValue ? "Request #" + Model.ProcurementRequestId : Model.TenderId.HasValue ? "Tender #" + Model.TenderId : "Bid #" + Model.BidId)</p>
+                }
+            </div>
+        </section>
+    </div>
+</div>
 </div>

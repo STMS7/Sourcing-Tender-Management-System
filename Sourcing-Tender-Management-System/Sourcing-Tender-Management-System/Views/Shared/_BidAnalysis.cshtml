@@ -3,12 +3,10 @@
     var topScored = Model.Rows.FirstOrDefault(r => r.BidId == Model.TopScoredBidId);
     var recommended = Model.Rows.FirstOrDefault(r => r.BidId == Model.RecommendedBidId);
     var preferred = Model.Narrative?.PreferredLabel is string label ? Model.Rows.FirstOrDefault(r => r.Label == label) : null;
-    string Name(BidAnalysisRow? r) => r == null ? "" : $"{r.Label}: {r.SupplierName} ({r.BidNumber})";
+    string Name(BidAnalysisRow? r) => r?.SupplierName ?? "";
 }
 
-<div class="alert alert-secondary small" role="note">
-    This is an assistant only. It does not accept, reject or vote. The decision is yours.
-</div>
+<p class="ba-note" role="note">Advisory only. This assistant does not accept, reject or vote. The decision is yours.</p>
 
 @if (Model.Message is not null)
 {
@@ -18,77 +16,101 @@ else
 {
     foreach (var warning in Model.Warnings)
     {
-        <div class="alert alert-warning small py-2" role="alert">@warning</div>
+        <div class="ba-warning" role="alert">@warning</div>
     }
 
     if (Model.Narrative is { } n)
     {
-        <section class="card border-primary mb-3">
-            <div class="card-body">
-                <h3 class="h6">AI view</h3>
-                <p class="mb-2">@n.Summary</p>
-                @if (preferred != null)
-                {
-                    <p class="mb-2"><strong>Prefers:</strong> @Name(preferred)<br />@n.PreferredReason</p>
-                }
-                @if (recommended != null)
-                {
-                    <p class="mb-2 small"><strong>Recommended by the sourcing manager:</strong> @Name(recommended)</p>
-                }
-                @if (n.Risks.Count > 0)
-                {
-                    <div class="small fw-semibold">Risks</div>
-                    <ul class="small">@foreach (var risk in n.Risks) { <li>@risk</li> }</ul>
-                }
-                @if (n.QuestionsToCheck.Count > 0)
-                {
-                    <div class="small fw-semibold">Check before you decide</div>
-                    <ul class="small mb-0">@foreach (var q in n.QuestionsToCheck) { <li>@q</li> }</ul>
-                }
-            </div>
+        <section class="ba-view" aria-labelledby="ba-view-title">
+            <h3 id="ba-view-title" class="ba-heading">AI view</h3>
+            <p class="ba-lead">@n.Summary</p>
+            @if (preferred != null)
+            {
+                <div class="ba-prefers">
+                    <span class="ba-prefers-label">Prefers</span>
+                    <strong class="ba-prefers-name">@Name(preferred)</strong>
+                    @if (!string.IsNullOrWhiteSpace(n.PreferredReason)) { <p class="ba-prefers-reason">@n.PreferredReason</p> }
+                </div>
+            }
+            @if (recommended != null)
+            {
+                <p class="ba-meta">Recommended by the sourcing manager: <strong>@Name(recommended)</strong></p>
+            }
+            @if (n.Risks.Count > 0 || n.QuestionsToCheck.Count > 0)
+            {
+                <div class="ba-lists">
+                    @if (n.Risks.Count > 0)
+                    {
+                        <div class="ba-list ba-list-risk">
+                            <h4>Risks</h4>
+                            <ul>@foreach (var risk in n.Risks) { <li>@risk</li> }</ul>
+                        </div>
+                    }
+                    @if (n.QuestionsToCheck.Count > 0)
+                    {
+                        <div class="ba-list">
+                            <h4>Check before you decide</h4>
+                            <ul>@foreach (var q in n.QuestionsToCheck) { <li>@q</li> }</ul>
+                        </div>
+                    }
+                </div>
+            }
         </section>
     }
     else
     {
-        <div class="alert alert-light border small" role="status">@Model.NarrativeUnavailableReason</div>
+        <div class="ba-warning" role="status">@Model.NarrativeUnavailableReason</div>
         if (recommended != null)
         {
-            <p class="small"><strong>Recommended by the sourcing manager:</strong> @Name(recommended)</p>
+            <p class="ba-meta">Recommended by the sourcing manager: <strong>@Name(recommended)</strong></p>
         }
     }
 
-    <h3 class="h6">Scores</h3>
-    <p class="small text-muted">
-        @Model.ScoringSummary Highest score: @Name(topScored).
-        Financial = lowest cost / bid cost x 100. Technical = @(Model.TechnicalFromCommitteeScores ? "average committee score" : "share of tender items quoted").
-    </p>
-    foreach (var r in Model.Rows)
-    {
-        <div class="card mb-3 @(r.BidId == Model.TopScoredBidId ? "border-success" : "")">
-            <div class="card-body">
-                <div class="d-flex justify-content-between flex-wrap gap-2">
-                    <div>
-                        <h4 class="h6 mb-0">#@r.Rank - @Name(r)
-                            @if (r.BidId == Model.RecommendedBidId) { <span class="badge text-bg-primary">Recommended</span> }
-                            @if (r.Compliance != ComplianceDecision.Compliant) { <span class="badge text-bg-warning">@r.Compliance</span> }
+    <section aria-labelledby="ba-scores-title">
+        <h3 id="ba-scores-title" class="ba-heading">Scores</h3>
+        <p class="ba-meta">
+            @Model.ScoringSummary Highest score: <strong>@Name(topScored)</strong>.
+            Financial = lowest cost / bid cost x 100. Technical = @(Model.TechnicalFromCommitteeScores ? "average committee score" : "share of tender items quoted").
+        </p>
+        <ol class="ba-rows">
+        @foreach (var r in Model.Rows)
+        {
+            var top = r.BidId == Model.TopScoredBidId;
+            <li class="ba-row @(top ? "is-top" : "")">
+                <div class="ba-row-head">
+                    <span class="ba-rank" aria-label="Rank @r.Rank">@r.Rank</span>
+                    <div class="ba-row-title">
+                        <h4>@r.SupplierName
+                            @if (r.BidId == Model.RecommendedBidId) { <span class="ba-tag">Recommended</span> }
+                            @if (r.Compliance != ComplianceDecision.Compliant) { <span class="ba-tag is-warn">@r.Compliance</span> }
                         </h4>
-                        <div class="small text-muted">@r.TotalAmount.ToString("N2") @r.Currency | @r.DeliveryDays days</div>
+                        <span class="ba-row-sub">@r.TotalAmount.ToString("N2") @r.Currency · @r.DeliveryDays days</span>
                     </div>
-                    <div class="text-end">
-                        <div class="fs-5 fw-semibold">@r.Total.ToString("0.#") / 100</div>
-                        <div class="small text-muted">Technical @r.Technical.ToString("0.#") | Financial @r.Financial.ToString("0.#")</div>
+                    <div class="ba-score"><strong>@r.Total.ToString("0.#")</strong><span>/ 100</span></div>
+                </div>
+                <div class="ba-bars">
+                    <div class="ba-bar" role="progressbar" aria-label="Technical score for @r.SupplierName" aria-valuenow="@((int)r.Technical)" aria-valuemin="0" aria-valuemax="100">
+                        <span class="ba-bar-label">Technical <b>@r.Technical.ToString("0.#")</b></span>
+                        <span class="ba-bar-track"><span class="ba-bar-fill" style="width:@((int)r.Technical)%"></span></span>
+                    </div>
+                    <div class="ba-bar" role="progressbar" aria-label="Financial score for @r.SupplierName" aria-valuenow="@((int)r.Financial)" aria-valuemin="0" aria-valuemax="100">
+                        <span class="ba-bar-label">Financial <b>@r.Financial.ToString("0.#")</b></span>
+                        <span class="ba-bar-track"><span class="ba-bar-fill" style="width:@((int)r.Financial)%"></span></span>
                     </div>
                 </div>
-                <div class="progress my-2" role="progressbar" aria-label="Score for @r.Label" aria-valuenow="@((int)r.Total)" aria-valuemin="0" aria-valuemax="100">
-                    <div class="progress-bar @(r.BidId == Model.TopScoredBidId ? "bg-success" : "")" style="width:@((int)r.Total)%"></div>
-                </div>
-                @if (r.AssistantNote is not null) { <p class="small mb-1">@r.AssistantNote</p> }
-                @if (r.Strengths.Count > 0) { <div class="small"><strong>Strengths:</strong> @string.Join(" ", r.Strengths)</div> }
-                @if (r.Weaknesses.Count > 0) { <div class="small"><strong>Weak points:</strong> @string.Join(" ", r.Weaknesses)</div> }
-            </div>
-        </div>
-    }
-    <p class="small text-muted mb-0">
+                @if (r.AssistantNote is not null) { <p class="ba-row-note">@r.AssistantNote</p> }
+                @if (r.Strengths.Count > 0 || r.Weaknesses.Count > 0)
+                {
+                    <dl class="ba-facts">
+                        @if (r.Strengths.Count > 0) { <div><dt>Strengths</dt><dd>@string.Join(" ", r.Strengths)</dd></div> }
+                        @if (r.Weaknesses.Count > 0) { <div><dt>Weak points</dt><dd>@string.Join(" ", r.Weaknesses)</dd></div> }
+                    </dl>
+                }
+            </li>
+        }
+        </ol>
+    </section>
+    <p class="ba-foot">
         @(Model.ModelName is null ? "Scores only (no AI text)." : "Text by local model " + Model.ModelName + ".")
         @Model.AnalyzedAt.ToString("dd MMM yyyy HH:mm") UTC
     </p>

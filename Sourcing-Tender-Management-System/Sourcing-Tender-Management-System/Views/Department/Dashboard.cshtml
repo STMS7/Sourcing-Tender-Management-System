@@ -1,35 +1,125 @@
-@model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
+﻿@model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
 @using Sourcing_Tender_Management_System.Models
+
+@inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
 @{
     ViewData["Title"] = "Department Dashboard";
+    var notifications = ((IEnumerable<Notification>)ViewBag.Notifications).ToList();
+    int total = ViewBag.Total, draft = ViewBag.Draft, submitted = ViewBag.Submitted, underReview = ViewBag.UnderReview,
+        returned = ViewBag.Returned, rejected = ViewBag.Rejected, approved = ViewBag.Approved, converted = ViewBag.Converted;
+    var needAction = draft + returned;
+    // Department representatives also sit on evaluation committees; show those tasks here so they are not missed.
+    var committeeTasks = User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment")
+        ? await new Sourcing_Tender_Management_System.Controllers.EvaluationCommitteeController(Db)
+            { ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = Context } }.ActionNeededCountAsync()
+        : 0;
+    var breakdown = new (string Label, string Css, ProcurementRequestStatus Status, int Count)[]
+    {
+        ("Draft", "sw-draft", ProcurementRequestStatus.Draft, draft),
+        ("Submitted", "sw-submitted", ProcurementRequestStatus.Submitted, submitted),
+        ("Under review", "sw-review", ProcurementRequestStatus.UnderReview, underReview),
+        ("Returned", "sw-returned", ProcurementRequestStatus.Returned, returned),
+        ("Rejected", "sw-rejected", ProcurementRequestStatus.Rejected, rejected),
+        ("Approved", "sw-approved", ProcurementRequestStatus.Approved, approved),
+        ("Converted to tender", "sw-converted", ProcurementRequestStatus.ConvertedToTender, converted),
+    };
 }
-<div id="department-dashboard-search-results">
-<h2>Department Dashboard</h2>
-<p><a asp-action="Index">My Requests</a> | <a asp-action="Create">Create Request</a> | <a asp-controller="CycleChat" asp-action="Index">Clarifications</a></p>
+<div id="department-dashboard-search-results" class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Department dashboard</h1>
+        <p class="manager-intro mb-0">@(needAction == 0 ? "Nothing is waiting for you right now." : needAction == 1 ? "One request needs your attention." : $"{needAction} requests need your attention.")</p>
+    </div>
+    <div class="actions">
+        <a asp-action="Index" class="btn btn-outline-primary">My requests</a>
+        <a asp-action="Create" class="btn btn-primary"><span aria-hidden="true">+</span> Create request</a>
+    </div>
+</div>
+
+@if (committeeTasks > 0)
+{
+    <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2" role="status">
+        <span><strong>Evaluation committee:</strong> @(committeeTasks == 1 ? "one tender is" : $"{committeeTasks} tenders are") waiting for your decision.</span>
+        <a asp-controller="EvaluationCommittee" asp-action="Index" class="btn btn-primary btn-sm">Open evaluation tasks</a>
+    </div>
+}
 <ul class="zt-bento" aria-label="Request summary">
-    <li><a class="zt-tile" asp-action="Index"><span class="zt-tile-label">Total</span><span class="zt-tile-value">@ViewBag.Total</span></a></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Draft</span><span class="zt-tile-value">@ViewBag.Draft</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Submitted</span><span class="zt-tile-value">@ViewBag.Submitted</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Under Review</span><span class="zt-tile-value">@ViewBag.UnderReview</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Returned</span><span class="zt-tile-value">@ViewBag.Returned</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Rejected</span><span class="zt-tile-value">@ViewBag.Rejected</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Approved</span><span class="zt-tile-value">@ViewBag.Approved</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Converted</span><span class="zt-tile-value">@ViewBag.Converted</span></div></li>
-</ul>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-dashboard-search", ResultsId = "department-dashboard-search-results", Label = "Search recent requests and notifications" })" />
-<h3>Recent requests</h3>
-<ul>
-@foreach (var r in Model)
-{
-    <li data-search-item><a asp-action="Details" asp-route-id="@r.Id">@r.RequestNumber – @r.Title</a> (@r.Status)</li>
-}
-</ul>
-<h3>My latest notifications</h3>
-<ul>
-@foreach (var n in ((IEnumerable<Notification>)ViewBag.Notifications))
-{
-    <li data-search-item>@n.CreatedAt.ToLocalTime(): @n.Title – @n.Message</li>
-}
+    <li><a class="zt-tile" asp-action="Index"><span class="zt-tile-label">Total requests</span><span class="zt-tile-value">@total</span><span class="zt-tile-note">All requests from your department</span></a></li>
+    <li><a class="zt-tile @(needAction > 0 ? "is-alert" : "")" asp-action="Index" asp-route-status="@(returned > 0 ? "Returned" : "Draft")"><span class="zt-tile-label">Needs your action</span><span class="zt-tile-value">@needAction</span><span class="zt-tile-note">@draft draft · @returned returned</span></a></li>
+    <li><a class="zt-tile" asp-action="Index" asp-route-status="UnderReview"><span class="zt-tile-label">In review</span><span class="zt-tile-value">@(submitted + underReview)</span><span class="zt-tile-note">@submitted submitted · @underReview under review</span></a></li>
+    <li><a class="zt-tile" asp-action="Index" asp-route-status="Approved"><span class="zt-tile-label">Approved</span><span class="zt-tile-value">@(approved + converted)</span><span class="zt-tile-note">@converted converted to tender</span></a></li>
 </ul>
 
+
+<section class="card manager-card mb-4" aria-labelledby="dp-breakdown">
+    <div class="card-header"><h2 id="dp-breakdown" class="h5 mb-0">Status breakdown</h2></div>
+    <div class="pt-3">
+        <div class="dp-bar" role="img" aria-label="@string.Join(", ", breakdown.Select(b => $"{b.Label} {b.Count}"))">
+            @foreach (var b in breakdown.Where(b => b.Count > 0))
+            {
+                <span class="@b.Css" style="width:@((b.Count * 100.0 / Math.Max(total, 1)).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></span>
+            }
+        </div>
+    </div>
+    <ul class="dp-legend">
+        @foreach (var b in breakdown)
+        {
+            <li><a asp-action="Index" asp-route-status="@b.Status"><span><span class="dp-swatch @b.Css" aria-hidden="true"></span>@b.Label</span><strong>@b.Count</strong></a></li>
+        }
+    </ul>
+</section>
+
+<section class="manager-search-panel mb-4" aria-label="Search the dashboard">
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-dashboard-search", ResultsId = "department-dashboard-search-results", Label = "Search recent requests and notifications", Placeholder = "Request title, number or notification" })" />
+</section>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        <section class="card manager-card h-100">
+            <div class="card-header dp-split"><h2 class="h5 mb-0">Recent requests</h2><a asp-action="Index" class="dp-more">View all →</a></div>
+            @if (!Model.Any())
+            {
+                <div class="empty-state"><p class="mb-3">You have not created any purchase requests yet.</p><a asp-action="Create" class="btn btn-primary">Create your first request</a></div>
+            }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover align-middle mb-0"><caption class="visually-hidden">Recent requests</caption>
+                <thead><tr><th scope="col">Request</th><th scope="col">Required by</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+                <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr data-search-item>
+                        <td><a class="dp-req-title" asp-action="Details" asp-route-id="@r.Id">@r.Title</a><span class="dp-num dp-num-wide" title="@r.RequestNumber">@r.RequestNumber</span></td>
+                        <td>@(r.RequiredByDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                        <td><partial name="_RequestStatus" model="r.Status" /></td>
+                        <td class="text-end"><a asp-action="Details" asp-route-id="@r.Id" class="btn btn-outline-primary btn-sm" aria-label="Open @r.Title">Open</a></td>
+                    </tr>
+                }
+                </tbody></table></div>
+            }
+        </section>
+    </div>
+    <div class="col-xl-4">
+        <section class="card manager-card h-100">
+            <div class="card-header dp-split"><h2 class="h5 mb-0">Notifications</h2>@if (notifications.Any(n => !n.IsRead)) { <span class="badge">@notifications.Count(n => !n.IsRead) new</span> }</div>
+            @if (notifications.Count == 0)
+            {
+                <p class="empty-state">No notifications yet.</p>
+            }
+            else
+            {
+                <ul class="dp-feed">
+                @foreach (var n in notifications)
+                {
+                    <li data-search-item class="@(n.IsRead ? null : "is-unread")">
+                        <span class="dp-feed-title">@n.Title</span>
+                        <span class="dp-feed-text">@n.Message</span>
+                        <time datetime="@n.CreatedAt.ToString("o")">@n.CreatedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</time>
+                    </li>
+                }
+                </ul>
+            }
+        </section>
+    </div>
+</div>
 </div>

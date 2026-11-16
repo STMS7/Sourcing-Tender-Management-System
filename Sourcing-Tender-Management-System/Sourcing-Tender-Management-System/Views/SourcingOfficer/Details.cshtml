@@ -1,19 +1,30 @@
-@model Tender
+﻿@model Tender
 @using Sourcing_Tender_Management_System.Services
 @{
     ViewData["Title"] = Model.Title;
     var draft = Model.Status == TenderStatus.Draft;
     var preparing = draft && Model.EvaluationCriteriaLockedAt == null;
     var preApproved = ViewBag.PrePublicationApproved is true;
+    var publication = (SourcingPublicationReadiness)ViewBag.PublicationReadiness;
+    var resultAction = ViewBag.ResultStep is TenderResultFlow.Step resultActionStep ? resultActionStep : TenderResultFlow.Step.None;
+    var resultActionLabel = resultAction switch {
+        TenderResultFlow.Step.AtOfficerToForward => "Forward report to sourcing manager",
+        TenderResultFlow.Step.AtOfficerToAnnounce => "Send result to suppliers",
+        TenderResultFlow.Step.AtOfficerToSendBack => "Send back to evaluation committee",
+        _ => null };
     var suppliers = (List<Supplier>)ViewBag.Suppliers;
     var history = (List<WorkflowTransition>)ViewBag.History;
     var handoff = (SourcingEvaluationReadiness)ViewBag.Handoff;
+    var responsibilityStatuses = (List<TenderResponsibilityStatus>)(ViewBag.ResponsibilityStatuses ?? new List<TenderResponsibilityStatus>());
     var agreedWeights = Sourcing_Tender_Management_System.Services.CommitteeWeighting.Agree(
         Sourcing_Tender_Management_System.Services.CommitteeWeighting.ReadProposals(Model.EvaluationCriteria));
     var preparationReasons = (List<string>)(ViewBag.PreparationWaitingReasons ?? new List<string>());
+    var canRequestPreparation = preparing && ViewBag.HasOffers is not true && preparationReasons.Count == 0 &&
+        Model.Items.Count > 0 && !string.IsNullOrWhiteSpace(Model.TermsAndConditions) &&
+        Model.SubmissionDeadline > DateTime.UtcNow && (Model.OpeningDate == null || Model.OpeningDate >= Model.SubmissionDeadline);
     var canReadOffers = (bool)ViewBag.CanReadOffers;
     var canClarify = Model.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation;
-    var showWorkflowBar = draft || (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow);
+    var showWorkflowBar = draft || Model.Status == TenderStatus.Published || canReadOffers || resultActionLabel != null;
     var longTerms = (Model.TermsAndConditions?.Length ?? 0) > 450;
     // Status colours are never the only signal: every chip also carries the status text.
     string Tone(string status) => status switch {
@@ -28,7 +39,6 @@
     const string IconClock = "M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
     const string IconOpen = "M3 9l9-6 9 6v11H3zM9 20v-6h6v6";
     const string IconCoin = "M12 3v18M16 7.5c0-1.7-1.8-3-4-3s-4 1.1-4 2.8c0 3.9 8 1.9 8 5.8 0 1.8-1.8 3-4 3s-4-1.3-4-3";
-    const string IconTag = "M3 12V4h8l10 10-8 8zM7.5 7.5h.01";
     const string IconScale = "M12 4v16M8 20h8M5 8h14M5 8l-3 6a3 3 0 006 0zM19 8l-3 6a3 3 0 006 0z";
     const string IconChat = "M4 5h16v11H9l-5 4z";
     const string IconDoc = "M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6";
@@ -43,68 +53,96 @@
     <header class="od-head">
         <div class="od-head-main">
             <h1>@Model.Title</h1>
-            <p class="od-ref"><span class="od-mono">@Model.TenderNumber</span><span class="od-chip" data-tone="@Tone(Model.Status.ToString())">@Words(Model.Status.ToString())</span></p>
-            <p class="od-lead">Prepare the tender, receive supplier offers, complete compliance review, then send the tender and eligible offers to the technical and financial evaluation committee.</p>
+            <p class="od-ref"><span class="od-chip" data-tone="@Tone(Model.Status.ToString())">@Words(Model.Status.ToString())</span><span>@Model.Category.Name</span></p>
         </div>
         <a class="btn btn-outline-secondary" asp-action="Tenders">Back to my tenders</a>
     </header>
 
-    @if (showWorkflowBar) {
-    <section class="od-workflow" aria-label="Tender workflow actions">
-        <div class="actions">
-        @if (draft) {
-            @if (preparing) {
-            <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit draft</a>
-            <form asp-action="RequestWeightApproval" method="post" class="d-inline">
-                <input type="hidden" name="id" value="@Model.Id" />
-                <button class="btn btn-outline-warning" type="submit">Send to evaluation committee</button>
-            </form>
-            } else {
-            <form asp-action="ReopenPreparation" method="post" class="d-inline">
-                <input type="hidden" name="id" value="@Model.Id" />
-                <button class="btn btn-outline-secondary" type="submit">Reopen preparation</button>
-            </form>
-            }
-            <form asp-action="Publish" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit" disabled="@(!preApproved)">Publish and send invitations</button></form>
-        }
-        @if (Model.Status == TenderStatus.Published && Model.SubmissionDeadline <= DateTime.UtcNow) {
-            <form asp-action="Close" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Close bidding</button></form>
+    <nav class="od-tabs od-tabs-top" role="tablist" aria-label="Tender sections" data-od-tabs hidden>
+        <button type="button" role="tab" id="tab-overview-btn" aria-controls="tab-overview" aria-selected="true" data-tab="overview">Overview</button>
+        <button type="button" role="tab" id="tab-items-btn" aria-controls="tab-items" aria-selected="false" data-tab="items" tabindex="-1">Tender items <span class="od-count">@Model.Items.Count</span></button>
+        @if (Model.DocumentRequirements.Count > 0) { <button type="button" role="tab" id="tab-documents-btn" aria-controls="tab-documents" aria-selected="false" data-tab="documents" tabindex="-1">Documents <span class="od-count">@Model.DocumentRequirements.Count</span></button> }
+        <button type="button" role="tab" id="tab-suppliers-btn" aria-controls="tab-suppliers" aria-selected="false" data-tab="suppliers" tabindex="-1">Suppliers <span class="od-count">@Model.Invitations.Count</span></button>
+        <button type="button" role="tab" id="tab-evaluation-btn" aria-controls="tab-evaluation" aria-selected="false" data-tab="evaluation" tabindex="-1">Evaluation</button>
+        <button type="button" role="tab" id="tab-activity-btn" aria-controls="tab-activity" aria-selected="false" data-tab="activity" tabindex="-1">Activity history <span class="od-count">@history.Count</span></button>
+    </nav>
+
+    @if (responsibilityStatuses.Count > 0) {
+    <section class="od-owner-panel" aria-labelledby="waiting-on-title">
+        <div class="od-owner-head"><div><span class="od-owner-kicker">Current responsibility</span><h2 id="waiting-on-title">Who are we waiting on?</h2></div><span class="od-owner-summary">@responsibilityStatuses.Count(x => x.IsWaiting) pending</span></div>
+        <div class="od-owner-grid">
+        @foreach (var owner in responsibilityStatuses) {
+            <article class="od-owner @(owner.IsWaiting ? "is-waiting" : owner.IsComplete ? "is-complete" : null)">
+                <span class="od-owner-state">@owner.State</span><strong>@owner.Role</strong><span class="od-owner-person">@owner.Person</span><p>@owner.Detail</p>
+            </article>
         }
         </div>
     </section>
     }
 
-    @if (draft) { <p class="od-note">Prepare the terms, dates and required documents, then select suppliers in the tender category.</p> }
-    @if (draft && preparationReasons.Count > 0) {
-        <div class="alert alert-info">
-            <strong>Before sending to the evaluation committee:</strong>
-            <ul class="mb-0">@foreach (var reason in preparationReasons) { <li>@reason</li> }</ul>
+    @if (showWorkflowBar) {
+    <section class="od-workflow" aria-label="Tender workflow actions">
+        <div class="od-next-action"><span>Next step</span><strong>@(publication.Ready ? "Publish the tender" : publication.OfficerTasks.FirstOrDefault() ?? (draft ? "Waiting for evaluation preparation" : Words(Model.Status.ToString())))</strong></div>
+        <div class="actions">
+        @if (draft) {
+            @if (preparing) {
+            @if (canRequestPreparation) {
+            <form asp-action="RequestWeightApproval" method="post" class="d-inline">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button class="btn btn-primary" type="submit">Send for evaluation preparation</button>
+            </form>
+            } else if (publication.OfficerTasks.Any(t => t.Contains("supplier", StringComparison.OrdinalIgnoreCase))) {
+                <a class="btn btn-primary" href="#suppliers" data-goto-tab="suppliers">Select suppliers</a>
+            } else {
+                <a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Complete tender details</a>
+            }
+            } else {
+            <form asp-action="ReopenPreparation" method="post" class="d-inline">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button class="btn btn-outline-secondary" type="submit" disabled="@(ViewBag.HasOffers is true)">Reopen preparation</button>
+            </form>
+            }
+            @if (publication.Ready) { <form asp-action="Publish" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Publish and send invitations</button></form> }
+        }
+        @if (Model.Status == TenderStatus.Published) {
+            <form asp-action="Close" method="post" data-close-bidding data-deadline="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")" hidden="@(Model.SubmissionDeadline > DateTime.UtcNow)"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Close bidding &amp; compare offers</button></form>
+        }
+        @if (draft && preparing) {
+            <div class="dropdown od-more-actions"><button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">More options</button><ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@Model.Id">Edit tender details</a></li>
+                <li><a class="dropdown-item" href="#suppliers" data-goto-tab="suppliers">Manage supplier invitations</a></li>
+                <li><a class="dropdown-item" href="#documents" data-goto-tab="documents">Manage required documents</a></li>
+            </ul></div>
+        }
+        @if (canReadOffers) {
+            <a class="btn btn-primary" asp-action="Offers" asp-route-id="@Model.Id">Compare offers and review compliance</a>
+        }
+        @if (Model.Status == TenderStatus.Closed) {
+            <a class="btn btn-outline-primary" href="#evaluation" data-goto-tab="evaluation">Review evaluation handoff</a>
+        }
+        @if (resultActionLabel != null) {
+            <a class="btn btn-primary" href="#evaluation" data-goto-tab="evaluation">@resultActionLabel</a>
+        }
+        @if (canClarify) {
+            <a class="btn btn-outline-secondary" asp-action="Messages" asp-route-group="EvaluationCommittee" asp-route-context="@($"tender:{Model.Id}")">Message evaluation committee</a>
+        }
         </div>
+        @if (Model.Status == TenderStatus.Published && Model.SubmissionDeadline > DateTime.UtcNow) {
+            <p class="od-note mt-3 mb-0" data-close-waiting>Close bidding becomes available automatically at the submission deadline. Supplier offers remain sealed.</p>
+        }
+    </section>
     }
+
     @if (Model.Status == TenderStatus.Published) { <p class="od-note">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
     @if (!draft && !preApproved) {
         <p class="alert alert-warning od-warning" role="note"><strong>Historical tender.</strong> This historical tender has no verified approval recorded before publication. Do not change weights after receiving offers. Resolve it through the team's documented procedure before evaluation.</p>
     }
 
-    <div class="od-qr"><partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "Tender", Model.TenderNumber)' /></div>
-
     <ul class="od-stats" aria-label="Tender summary">
         <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconClock + svgClose)</span><span class="od-stat-label">Submission deadline</span><strong class="od-stat-value"><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></strong><span class="od-stat-note">Shown in your device time</span></li>
         <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconOpen + svgClose)</span><span class="od-stat-label">Bid opening</span><strong class="od-stat-value">@if (Model.OpeningDate is DateTime openingDate) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(openingDate, DateTimeKind.Utc).ToString("O")">@openingDate.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</strong><span class="od-stat-note">Shown in your device time</span></li>
         <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconCoin + svgClose)</span><span class="od-stat-label">Estimated value</span><strong class="od-stat-value">@Model.EstimatedValue.ToString("N2")</strong><span class="od-stat-note">As entered for this tender</span></li>
-        <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconTag + svgClose)</span><span class="od-stat-label">Tender category</span><strong class="od-stat-value">@Model.Category.Name</strong><span class="od-stat-note">Suppliers are invited from it</span></li>
     </ul>
-
-    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "tender-details-search", ResultsId = "tender-details-search-results", Label = "Search items, suppliers, documents and history" })" />
-
-    <nav class="od-tabs" role="tablist" aria-label="Tender sections" data-od-tabs hidden>
-        <button type="button" role="tab" id="tab-overview-btn" aria-controls="tab-overview" aria-selected="true" data-tab="overview">Overview</button>
-        <button type="button" role="tab" id="tab-items-btn" aria-controls="tab-items" aria-selected="false" data-tab="items" tabindex="-1">Tender items <span class="od-count">@Model.Items.Count</span></button>
-        <button type="button" role="tab" id="tab-documents-btn" aria-controls="tab-documents" aria-selected="false" data-tab="documents" tabindex="-1">Documents <span class="od-count">@Model.DocumentRequirements.Count</span></button>
-        <button type="button" role="tab" id="tab-suppliers-btn" aria-controls="tab-suppliers" aria-selected="false" data-tab="suppliers" tabindex="-1">Suppliers <span class="od-count">@Model.Invitations.Count</span></button>
-        <button type="button" role="tab" id="tab-evaluation-btn" aria-controls="tab-evaluation" aria-selected="false" data-tab="evaluation" tabindex="-1">Evaluation</button>
-        <button type="button" role="tab" id="tab-activity-btn" aria-controls="tab-activity" aria-selected="false" data-tab="activity" tabindex="-1">Activity history <span class="od-count">@history.Count</span></button>
-    </nav>
 
     @* ---------------- Overview ---------------- *@
     <section class="od-panel" id="tab-overview" role="tabpanel" aria-labelledby="tab-overview-btn" data-panel="overview">
@@ -112,11 +150,10 @@
             <article class="od-card" aria-labelledby="overview-title">
                 <header class="od-card-head"><h2 id="overview-title">Tender overview</h2></header>
                 <dl class="od-facts">
-                    <div><dt>Tender number</dt><dd class="od-mono">@Model.TenderNumber</dd></div>
-                    <div><dt>Source request</dt><dd>@(Model.ProcurementRequest?.RequestNumber ?? "Not linked")
+                    <div><dt>Department request</dt><dd>
                         @if (Model.ProcurementRequestId != null && Model.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation) {
-                            <a class="od-inline-link" asp-action="RequestDetails" asp-route-id="@Model.ProcurementRequestId">Open source request and department chat</a>
-                        }</dd></div>
+                            <a class="od-inline-link" asp-action="RequestDetails" asp-route-id="@Model.ProcurementRequestId">Open request and messages</a>
+                        } else { <span>Not linked</span> }</dd></div>
                     <div><dt>Category</dt><dd>@Model.Category.Name</dd></div>
                     <div><dt>Submission deadline (device time)</dt><dd><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></dd></div>
                     <div><dt>Bid opening (device time)</dt><dd>@if (Model.OpeningDate is DateTime opening) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(opening, DateTimeKind.Utc).ToString("O")">@opening.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</dd></div>
@@ -125,7 +162,7 @@
                     @if (preApproved && agreedWeights != null) {
                         <span>Technical @agreedWeights.Technical% / Financial @agreedWeights.Financial% — agreed by the evaluation committee</span>
                     } else {
-                        <span>Awaiting the technical &amp; financial evaluation committee.</span>
+                        <span>Waiting for technical and financial approval.</span>
                     }
                     </dd></div>
                 </dl>
@@ -204,19 +241,19 @@
     <section class="od-panel" id="tab-suppliers" role="tabpanel" aria-labelledby="tab-suppliers-btn" data-panel="suppliers">
         <article class="od-card" aria-labelledby="inv-title">
             <header class="od-card-head"><h2 id="inv-title">Supplier invitations</h2><span class="od-count">@Model.Invitations.Count</span></header>
-            <p class="od-note">Only approved, active suppliers registered in this tender's category can be invited.</p>
+            <p class="od-note">Choose approved suppliers in the <strong>@Model.Category.Name</strong> category. Invitations are sent when published.</p>
             @if (Model.Invitations.Count == 0) { <p class="od-empty">No suppliers selected yet.</p> }
             else {
             <div class="table-responsive"><table class="table"><caption class="visually-hidden">Supplier invitations</caption><thead><tr><th scope="col">Supplier</th><th scope="col">Invitation</th><th scope="col">Response</th>@if (draft) { <th scope="col">Action</th> }</tr></thead><tbody>
             @foreach (var invitation in Model.Invitations) {
-            <tr data-search-item><td>@invitation.Supplier.CompanyName @if (!invitation.Supplier.IsActive || invitation.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved) { <span class="od-chip" data-tone="bad">No longer eligible</span> }</td><td>@if (draft) { <span class="od-chip" data-tone="warn">Prepared — not sent</span> } else { <span class="od-chip" data-tone="@Tone(invitation.Status.ToString())">@invitation.Status</span> }</td><td>@invitation.ResponseReason</td>@if (draft) { <td><form asp-action="RemoveInvitation" method="post"><input type="hidden" name="id" value="@invitation.Id" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove <span class="visually-hidden">@invitation.Supplier.CompanyName</span></button></form></td> }</tr>
+            <tr data-search-item><td><strong>@invitation.Supplier.CompanyName</strong><small class="od-supplier-email">@invitation.Supplier.Email</small> @if (!invitation.Supplier.IsActive || invitation.Supplier.RegistrationStatus != SupplierRegistrationStatus.Approved) { <span class="od-chip" data-tone="bad">Not eligible</span> }</td><td>@if (draft) { <span class="od-chip" data-tone="warn">Ready</span> } else { <span class="od-chip" data-tone="@Tone(invitation.Status.ToString())">@invitation.Status</span> }</td><td>@(string.IsNullOrWhiteSpace(invitation.ResponseReason) ? "—" : invitation.ResponseReason)</td>@if (draft) { <td><form asp-action="RemoveInvitation" method="post"><input type="hidden" name="id" value="@invitation.Id" /><button type="submit" class="btn btn-sm btn-link text-danger">Remove <span class="visually-hidden">@invitation.Supplier.CompanyName</span></button></form></td> }</tr>
             }
             </tbody></table></div>
             }
             @if (draft && suppliers.Count > 0) {
-            <form asp-action="Invite" method="post" class="form-panel od-invite"><input type="hidden" name="tenderId" value="@Model.Id" /><fieldset><legend class="fs-6">Select approved suppliers</legend>
-            @foreach (var supplier in suppliers) { <div data-search-item class="form-check mb-2"><input class="form-check-input" id="supplier-@supplier.Id" type="checkbox" name="supplierIds" value="@supplier.Id" /><label class="form-check-label" for="supplier-@supplier.Id">@supplier.CompanyName</label></div> }
-            </fieldset><button type="submit" class="btn btn-outline-primary mt-2">Add selected suppliers</button></form>
+            <form asp-action="Invite" method="post" class="od-invite"><input type="hidden" name="tenderId" value="@Model.Id" /><fieldset><legend>Available suppliers</legend><div class="od-supplier-options">
+            @foreach (var supplier in suppliers) { <label data-search-item class="od-supplier-option" for="supplier-@supplier.Id"><input id="supplier-@supplier.Id" type="checkbox" name="supplierIds" value="@supplier.Id" /><span class="od-supplier-check" aria-hidden="true">✓</span><span><strong>@supplier.CompanyName</strong><small>@supplier.Email</small></span></label> }
+            </div></fieldset><div class="od-invite-footer"><span data-supplier-selection-status>No suppliers selected</span><button type="submit" class="btn btn-primary" disabled>Add suppliers</button></div></form>
             }
             else if (draft && suppliers.Count == 0) { <p class="od-note">No additional approved, active suppliers match this category. Ask the supplier-registration owner to verify category assignments.</p> }
         </article>
@@ -227,24 +264,28 @@
         <article class="od-card" aria-labelledby="eval-title">
             <header class="od-card-head"><h2 id="eval-title">Evaluation tracking</h2><span class="od-chip" data-tone="@Tone(Model.Status.ToString())">@Words(Model.Status.ToString())</span></header>
             @if (Model.Status == TenderStatus.Closed) {
-                <h3 class="od-sub">Send tender to the technical &amp; financial evaluation committee</h3>
+                <div class="od-eval-intro"><span class="od-owner-kicker">Next step</span><h3>Send eligible offers for evaluation</h3><p>The technical and financial members will evaluate only the offers you marked as compliant.</p></div>
                 @if (canReadOffers) {
-                    <p>Submitted offers: <strong>@handoff.SubmittedOffers</strong> · Compliant offers: <strong>@handoff.CompliantOffers</strong>.</p>
+                    <div class="od-eval-stats"><div><span>Submitted</span><strong>@handoff.SubmittedOffers</strong></div><div><span>Eligible</span><strong>@handoff.CompliantOffers</strong></div><div><span>Excluded / pending</span><strong>@(handoff.SubmittedOffers - handoff.CompliantOffers)</strong></div></div>
                 }
-                @if (!handoff.Ready) {
+                @if (handoff.Issues.Count > 0) {
                     <div class="alert alert-warning"><p class="mb-2">Complete these steps before sending:</p><ul class="mb-0">
                     @foreach (var issue in handoff.Issues) { <li>@issue</li> }
                     </ul></div>
                 }
-                <form asp-action="ForwardToEvaluation" method="post" class="mb-4">
+                @if (handoff.TeamDependencies.Count > 0) {
+                    <div class="alert alert-info"><p class="mb-2"><strong>Waiting on the responsible team</strong></p><ul class="mb-0">@foreach (var issue in handoff.TeamDependencies) { <li>@issue</li> }</ul></div>
+                }
+                <form asp-action="ForwardToEvaluation" method="post" class="od-eval-action">
                     <input type="hidden" name="id" value="@Model.Id" />
-                    <button type="submit" class="btn btn-primary" disabled="@(!handoff.Ready)">Send tender and compliant offers to evaluation committee</button>
+                    <div><strong>@(handoff.Ready ? "Ready to send" : "Not ready yet")</strong><span>@(handoff.Ready ? "All required reviews are complete." : "Resolve the items above before sending.")</span></div>
+                    <button type="submit" class="btn btn-primary" disabled="@(!handoff.Ready)">Send to evaluation committee</button>
                 </form>
             }
             @if (ViewBag.EvaluationSentAt is DateTime sentAt) {
                 <p role="status">Sent to the evaluation committee on <strong>@sentAt.ToString("dd MMM yyyy HH:mm") UTC</strong>. Assigned technical and financial members receive a link to their evaluation page.</p>
             }
-            <p>Current tender stage: <strong>@Model.Status</strong>. The evaluation committee prepares the unified report; you forward it to the sourcing manager, who sends it to the Top Committee.</p>
+            <div class="od-eval-flow"><span>Current stage</span><strong>@Words(Model.Status.ToString())</strong><p>Evaluation committee → Sourcing manager → Top Committee</p></div>
         </article>
 
         @if (ViewBag.ResultReport is EvaluationReport resultReport && ViewBag.ResultStep is Sourcing_Tender_Management_System.Services.TenderResultFlow.Step resultStep) {
@@ -331,5 +372,38 @@
         </article>
     </section>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const closeForm = document.querySelector('[data-close-bidding]');
+    const closeWaiting = document.querySelector('[data-close-waiting]');
+    if (closeForm) {
+        const deadline = new Date(closeForm.dataset.deadline).getTime();
+        const syncCloseAction = function () {
+            const ready = Number.isFinite(deadline) && Date.now() >= deadline;
+            closeForm.hidden = !ready;
+            if (closeWaiting) closeWaiting.hidden = ready;
+            return ready;
+        };
+        if (!syncCloseAction()) {
+            const closeTimer = window.setInterval(function () {
+                if (syncCloseAction()) window.clearInterval(closeTimer);
+            }, 1000);
+        }
+    }
+
+    const form = document.querySelector('.od-invite');
+    if (!form) return;
+    const boxes = Array.from(form.querySelectorAll('input[name="supplierIds"]'));
+    const status = form.querySelector('[data-supplier-selection-status]');
+    const button = form.querySelector('button[type="submit"]');
+    function sync() {
+        const count = boxes.filter(x => x.checked).length;
+        status.textContent = count ? `${count} selected` : 'No suppliers selected';
+        button.disabled = count === 0;
+    }
+    boxes.forEach(x => x.addEventListener('change', sync)); sync();
+});
+</script>
 </div>
 @section Scripts { <script src="~/js/officer-tender-tabs.js" asp-append-version="true"></script> }

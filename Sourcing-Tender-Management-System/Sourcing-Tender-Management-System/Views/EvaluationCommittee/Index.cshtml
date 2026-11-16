@@ -2,32 +2,46 @@
 @using Sourcing_Tender_Management_System.Services
 @{
     ViewData["Title"] = "Evaluation committee";
+    var needAction = Model.Where(r => r.ActionNeeded).ToList();
+    var inProgress = Model.Where(r => !r.ActionNeeded && !r.Completed).ToList();
+    var completed = Model.Where(r => r.Completed).Take(5).ToList();
+    var underEvaluation = Model.Count(r => r.Tender.Status == TenderStatus.UnderEvaluation);
 }
-<div id="evaluation-search-results">
-<link rel="stylesheet" href="~/css/sourcing.css" asp-append-version="true" />
-<div class="sourcing-workspace py-4">
-<h1>Tender preparation and evaluation</h1>
-<p class="text-secondary">Technical and financial members approve criteria and weights while the tender is a draft. After bidding and compliance, all four members evaluate the compliant offers.</p>
+<link rel="stylesheet" href="~/css/evaluation-committee.css" asp-append-version="true" />
+<div class="manager-page ec-page">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div class="manager-page-heading">
+        <h1 class="manager-title mb-1">Evaluation committee</h1>
+        <p class="manager-intro mb-0">@(needAction.Count == 0 ? "Nothing is waiting for you right now." : needAction.Count == 1 ? "One tender is waiting for you." : $"{needAction.Count} tenders are waiting for you.")</p>
+    </div>
+    <a asp-action="Tenders" class="btn btn-outline-primary">All my tenders</a>
+</div>
 <ul class="zt-bento" aria-label="Committee summary">
     <li><div class="zt-tile"><span class="zt-tile-label">Assigned tenders</span><span class="zt-tile-value">@Model.Count</span></div></li>
-    <li><div class="zt-tile @(Model.Any(r => r.ActionNeeded) ? "is-alert" : "")"><span class="zt-tile-label">Your action needed</span><span class="zt-tile-value">@Model.Count(r => r.ActionNeeded)</span></div></li>
-    <li><div class="zt-tile"><span class="zt-tile-label">Under evaluation</span><span class="zt-tile-value">@Model.Count(r => r.Tender.Status == TenderStatus.UnderEvaluation)</span></div></li>
+    <li><div class="zt-tile @(needAction.Count > 0 ? "is-alert" : "")"><span class="zt-tile-label">Your action needed</span><span class="zt-tile-value">@needAction.Count</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Under evaluation</span><span class="zt-tile-value">@underEvaluation</span></div></li>
+    <li><div class="zt-tile"><span class="zt-tile-label">Report sent</span><span class="zt-tile-value">@Model.Count(r => r.Completed)</span></div></li>
 </ul>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "evaluation-search", ResultsId = "evaluation-search-results", Label = "Search assigned preparation and evaluation tenders" })" />
-@if (Model.Count == 0) { <p class="empty-state">No tenders are assigned to you for evaluation.</p> }
-else {
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Tender</th><th scope="col">Your role</th><th scope="col">Status</th><th scope="col">Stage</th><th scope="col">Agreed weights</th></tr></thead><tbody>
-@foreach (var row in Model) {
-<tr data-search-item><td><a asp-action="Evaluate" asp-route-id="@row.Tender.Id">@row.Tender.Title</a><br /><small>@row.Tender.TenderNumber</small></td>
-<td>@CommitteeWeighting.RoleLabel(row.Role)</td>
-<td><span class="status">@row.Tender.Status</span></td>
-<td>@row.Stage @if (row.ActionNeeded) { <strong class="text-danger">· your action needed</strong> }</td>
-<td>@(CommitteeWeighting.Agree(CommitteeWeighting.ReadProposals(row.Tender.EvaluationCriteria)) is { } w ? $"{w.Technical}% / {w.Financial}%" : "Not yet")</td></tr>
-}
-</tbody></table></div>
-}
-</div>
 
+<section class="card manager-card mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Needs your action</h2></div>
+    @if (needAction.Count == 0) { <p class="empty-state">You are up to date. New tenders and decisions will appear here.</p> }
+    else { <partial name="_DashboardRows" model="needAction" view-data="@(new ViewDataDictionary(ViewData) { ["Caption"] = "Tenders that need your action" })" /> }
+</section>
+
+<section class="card manager-card mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">In progress</h2></div>
+    @if (inProgress.Count == 0) { <p class="empty-state">No other tenders are in progress.</p> }
+    else { <partial name="_DashboardRows" model="inProgress" view-data="@(new ViewDataDictionary(ViewData) { ["Caption"] = "Tenders in progress" })" /> }
+</section>
+
+@if (completed.Count > 0)
+{
+<section class="card manager-card mb-4">
+    <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Recently completed</h2></div>
+    <partial name="_DashboardRows" model="completed" view-data="@(new ViewDataDictionary(ViewData) { ["Caption"] = "Recently completed tenders" })" />
+</section>
+}
 </div>

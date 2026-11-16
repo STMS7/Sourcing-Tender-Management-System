@@ -1,0 +1,10 @@
+@model List<EvaluationCommitteeTenderRow>
+@using Sourcing_Tender_Management_System.Services
+<div class="table-responsive"><table class="table table-hover align-middle mb-0"><caption class="visually-hidden">@ViewData["Caption"]</caption>
+<thead><tr><th scope="col">Tender</th><th scope="col">Your role</th><th scope="col">Status</th><th scope="col">Stage</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody>
+@foreach (var row in Model)
+{
+    <tr><td>@row.Tender.Title</td><td>@CommitteeWeighting.RoleLabel(row.Role)</td><td><span class="badge">@row.Tender.Status</span></td><td>@row.Stage</td>
+    <td class="text-end"><a asp-action="Evaluate" asp-route-id="@row.Tender.Id" class="btn btn-primary btn-sm" aria-label="Manage @row.Tender.Title">Manage</a></td></tr>
+}
+</tbody></table></div>

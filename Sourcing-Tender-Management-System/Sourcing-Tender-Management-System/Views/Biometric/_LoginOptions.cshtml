@@ -1,28 +1,21 @@
-@* Fingerprint and face sign-in options for the sign-in page.
-   Included from Views/Auth/Login.cshtml with a single line:
-       <partial name="~/Views/Biometric/_LoginOptions.cshtml" />
-   Everything else (markup, script, behaviour) lives in the biometric module. The page that includes it
-   only needs an email box with id "Email" (used by face sign-in) and a form with an anti-forgery token. *@
-@{
-    // The page the person wanted before being asked to sign in; the server only follows local addresses.
-    var returnUrl = Context.Request.Query["returnUrl"].ToString();
-}
-<div id="bio-root" data-return-url="@returnUrl" class="col-md-5 mt-4 px-0">
-    <hr />
-    <h2 class="h5">Or sign in with</h2>
-    <div id="bio-status" class="alert d-none" role="alert"></div>
-    <div class="d-grid gap-2">
-        <button id="btnPasskeyLogin" type="button" class="btn btn-outline-primary">Sign in with fingerprint</button>
-        <button id="btnFaceLogin" type="button" class="btn btn-outline-primary">Face recognition</button>
-    </div>
-    <div class="form-text mt-2">
-        Fingerprint needs no email. For face recognition, type your email above first.
-    </div>
-    <partial name="~/Views/Biometric/_DeviceCheck.cshtml" />
-    <div id="facePanel" class="d-none text-center mt-3">
-        <video id="faceVideo" playsinline muted autoplay
-               style="width:100%;max-width:360px;border-radius:.5rem;transform:scaleX(-1);background:#000"></video>
-        <div id="faceHint" class="fw-semibold mt-2"></div>
-    </div>
+@* IDs and biometric handlers stay compatible with the existing module. *@
+@{ var returnUrl = Context.Request.Query["returnUrl"].ToString(); }
+<div id="bio-root" data-return-url="@returnUrl" class="auth-bio-options">
+<div id="bio-status" class="alert d-none" role="alert" aria-live="polite"></div>
+<div class="auth-bio-methods">
+<button id="btnPasskeyLogin" type="button" class="auth-bio-method">
+<span class="auth-bio-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M7 9a5 5 0 0 1 10 0v4c0 3-1 5-2 7M4 10V9a8 8 0 0 1 16 0v4M10 20c2-3 3-6 3-10M8 12c0 3-.5 5-2 7M10 9a2 2 0 0 1 4 0v3M19 17l-1 4" /></svg></span>
+<span class="auth-bio-copy"><strong>Try fingerprint again</strong><small>Use your device or phone. No email needed.</small></span><span class="auth-bio-arrow" aria-hidden="true">↗</span>
+</button>
+<div class="auth-face-method">
+<input id="faceEmail" type="hidden" />
+<button id="btnFaceLogin" type="button" class="auth-bio-method">
+<span class="auth-bio-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M8 3H4v4M16 3h4v4M4 17v4h4M20 17v4h-4M8 9h.01M16 9h.01M12 9v4h-2M8 16c2 2 6 2 8 0" /></svg></span>
+<span class="auth-bio-copy"><strong>Retry face recognition</strong><small>Continue with your camera.</small></span><span class="auth-bio-arrow" aria-hidden="true">↗</span>
+</button>
+</div>
+</div>
+<partial name="~/Views/Biometric/_DeviceCheck.cshtml" />
+<div id="facePanel" class="d-none text-center mt-3"><video id="faceVideo" playsinline muted autoplay style="width:100%;max-width:360px;border-radius:12px;transform:scaleX(-1);background:#10261A"></video><div id="faceHint" class="fw-semibold mt-2" role="status"></div></div>
 </div>
 <script src="~/biometric/biometric.js" asp-append-version="true"></script>

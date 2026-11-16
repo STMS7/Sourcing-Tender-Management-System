@@ -1,0 +1,134 @@
+﻿@model List<Notification>
+@{
+    // Shared by every role. Suppliers render it inside their portal (SuppliersController.Notifications).
+    ViewData["Title"] = "Notifications";
+    if (User.IsInRole("Supplier")) { Layout = "~/Views/Suppliers/_SupplierLayout.cshtml"; }
+    var unread = Model.Count(n => !n.IsRead);
+    var action = Model.Count(n => n.Type == NotificationType.ActionRequired && !n.IsRead);
+    var today = DateTime.UtcNow.Date;
+    string Group(DateTime d) => d.Date == today ? "Today" : d.Date == today.AddDays(-1) ? "Yesterday" : d.Date > today.AddDays(-7) ? "This week" : "Earlier";
+    (string Css, string Icon, string Label) Kind(NotificationType t) => t switch
+    {
+        NotificationType.ActionRequired => ("is-action", "M12 8v5M12 16.5h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z", "Action needed"),
+        NotificationType.Success => ("is-success", "M20 6L9 17l-5-5", "Success"),
+        NotificationType.Warning => ("is-warning", "M12 9v4M12 17h.01M12 3a9 9 0 110 18 9 9 0 010-18z", "Warning"),
+        _ => ("is-info", "M12 16v-4M12 8h.01M12 3a9 9 0 110 18 9 9 0 010-18z", "Information")
+    };
+    string Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToString("O");
+}
+<link rel="stylesheet" href="~/css/notifications.css" asp-append-version="true" />
+<div class="nt-page">
+    <header class="nt-head">
+        <div>
+            <h1>Notifications</h1>
+            <p>@(unread == 0 ? "You are all caught up." : unread == 1 ? "1 unread notification." : $"{unread} unread notifications.")</p>
+        </div>
+        @if (unread > 0)
+        {
+            <form asp-controller="Notifications" asp-action="ReadAll" method="post">
+                <button type="submit" class="nt-btn nt-btn-ghost">Mark all as read</button>
+            </form>
+        }
+    </header>
+
+    @if (TempData["NotificationsMessage"] is string message) { <div class="nt-flash" role="status">@message</div> }
+
+    <div class="nt-stats">
+        <div><span>Total</span><strong>@Model.Count</strong><small>All notifications for your account</small></div>
+        <div class="@(unread > 0 ? "is-hot" : null)"><span>Unread</span><strong>@unread</strong><small>@(unread == 0 ? "Nothing new" : "Waiting to be read")</small></div>
+        <div class="@(action > 0 ? "is-hot" : null)"><span>Action needed</span><strong>@action</strong><small>@(action == 0 ? "No action waiting" : "Need your response")</small></div>
+    </div>
+
+    <div class="nt-toolbar" role="search">
+        <label class="nt-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3" /></svg>
+            <span class="visually-hidden">Search notifications</span>
+            <input type="search" id="nt-query" placeholder="Search notifications…" autocomplete="off" dir="auto" />
+        </label>
+        <div class="nt-filters" role="group" aria-label="Filter notifications">
+            <button type="button" class="is-on" data-nt-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-nt-filter="unread" aria-pressed="false">Unread</button>
+            <button type="button" data-nt-filter="action" aria-pressed="false">Action needed</button>
+        </div>
+    </div>
+    <p class="nt-count" id="nt-status" role="status" aria-live="polite"></p>
+
+    @if (Model.Count == 0)
+    {
+        <div class="nt-empty">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" /></svg>
+            <strong>No notifications yet</strong>
+            <span>Updates about your work will appear here.</span>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in Model.GroupBy(n => Group(n.CreatedAt)))
+        {
+            <section class="nt-group" data-nt-group>
+                <h2>@group.Key</h2>
+                <ul>
+                @foreach (var n in group)
+                {
+                    var kind = Kind(n.Type);
+                    var hasLink = !string.IsNullOrWhiteSpace(n.Link) && Url.IsLocalUrl(n.Link);
+                    <li class="nt-item @kind.Css @(n.IsRead ? null : "is-unread")" data-nt-item
+                        data-unread="@(n.IsRead ? "0" : "1")" data-action="@(n.Type == NotificationType.ActionRequired && !n.IsRead ? "1" : "0")">
+                        <span class="nt-icon" title="@kind.Label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="@kind.Icon" /></svg></span>
+                        <div class="nt-body">
+                            <div class="nt-top">
+                                <strong>@n.Title</strong>
+                                <time class="device-local-time" datetime="@Utc(n.CreatedAt)">@n.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC</time>
+                            </div>
+                            <p>@n.Message</p>
+                            <div class="nt-actions">
+                                <span class="nt-kind">@kind.Label@(n.IsRead ? null : " · Unread")</span>
+                                @if (hasLink)
+                                {
+                                    <form asp-controller="Notifications" asp-action="Read" method="post">
+                                        <input type="hidden" name="id" value="@n.Id" /><input type="hidden" name="open" value="true" />
+                                        <button type="submit" class="nt-btn">Open</button>
+                                    </form>
+                                }
+                                @if (!n.IsRead)
+                                {
+                                    <form asp-controller="Notifications" asp-action="Read" method="post">
+                                        <input type="hidden" name="id" value="@n.Id" />
+                                        <button type="submit" class="nt-btn nt-btn-ghost">Mark as read</button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    </li>
+                }
+                </ul>
+            </section>
+        }
+        <div class="nt-empty" id="nt-none" hidden><strong>No matching notifications</strong><span>Try another word or filter.</span></div>
+    }
+</div>
+<script>
+(function () {
+    var q = document.getElementById('nt-query'), status = document.getElementById('nt-status'), none = document.getElementById('nt-none');
+    var items = [].slice.call(document.querySelectorAll('[data-nt-item]')), filter = 'all';
+    function apply() {
+        var term = (q.value || '').trim().toLowerCase(), shown = 0;
+        items.forEach(function (li) {
+            var ok = (!term || li.textContent.toLowerCase().indexOf(term) >= 0) &&
+                (filter === 'all' || (filter === 'unread' && li.dataset.unread === '1') || (filter === 'action' && li.dataset.action === '1'));
+            li.hidden = !ok; if (ok) shown++;
+        });
+        document.querySelectorAll('[data-nt-group]').forEach(function (g) { g.hidden = !g.querySelector('[data-nt-item]:not([hidden])'); });
+        if (none) none.hidden = shown > 0 || items.length === 0;
+        status.textContent = term || filter !== 'all' ? shown + ' of ' + items.length + ' shown' : '';
+    }
+    q.addEventListener('input', apply);
+    document.querySelectorAll('[data-nt-filter]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            filter = b.dataset.ntFilter;
+            document.querySelectorAll('[data-nt-filter]').forEach(function (x) { x.classList.toggle('is-on', x === b); x.setAttribute('aria-pressed', x === b); });
+            apply();
+        });
+    });
+})();
+</script>

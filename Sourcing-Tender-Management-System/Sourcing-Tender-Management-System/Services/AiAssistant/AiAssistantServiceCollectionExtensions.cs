@@ -5,6 +5,7 @@ public static class AiAssistantServiceCollectionExtensions
     /// <summary>Registers the bid analysis assistant and its local Ollama client (one line in Program.cs).</summary>
     public static IServiceCollection AddBidAnalysisAssistant(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddMemoryCache();
         services.Configure<OllamaOptions>(configuration.GetSection(OllamaOptions.Section));
         var settings = configuration.GetSection(OllamaOptions.Section).Get<OllamaOptions>() ?? new OllamaOptions();
         services.AddHttpClient<IOllamaClient, OllamaClient>(http =>

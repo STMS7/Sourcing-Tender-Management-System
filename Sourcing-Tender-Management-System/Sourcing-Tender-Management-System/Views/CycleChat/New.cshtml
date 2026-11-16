@@ -2,24 +2,60 @@
 @using Sourcing_Tender_Management_System.Models
 @{ var recipients = (List<ApplicationUser>)ViewBag.Recipients; }
 @{ ViewData["Title"] = "New Clarification"; }
-<h2>New Clarification — @ViewBag.ContextLabel</h2>
-<div asp-validation-summary="All" class="text-danger"></div>
-@if (recipients.Any())
-{
-    <form asp-action="New" method="post">
-        <input type="hidden" name="ProcurementRequestId" value="@Model.ProcurementRequestId" />
-        <input type="hidden" name="TenderId" value="@Model.TenderId" />
-        <input type="hidden" name="BidId" value="@Model.BidId" />
-        <div class="mb-2"><label>Recipient</label><select name="RecipientUserId" class="form-select" required>
-        @foreach (var u in recipients)
+<div class="manager-page ec-page dp-page">
+<div class="dp-head">
+    <div class="manager-page-heading">
+        @if (Model.ProcurementRequestId.HasValue && (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment")))
         {
-            <option value="@u.Id" selected="@(u.Id == Model.RecipientUserId)">@u.FullName (@u.Email)</option>
+            <a asp-controller="Department" asp-action="Details" asp-route-id="@Model.ProcurementRequestId" class="dp-crumb"><span aria-hidden="true">←</span> Back to request</a>
         }
-        </select></div>
-        <div class="mb-2"><label>Subject</label><input name="Subject" value="@Model.Subject" maxlength="200" required class="form-control" /></div>
-        <div class="mb-2"><label>Question</label><textarea name="Question" maxlength="2000" required class="form-control">@Model.Question</textarea></div>
-        <button type="submit">Send</button>
-    </form>
-}
-else { <p>No authorized recipient is available for this process stage.</p> }
-<p><a asp-action="Index">Back to inbox</a></p>
+        else
+        {
+            <a asp-action="Index" class="dp-crumb"><span aria-hidden="true">←</span> Clarifications</a>
+        }
+        <h1 class="manager-title mb-1">New clarification</h1>
+        <p class="manager-intro mb-0">About <strong>@ViewBag.ContextLabel</strong></p>
+    </div>
+</div>
+<div class="row g-4">
+    <div class="col-xl-8">
+        <section class="card manager-card mb-4">
+            <div class="card-header"><h2 class="h5 mb-0">Your question</h2></div>
+            <div class="card-body dp-form">
+                <div asp-validation-summary="All" class="mb-3"></div>
+                @if (recipients.Any())
+                {
+                    <form asp-action="New" method="post">
+                        <input type="hidden" name="ProcurementRequestId" value="@Model.ProcurementRequestId" />
+                        <input type="hidden" name="TenderId" value="@Model.TenderId" />
+                        <input type="hidden" name="BidId" value="@Model.BidId" />
+                        <div class="mb-3"><label for="cl-recipient" class="form-label">Recipient</label><select id="cl-recipient" name="RecipientUserId" class="form-select" required>
+                        @foreach (var u in recipients)
+                        {
+                            <option value="@u.Id" selected="@(u.Id == Model.RecipientUserId)">@u.FullName (@u.Email)</option>
+                        }
+                        </select></div>
+                        <div class="mb-3"><label for="cl-subject" class="form-label">Subject</label><input id="cl-subject" name="Subject" value="@Model.Subject" maxlength="200" required class="form-control" placeholder="Short summary of your question" /></div>
+                        <div class="mb-3"><label for="cl-question" class="form-label">Question</label><textarea id="cl-question" name="Question" maxlength="2000" required class="form-control" placeholder="Write your question in detail">@Model.Question</textarea><div class="form-text">Up to 2000 characters.</div></div>
+                        <div class="actions">
+                            <button type="submit" class="btn btn-primary">Send question</button>
+                            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                }
+                else { <p class="empty-state">No authorized recipient is available for this process stage.</p> }
+            </div>
+        </section>
+    </div>
+    <div class="col-xl-4">
+        <section class="card manager-card mb-4">
+            <div class="card-header"><h2 class="h5 mb-0">How it works</h2></div>
+            <ul class="dp-tips">
+                <li>The recipient is notified and answers in the conversation.</li>
+                <li>You can follow every reply from the Clarifications page.</li>
+                <li>Mark the conversation resolved once you have your answer.</li>
+            </ul>
+        </section>
+    </div>
+</div>
+</div>

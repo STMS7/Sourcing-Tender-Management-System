@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
@@ -14,6 +14,9 @@ public interface ITopCommitteeMeetingService
 
     /// <summary>Creates the tender's private room on first use, records the join and tells the other members.</summary>
     Task<MeetingStartResult> StartAsync(int tenderId, string userId, string? ipAddress);
+
+    /// <summary>Sets (or moves) the meeting date and tells the other members. Returns an error message, or null.</summary>
+    Task<string?> ScheduleAsync(int tenderId, string userId, DateTime scheduledAtUtc, string? note);
 }
 
 /// <summary>
@@ -87,8 +90,12 @@ public partial class TopCommitteeMeetingService(
             .Select(a => new { Member = a.User != null ? a.User.FullName : "(unknown)", a.CreatedAt })
             .ToListAsync();
 
+        var schedule = await GetScheduleAsync(tenderId);
         return new MeetingPageViewModel
         {
+            ScheduledAtUtc = schedule?.ScheduledAt,
+            ScheduledBy = schedule?.ScheduledBy,
+            ScheduleNote = schedule?.ScheduleNote,
             TenderId = tender.Id,
             TenderNumber = tender.TenderNumber,
             Title = tender.Title,
@@ -109,6 +116,13 @@ public partial class TopCommitteeMeetingService(
                 .Select(t => new { t.TenderNumber, t.Title }).FirstOrDefaultAsync();
             if (tender is null)
                 return MeetingStartResult.Fail(StatusCodes.Status404NotFound, "This tender no longer exists.");
+
+            // Members join a requested meeting, not an ad-hoc one: the room opens shortly before the agreed time.
+            var schedule = await GetScheduleAsync(tenderId);
+            if (schedule?.ScheduledAt is not DateTime at)
+                return MeetingStartResult.Fail(StatusCodes.Status409Conflict, "No meeting has been requested yet. Request a meeting with a date first.");
+            if (DateTime.UtcNow < at.AddMinutes(-MeetingJoinWindow.EarlyMinutes))
+                return MeetingStartResult.Fail(StatusCodes.Status409Conflict, $"The room opens {MeetingJoinWindow.EarlyMinutes} minutes before the meeting time.");
 
             var user = await db.Users.AsNoTracking().Where(u => u.Id == userId)
                 .Select(u => new { u.FullName, u.UserName }).FirstOrDefaultAsync();
@@ -134,6 +148,52 @@ public partial class TopCommitteeMeetingService(
             return MeetingStartResult.Fail(StatusCodes.Status500InternalServerError,
                 "The meeting could not be prepared. Please try again, and restart the application if it keeps failing.");
         }
+    }
+
+    // ---------------------------------------------------------------- schedule
+
+    private sealed record ScheduleRow(DateTime? ScheduledAt, string? ScheduledBy, string? ScheduleNote);
+
+    private Task<ScheduleRow?> GetScheduleAsync(int tenderId) =>
+        db.Database.SqlQuery<ScheduleRow>($"""
+            SELECT m.[ScheduledAt], u.[FullName] AS [ScheduledBy], m.[ScheduleNote]
+            FROM [meeting].[TenderMeetings] m LEFT JOIN [dbo].[AspNetUsers] u ON u.[Id] = m.[ScheduledByUserId]
+            WHERE m.[TenderId] = {tenderId}
+            """).FirstOrDefaultAsync();
+
+    public async Task<string?> ScheduleAsync(int tenderId, string userId, DateTime scheduledAtUtc, string? note)
+    {
+        if (!await IsMemberAsync(tenderId, userId)) return "You are not on the Top Committee of this tender.";
+        if (scheduledAtUtc <= DateTime.UtcNow.AddMinutes(5)) return "Choose a meeting time at least 5 minutes from now.";
+        if (scheduledAtUtc > DateTime.UtcNow.AddDays(90)) return "Choose a meeting time within the next 90 days.";
+        note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        if (note?.Length > 500) return "Keep the note under 500 characters.";
+
+        var tenderNumber = await db.Tenders.AsNoTracking().Where(t => t.Id == tenderId).Select(t => t.TenderNumber).FirstOrDefaultAsync();
+        if (tenderNumber is null) return "This tender no longer exists.";
+
+        await GetOrCreateRoomAsync(tenderId, userId);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE [meeting].[TenderMeetings]
+            SET [ScheduledAt] = {scheduledAtUtc}, [ScheduledByUserId] = {userId}, [ScheduleNote] = {note}
+            WHERE [TenderId] = {tenderId}
+            """);
+
+        var requester = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.FullName).FirstOrDefaultAsync() ?? "A member";
+        var others = await db.CommitteeVotes.AsNoTracking()
+            .Where(v => v.CommitteeType == CommitteeType.Top && v.EvaluationReport.TenderId == tenderId && v.MemberUserId != userId)
+            .Select(v => v.MemberUserId).Distinct().ToListAsync();
+        foreach (var memberId in others)
+            db.Notifications.Add(new Notification
+            {
+                UserId = memberId,
+                Title = $"Top Committee meeting requested: {tenderNumber}",
+                Message = $"{requester} requested a committee meeting on {scheduledAtUtc:dd MMM yyyy HH:mm} UTC." + (note is null ? "" : $" Note: {note}"),
+                Type = NotificationType.ActionRequired,
+                Link = $"/TopCommittee/Meeting/{tenderId}"
+            });
+        if (others.Count > 0) await db.SaveChangesAsync();
+        return null;
     }
 
     // ---------------------------------------------------------------- room storage
@@ -252,6 +312,12 @@ public sealed class TopCommitteeMeetingSchemaInitializer(IServiceScopeFactory sc
                     );
                 END
                 """, cancellationToken);
+            // Meeting requests: the agreed date, who asked and an optional note (added after the first version).
+            await db.Database.ExecuteSqlRawAsync("""
+                IF COL_LENGTH(N'meeting.TenderMeetings', N'ScheduledAt') IS NULL
+                    ALTER TABLE [meeting].[TenderMeetings] ADD [ScheduledAt] datetime2 NULL,
+                        [ScheduledByUserId] nvarchar(450) NULL, [ScheduleNote] nvarchar(500) NULL;
+                """, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -261,4 +327,10 @@ public sealed class TopCommitteeMeetingSchemaInitializer(IServiceScopeFactory sc
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+/// <summary>How early before the agreed time members may enter the room.</summary>
+public static class MeetingJoinWindow
+{
+    public const int EarlyMinutes = 15;
 }

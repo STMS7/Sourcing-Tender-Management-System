@@ -15,6 +15,7 @@ public class EvaluationCommitteeTenderRow
     public CommitteeMemberRole Role { get; set; }
     public string Stage { get; set; } = "";
     public bool ActionNeeded { get; set; }
+    public bool Completed { get; set; }
 }
 
 public class CommitteeDenial

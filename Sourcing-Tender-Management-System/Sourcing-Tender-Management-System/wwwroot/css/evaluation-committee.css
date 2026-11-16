@@ -1,0 +1,18 @@
+/* Evaluation committee pages: steady hover. The global lift on buttons moves the target out from under
+   the pointer near its edge (flicker), and nested blur layers repaint the whole table on every row hover. */
+.zt-app main.zt-heritage .ec-page .btn:hover,
+.zt-app main.zt-heritage .ec-page .btn:active { transform: none; }
+.zt-app main.zt-heritage .ec-page .table-responsive {
+  -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; box-shadow: none; background: transparent;
+}
+.zt-app main.zt-heritage .ec-page .table-hover > tbody > tr { transition: none; }
+.zt-app main.zt-heritage .ec-page .table-hover > tbody > tr:hover > * { background: var(--sage100, #E8EBD9); box-shadow: none; }
+.bid-analysis-open:hover, .bid-analysis-open:active { transform: none; }
+
+/* sourcing-manager.css sets outline buttons to olive text without a hover colour, so the dark hover fill
+   swallowed the label. Restore the light hover text. */
+.zt-app main .manager-page.ec-page .btn-outline-primary:hover,
+.zt-app main .manager-page.ec-page .btn-outline-primary:focus-visible { color: #F5F0E1; background: #3D4A2A; border-color: #3D4A2A; }
+.zt-app main .manager-page.ec-page .btn-outline-danger:hover,
+.zt-app main .manager-page.ec-page .btn-outline-danger:focus-visible { color: #FFFDF7; background: #B4411E; border-color: #B4411E; }
+.zt-app main .manager-page.ec-page .btn-outline-secondary:hover { color: #3D4A2A; background: #E8EBD9; }

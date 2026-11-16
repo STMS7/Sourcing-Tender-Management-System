@@ -8,6 +8,7 @@ using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Models.Biometric;
 using Sourcing_Tender_Management_System.Services;
 using Sourcing_Tender_Management_System.Services.Biometric;
+using Sourcing_Tender_Management_System.Services;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
@@ -241,17 +242,9 @@ public class BiometricController(
     private string SafeReturnUrl(string? returnUrl) =>
         !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/";
 
-    // Where the person lands after signing in: the page they asked for if it is on this site,
-    // otherwise the same place as the password sign-in (administrators to the admin area, everyone else home).
-    private async Task<string> DestinationAsync(ApplicationUser user, string? returnUrl)
-    {
-        if (!string.IsNullOrEmpty(returnUrl) && returnUrl != "/" && Url.IsLocalUrl(returnUrl))
-        {
-            return returnUrl;
-        }
-
-        return await LandingPage.For(users, user, Url);
-    }
+    // Use the same role-aware dashboard destination as password sign-in.
+    private async Task<string> DestinationAsync(ApplicationUser user, string? returnUrl) =>
+        WorkspaceNavigation.SignInDestination(Url, await users.GetRolesAsync(user), returnUrl);
 
     private ObjectResult TooManyAttempts() =>
         StatusCode(StatusCodes.Status429TooManyRequests, new { error = "Too many attempts. Wait a few minutes and try again." });

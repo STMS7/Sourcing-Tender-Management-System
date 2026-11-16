@@ -1,0 +1,10 @@
+.zt-oil-success { position:fixed; inset:0; z-index:150; pointer-events:none; overflow:hidden; contain:strict; }
+.zt-oil-film { position:absolute; display:block; object-fit:cover; background:#E5DFD3; border-radius:20px; box-shadow:0 12px 40px #10261A15; }
+.zt-oil-success.is-mobile .zt-oil-film { animation:zt-film-in 180ms ease-out both; }
+.zt-oil-success.is-mobile { background:#FBF3DF99; }
+/* Desktop: the film lives inside the render frame, behind the words, sharing its fade and warmth. */
+.zt-oil-success.is-inline { position:absolute; z-index:auto; contain:none; }
+.zt-oil-success.is-inline .zt-oil-film { inset:0; width:100%; height:100%; object-position:50% 38%; border-radius:0; box-shadow:none; background:none; }
+@keyframes zt-film-in { from {opacity:0;transform:translateY(4px);} to {opacity:1;transform:translateY(0);} }
+@media (max-height:480px) { .zt-oil-film { border-radius:12px; } }
+@media (prefers-reduced-motion:reduce) { .zt-oil-success { display:none; } }

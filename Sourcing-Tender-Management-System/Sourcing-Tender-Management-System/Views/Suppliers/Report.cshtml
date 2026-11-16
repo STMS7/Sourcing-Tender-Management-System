@@ -1,5 +1,155 @@
 @model Bid
-@{ ViewData["Title"] = "My Offer Report"; }
-<div class="d-print-none mb-4"><a asp-action="OfferDetails" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Back to offer</a> <a asp-action="Export" asp-route-id="@Model.Id" class="btn btn-outline-primary">Download summary (CSV)</a><p class="text-muted mt-2">Use your browser's Print command (Ctrl+P) to print or save this report as PDF.</p></div>
-<h1 class="h2 mb-4">My Offer Report</h1>
-<partial name="_OfferSummary" model="Model" />
+@{
+    ViewData["Title"] = "My Offer Report";
+    var subtotal = Model.Items.Sum(x => x.TotalPrice);
+    var compliance = Model.ComplianceStatus switch
+    {
+        ComplianceDecision.Compliant => "Compliant",
+        ComplianceDecision.NonCompliant => "Not compliant",
+        ComplianceDecision.PendingClarification => "Clarification needed",
+        _ => "Pending review"
+    };
+    string Utc(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToString("O");
+}
+<partial name="_WorkspaceLook" />
+<style>
+.or-paper { max-width: 960px; margin: 0 auto 2rem; padding: clamp(1.25rem, 3vw, 2.5rem); border-radius: 6px 28px 6px 28px; background: #FFFDF7;
+  border: 1px solid rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(61,74,42,.08), 0 26px 50px -34px rgba(46,57,32,.6); color: #3F4733; }
+.or-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 2px solid #3D4A2A; }
+.or-brand { display: flex; align-items: center; gap: .75rem; }
+.or-brand b { display: block; font-size: 1.35rem; color: #3D4A2A; letter-spacing: -.02em; }
+.or-brand b i { font-style: normal; color: #C9A84C; }
+.or-brand small { display: block; font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; color: #6B7B3A; }
+.or-title { text-align: right; }
+.or-title h1 { margin: 0; font-family: "Bricolage Grotesque", "DM Sans", sans-serif; font-size: 1.9rem; font-weight: 600; color: #3D4A2A; }
+.or-title span { display: block; font-size: .85rem; color: #5C6149; }
+.or-parties { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.or-parties > div { padding: 1rem 1.1rem; border-radius: 14px; background: #F4F1E6; }
+.or-parties h2 { margin: 0 0 .4rem; font-family: "DM Mono", ui-monospace, monospace; font-size: .7rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #6B7B3A; }
+.or-parties h2::before { display: none !important; }
+.or-parties strong { display: block; color: #3D4A2A; overflow-wrap: anywhere; }
+.or-parties span { display: block; font-size: .88rem; color: #5C6149; overflow-wrap: anywhere; }
+.or-section { margin-top: 1.75rem; }
+.or-section > h2 { margin: 0 0 .6rem; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #3D4A2A; }
+.or-section > h2::before { display: none !important; }
+.or-section table { width: 100%; margin: 0; }
+.or-section th, .or-section td { padding: .65rem .75rem !important; }
+.or-section thead th { font-family: "DM Mono", ui-monospace, monospace; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #6B7B3A; border-bottom: 2px solid #3D4A2A; }
+.or-section tbody tr { border-bottom: 1px dotted #E4DCC8; }
+.or-totals { margin-left: auto; max-width: 380px; }
+.or-totals .or-grand th, .or-totals .or-grand td { border-top: 2px solid #3D4A2A; font-size: 1.1rem; font-weight: 700; color: #3D4A2A; }
+.or-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; margin: 0; padding: .9rem 1rem; border-radius: 12px; background: #F4F1E6; }
+.or-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #E4DCC8; font-size: .8rem; color: #5C6149; }
+@@media print {
+  .sp-side, .sp-top, .sp-alert, .d-print-none, .sp-main > .alert, .sp-main > * > .alert-info { display: none !important; }
+  .sp-shell { display: block !important; padding: 0 !important; }
+  body, .sp-main { background: #fff !important; }
+  .or-paper { box-shadow: none; border: 0; margin: 0; max-width: none; padding: 0; }
+  .manager-page::before { display: none !important; }
+}
+</style>
+<div class="zt-app sp-ws">
+<div class="manager-page ec-page dp-page">
+    <div class="dp-head d-print-none">
+        <div class="manager-page-heading">
+            <a asp-action="OfferDetails" asp-route-id="@Model.Id" class="dp-crumb"><span aria-hidden="true">←</span> Back to offer</a>
+            <h1 class="manager-title mb-1">Offer report</h1>
+            <p class="manager-intro mb-0">A printable copy of your offer. Use Print to save it as PDF.</p>
+        </div>
+        <div class="actions">
+            <button type="button" class="btn btn-primary" onclick="window.print()">Print / save as PDF</button>
+            <a asp-action="Export" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Download CSV</a>
+        </div>
+    </div>
+
+    <article class="or-paper" aria-label="Offer report">
+        <header class="or-top">
+            <div class="or-brand">
+                <svg width="44" height="44" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12" fill="#5A6A30"></rect><path d="M12 29c0-9 6-15 16-16 0 9-5 15-16 16z" fill="#C9A84C"></path><path d="M12 29c3-5 7-9 12-12" fill="none" stroke="#2E3920" stroke-width="1.6" stroke-linecap="round"></path></svg>
+                <span><b>Zaytouna<i>.</i></b><small>Supplier offer report</small></span>
+            </div>
+            <div class="or-title">
+                <h1>Offer report</h1>
+                <span class="dp-num" title="@Model.BidNumber">@Model.BidNumber</span>
+                <span>Printed <time class="device-local-time" datetime="@Utc(DateTime.UtcNow)">@DateTime.UtcNow.ToString("dd MMM yyyy HH:mm") UTC</time></span>
+            </div>
+        </header>
+
+        <div class="or-parties">
+            <div><h2>Supplier</h2><strong>@(Model.Supplier?.CompanyName ?? "—")</strong><span>@Model.Supplier?.Email</span><span>@Model.Supplier?.PhoneNumber</span></div>
+            <div><h2>Tender</h2><strong>@Model.Tender.Title</strong><span>@Model.Tender.TenderNumber</span></div>
+            <div><h2>Status</h2><strong><partial name="_BidStatus" model="Model.Status" /></strong><span>Compliance: @compliance</span></div>
+        </div>
+
+        <section class="or-section">
+            <h2>Offer details</h2>
+            <table class="table align-middle">
+                <caption class="visually-hidden">Offer details</caption>
+                <tbody>
+                    <tr><th scope="row" class="w-50">Submitted</th><td><time class="device-local-time" datetime="@Utc(Model.SubmittedAt)">@Model.SubmittedAt.ToString("dd MMM yyyy HH:mm")</time></td></tr>
+                    <tr><th scope="row">Delivery timeframe</th><td>@Model.DeliveryDays days</td></tr>
+                    <tr><th scope="row">Valid until</th><td>@(Model.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</td></tr>
+                    <tr><th scope="row">Currency</th><td>@Model.Currency</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="or-section">
+            <h2>Offered items</h2>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <caption class="visually-hidden">Offered items</caption>
+                    <thead><tr><th scope="col">Item</th><th scope="col" class="text-end">Quantity</th><th scope="col" class="text-end">Unit price</th><th scope="col" class="text-end">Total</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Items.OrderBy(x => x.Id))
+                    {
+                        <tr>
+                            <td><span class="fw-semibold d-block">@item.TenderItem.ItemName</span>
+                                @if (!string.IsNullOrWhiteSpace(item.BrandOrModel)) { <span class="dp-meta mt-0">@item.BrandOrModel</span> }
+                                @if (!string.IsNullOrWhiteSpace(item.TechnicalResponse)) { <span class="d-block small mt-1 text-break">@item.TechnicalResponse</span> }</td>
+                            <td class="text-end text-nowrap">@item.TenderItem.Quantity.ToString("0.###") @item.TenderItem.Unit</td>
+                            <td class="text-end money">@item.UnitPrice.ToString("N2")</td>
+                            <td class="text-end money fw-semibold">@item.TotalPrice.ToString("N2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="or-section">
+            <h2>Financial summary (@Model.Currency)</h2>
+            <table class="table align-middle or-totals">
+                <caption class="visually-hidden">Financial summary</caption>
+                <tbody>
+                    <tr><th scope="row">Items subtotal</th><td class="text-end money">@subtotal.ToString("N2")</td></tr>
+                    <tr><th scope="row">Tax</th><td class="text-end money">@Model.TaxAmount.ToString("N2")</td></tr>
+                    <tr><th scope="row">Fees</th><td class="text-end money">@Model.FeesAmount.ToString("N2")</td></tr>
+                    <tr><th scope="row">Shipping</th><td class="text-end money">@Model.ShippingAmount.ToString("N2")</td></tr>
+                    <tr><th scope="row">Installation</th><td class="text-end money">@Model.InstallationAmount.ToString("N2")</td></tr>
+                    <tr><th scope="row">Maintenance</th><td class="text-end money">@Model.MaintenanceAmount.ToString("N2")</td></tr>
+                    <tr class="or-grand"><th scope="row">Total</th><td class="text-end money">@Model.TotalAmount.ToString("N2") @Model.Currency</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="or-section">
+            <h2>Technical summary</h2>
+            <p class="or-text">@(string.IsNullOrWhiteSpace(Model.TechnicalSummary) ? "—" : Model.TechnicalSummary)</p>
+        </section>
+        <section class="or-section">
+            <h2>Payment terms</h2>
+            <p class="or-text">@(string.IsNullOrWhiteSpace(Model.PaymentTerms) ? "—" : Model.PaymentTerms)</p>
+        </section>
+        @if (!string.IsNullOrWhiteSpace(Model.DisqualificationReason))
+        {
+            <section class="or-section"><h2>Review note</h2><p class="or-text">@Model.DisqualificationReason</p></section>
+        }
+
+        <footer class="or-foot">
+            <span>Zaytouna Sourcing Portal · Offer @Model.BidNumber</span>
+            <span>@Model.Documents.Count document(s) attached to this offer</span>
+        </footer>
+    </article>
+</div>
+</div>

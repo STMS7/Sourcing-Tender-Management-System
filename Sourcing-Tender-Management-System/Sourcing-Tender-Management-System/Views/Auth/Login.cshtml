@@ -1,14 +1,27 @@
 @model Sourcing_Tender_Management_System.Models.LoginViewModel
-@{ ViewData["Title"] = "Login"; }
-<h1>Login</h1>
-<form asp-action="Login" method="post" class="col-md-5">
-    <div asp-validation-summary="All" class="text-danger"></div>
-    <input asp-for="ReturnUrl" type="hidden" />
-    <div class="mb-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /></div>
-    <div class="mb-3"><label asp-for="Password" class="form-label"></label><input asp-for="Password" class="form-control" /></div>
-    <div class="form-check mb-3"><input asp-for="RememberMe" class="form-check-input" /><label asp-for="RememberMe" class="form-check-label"></label></div>
-    <button type="submit" class="btn btn-primary">Login</button>
+@{ Layout = "_AuthLayout"; ViewData["Title"] = "Sign in"; }
+<div class="auth-shell">
+<section class="auth-workspace" aria-labelledby="login-title">
+<header class="auth-header"><a class="auth-brand" asp-controller="Home" asp-action="Index" aria-label="Zaytouna home"><img src="~/landing/logo/zaytouna-emblem.svg" width="42" height="52" alt="" /><span>Zaytouna<small>Olive oil co.</small></span></a><a class="auth-back" asp-controller="Home" asp-action="Index"><span aria-hidden="true">↗</span> Back to home</a></header>
+<div class="auth-form-area"><p class="auth-eyebrow">Your partner workspace</p><h1 id="login-title">Good to see <br />you again.</h1><p class="auth-intro">Sign in to your sourcing and tender workspace.</p>
+<form asp-controller="Auth" asp-action="Login" method="post" class="auth-form">
+<div asp-validation-summary="All" class="auth-validation" role="alert"></div><input asp-for="ReturnUrl" type="hidden" />
+<div class="auth-field"><label asp-for="Email">Email address</label><input asp-for="Email" class="form-control" autocomplete="username" placeholder="name@company.com" required /><span asp-validation-for="Email" class="auth-field-error"></span></div>
+<div class="auth-field"><label asp-for="Password">Password</label><div class="auth-password"><input asp-for="Password" class="form-control" autocomplete="current-password" placeholder="Enter your password" required /><button type="button" class="auth-reveal" data-password-toggle aria-controls="Password" aria-pressed="false" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div><span asp-validation-for="Password" class="auth-field-error"></span></div>
+<div class="auth-remember"><input asp-for="RememberMe" class="form-check-input" /><label asp-for="RememberMe">Keep me signed in</label></div>
+<button type="submit" class="auth-submit">Sign in <span aria-hidden="true">↗</span></button>
 </form>
+<div class="auth-alternatives"><div class="auth-divider"><span>Or sign in with</span></div><div class="auth-methods"><button type="button" data-auth-biometric="btnPasskeyLogin">Fingerprint</button><button type="button" data-auth-biometric="btnFaceLogin">Face recognition</button></div><button type="button" class="auth-device-help" data-auth-options>Fingerprint or face sign-in</button></div>
+<p class="auth-register">Joining us as a supplier? <a asp-controller="Suppliers" asp-action="Register">Register your company <span aria-hidden="true">↗</span></a></p>
+</div>
+<footer class="auth-footer"><span>© @DateTime.UtcNow.Year Zaytouna Olive Oil Co.</span></footer>
+</section>
+<aside class="auth-story" aria-label="Zaytouna olive oil"><figure class="auth-render" aria-hidden="true"><img src="~/login/cinema/olive-still-v2.webp" width="960" height="640" alt="" decoding="async" /></figure><div class="auth-story-copy"><span class="auth-story-label" data-after="And ends as oil.">It starts with one olive.</span><h2>Good things grow<br />through <em>trust.</em></h2></div></aside>
+</div>
+<dialog class="auth-options-dialog" id="auth-options-dialog" aria-labelledby="auth-options-title" aria-describedby="auth-options-description">
+<div class="auth-options-header"><h2 id="auth-options-title">Sign-in help</h2><button type="button" class="auth-options-close" data-auth-close aria-label="Close sign-in options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div>
+<p class="auth-options-intro" id="auth-options-description">Continue with your selected sign-in method.</p>
 <partial name="~/Views/Biometric/_LoginOptions.cshtml" />
-<p class="mt-3"><a asp-action="RegisterSupplier">Register as a supplier</a></p>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+<div class="auth-options-footer"><button type="button" data-auth-use-password>Use my password instead</button><a asp-controller="Suppliers" asp-action="Register">New supplier? Register</a></div>
+</dialog>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/auth-login.js" asp-append-version="true"></script> }

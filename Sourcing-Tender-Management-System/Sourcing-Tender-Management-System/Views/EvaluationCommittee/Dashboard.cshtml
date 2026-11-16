@@ -1,0 +1,32 @@
+@model List<EvaluationCommitteeTenderRow>
+@using Sourcing_Tender_Management_System.Services
+@{
+    ViewData["Title"] = "Evaluation dashboard";
+}
+<div class="manager-page ec-dashboard">
+    <div class="manager-page-heading ec-dashboard-head">
+        <div><p class="manager-kicker mb-1">Evaluation workspace</p><h1 class="manager-title mb-1">Dashboard</h1><p class="manager-intro mb-0">Your evaluation work at a glance.</p></div>
+        <a class="btn btn-primary" asp-action="Index">Open all tenders</a>
+    </div>
+
+    <ul class="zt-bento" aria-label="Evaluation summary">
+        <li><a class="zt-tile" asp-action="Index"><span class="zt-tile-label">Assigned</span><span class="zt-tile-value">@ViewBag.TotalCount</span></a></li>
+        <li><a class="zt-tile @((int)ViewBag.ActionCount > 0 ? "is-alert" : "")" asp-action="Index"><span class="zt-tile-label">Needs your action</span><span class="zt-tile-value">@ViewBag.ActionCount</span></a></li>
+        <li><a class="zt-tile" asp-action="Index"><span class="zt-tile-label">Under evaluation</span><span class="zt-tile-value">@ViewBag.EvaluationCount</span></a></li>
+    </ul>
+
+    <section class="card manager-card">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center"><h2 class="h5 mb-0">Next work</h2><a asp-action="Index">View all</a></div>
+        @if (!Model.Any()) { <p class="empty-state">Nothing is assigned to you.</p> }
+        else {
+        <div class="ec-dashboard-list">
+        @foreach (var row in Model) {
+            <a asp-action="Evaluate" asp-route-id="@row.Tender.Id" class="ec-dashboard-item @(row.ActionNeeded ? "needs-action" : null)">
+                <span><strong>@row.Tender.Title</strong><small>@CommitteeWeighting.RoleLabel(row.Role) · @row.Stage</small></span>
+                @if (row.ActionNeeded) { <span class="ec-action-dot">Action needed</span> } else { <span class="badge">@row.Tender.Status</span> }
+            </a>
+        }
+        </div>
+        }
+    </section>
+</div>
