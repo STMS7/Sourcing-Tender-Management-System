@@ -1,0 +1,35 @@
+/*
+ * Top Committee pages: the olive-heritage touches.
+ * Loaded from TopCommittee/_Nav, so it only exists on the committee pages. Decorative images are CSS backgrounds
+ * (hidden from screen readers) and nothing here animates except a one-time transform/opacity grow that respects reduced motion.
+ */
+.zt-app main.zt-heritage { position: relative; isolation: isolate; }
+
+/* faint olive branch behind the page, top right */
+.zt-app main.zt-heritage::before {
+  content: ''; position: absolute; z-index: -1; right: -18px; top: -6px; width: 380px; height: 114px; pointer-events: none;
+  background: url("/img/olive-branch-pale.svg") no-repeat right top / contain;
+}
+
+/* olive branch above the page title and a stitched band under it */
+.zt-app main.zt-heritage h1::before {
+  content: ''; display: block; width: 124px; height: 38px; margin: 0 0 4px -6px;
+  background: url("/img/olive-branch.svg") no-repeat left center / contain;
+  transform-origin: left center; animation: tc-grow .9s cubic-bezier(.16, 1, .3, 1) both;
+}
+.zt-app main.zt-heritage h1::after {
+  content: ''; display: block; height: 14px; max-width: 440px; margin-top: 12px; opacity: .55;
+  background: url("/img/olive-band.svg") repeat-x left center;
+}
+.zt-app main.zt-heritage h1 { margin-bottom: 1rem; }
+
+@keyframes tc-grow { from { opacity: 0; transform: scaleX(.4); } to { opacity: 1; transform: none; } }
+@media (max-width: 575.98px) {
+  .zt-app main.zt-heritage h1::before { width: 100px; height: 32px; }
+  .zt-app main.zt-heritage::before { width: 240px; height: 72px; right: -10px; }
+}
+@media (prefers-reduced-motion: reduce) { .zt-app main.zt-heritage h1::before { animation: none; } }
+
+/* committee tables carry a button column, so cells are a little tighter than the admin rhythm to avoid a side scrollbar */
+.zt-app main.zt-heritage .table > :not(caption) > * > * { padding: .55rem .7rem; }
+.zt-app main.zt-heritage td .btn { padding-inline: .75rem; }
