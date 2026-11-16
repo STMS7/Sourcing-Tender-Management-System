@@ -32,8 +32,10 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/supplier-portal.css" asp-append-version="true" />
+    @* Glass theme shared with the staff layout; loaded last so it sits on top of the portal skin. *@
+    <link rel="stylesheet" href="~/css/glass.css" asp-append-version="true" />
 </head>
-<body class="sp">
+<body class="sp zt-glass">
 <div class="sp-shell" id="sp-shell">
     <aside class="sp-side" aria-label="Supplier navigation">
         <a class="sp-brand" asp-area="" asp-controller="Suppliers" asp-action="Index">

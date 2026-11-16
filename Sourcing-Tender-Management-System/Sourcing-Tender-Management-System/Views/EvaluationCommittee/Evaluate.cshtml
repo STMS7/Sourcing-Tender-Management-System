@@ -17,6 +17,15 @@
     var myCriteria = criteria.Where(c => c.Type == myType).ToList();
     var myReview = Model.Reviews.GetValueOrDefault(Model.MyRole);
     ViewData["Title"] = "Evaluate " + tender.TenderNumber;
+    var reportSent = Model.SubmittedReport != null;
+    var steps = new (string Label, bool Done)[]
+    {
+        ("Agree weights", Model.AgreedWeights != null),
+        ("Choose agreed bid", Model.AgreedBidId != null || reportSent),
+        ("Manager and department", reportSent || CommitteeWeighting.AllFourAgree(Model.AgreedBidId, Model.Reviews)),
+        ("Report sent", reportSent)
+    };
+    var currentStep = Array.FindIndex(steps, s => !s.Done);
 }
 <div id="evaluation-details-search-results" class="manager-page">
 <p><a asp-action="Index" class="link-secondary text-decoration-none">&larr; Back to my tenders</a></p>
@@ -28,6 +37,15 @@
     </div>
     <span class="badge fs-6">@tender.Status</span>
 </div>
+<ol class="ec-steps" aria-label="Evaluation progress">
+@for (var i = 0; i < steps.Length; i++) {
+    <li class="@(steps[i].Done ? "is-done" : i == currentStep ? "is-now" : "")" aria-current="@(i == currentStep ? "step" : null)">
+        <span class="ec-step-no">Step @(i + 1)</span>
+        <strong>@steps[i].Label</strong>
+        <span class="ec-step-state">@(steps[i].Done ? "Done" : i == currentStep ? "In progress" : "Waiting")</span>
+    </li>
+}
+</ol>
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 

@@ -1,29 +1,68 @@
 @model Sourcing_Tender_Management_System.Models.Clarification
 @using Sourcing_Tender_Management_System.Models
-@{ ViewData["Title"] = "Clarification"; }
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Clarification";
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    var otherName = (Model.AskedByUserId == userId ? Model.RecipientUser?.FullName : Model.AskedByUser?.FullName) is { } n && !string.IsNullOrWhiteSpace(n) ? n : "Participant";
+    var canResolve = Model.Status != ClarificationStatus.Resolved && Model.AskedByUserId == userId;
+}
 <div id="thread-search-results">
-<h2>@Model.Subject</h2>
-<p>Status: <strong>@Model.Status</strong> | Asked: @Model.AskedAt.ToLocalTime()</p>
-<p>From: @Model.AskedByUser?.FullName | To: @Model.RecipientUser?.FullName</p>
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "thread-search", ResultsId = "thread-search-results", Label = "Search this question and its responses" })" />
-<p data-search-item>@Model.Question</p>
-<h3>Responses</h3>
-@foreach (var r in Model.Responses.OrderBy(r => r.RespondedAt))
-{
-    <div data-search-item class="border p-2 mb-2"><strong>@r.RespondedByUser?.FullName</strong> — @r.RespondedAt.ToLocalTime()<p>@r.ResponseText</p></div>
-}
-@if (ViewBag.CanReply == true)
-{
-    <form asp-action="Reply" asp-route-id="@Model.Id" method="post">
-        <label>Reply</label><textarea name="response" required maxlength="3000" class="form-control"></textarea>
-        <button type="submit">Send response</button>
-    </form>
-}
-@if (Model.Status != ClarificationStatus.Resolved &&
-    Model.AskedByUserId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
-{
-    <form asp-action="Resolve" asp-route-id="@Model.Id" method="post"><button type="submit">Mark Resolved</button></form>
-}
-<p><a asp-action="Index">Back to inbox</a></p>
+    <div class="sm-head-block">
+        <a asp-action="Index">&larr; Back to inbox</a>
+        <span class="sp-eyebrow d-block mt-2">Clarification</span>
+        <h1 class="sp-h1">@Model.Subject</h1>
+        <p class="sp-sub">From @(Model.AskedByUser?.FullName) to @(Model.RecipientUser?.FullName)</p>
+    </div>
+    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "thread-search", ResultsId = "thread-search-results", Label = "Search this question and its responses" })" />
 
+    <section class="sp-card sm-thread" aria-label="Conversation">
+        <header class="sm-head">
+            <span class="sm-av" aria-hidden="true">@otherName.Trim()[..1]</span>
+            <div><h2>@Model.Subject</h2><small>with @otherName · asked <time class="device-local-time" datetime="@Model.AskedAt.ToString("o")">@Model.AskedAt.ToString("dd MMM yyyy HH:mm")</time></small></div>
+            <div class="sm-head-actions">
+                @if (Model.Status == ClarificationStatus.Pending && Model.RecipientUserId == userId) { <span class="sp-chip wait"><i></i>Reply needed</span> }
+                else if (Model.Status == ClarificationStatus.Pending) { <span class="sp-chip info">Awaiting reply</span> }
+                else if (Model.Status == ClarificationStatus.Resolved) { <span class="sp-chip info">Closed</span> }
+                else { <span class="sp-chip ok"><i></i>Answered</span> }
+                @if (canResolve)
+                {
+                    <form asp-action="Resolve" asp-route-id="@Model.Id" method="post"><button type="submit" class="btn btn-sm btn-outline-secondary">Mark resolved</button></form>
+                }
+            </div>
+        </header>
+        <ol class="sm-msgs" data-message-thread tabindex="0" aria-label="Message history">
+            <li data-search-item class="sm-msg first @(Model.AskedByUserId == userId ? "me" : "")">
+                <span class="sm-who">@(Model.AskedByUserId == userId ? "You" : Model.AskedByUser?.FullName)<time class="device-local-time" datetime="@Model.AskedAt.ToString("o")">@Model.AskedAt.ToString("dd MMM yyyy HH:mm")</time></span>
+                <div class="sm-bubble">@Model.Question</div>
+            </li>
+            @foreach (var r in Model.Responses.OrderBy(r => r.RespondedAt))
+            {
+                <li data-search-item class="sm-msg @(r.RespondedByUserId == userId ? "me" : "")">
+                    <span class="sm-who">@(r.RespondedByUserId == userId ? "You" : r.RespondedByUser?.FullName ?? "Participant")<time class="device-local-time" datetime="@r.RespondedAt.ToString("o")">@r.RespondedAt.ToString("dd MMM yyyy HH:mm")</time></span>
+                    <div class="sm-bubble">@r.ResponseText</div>
+                </li>
+            }
+        </ol>
+        @if (ViewBag.CanReply == true)
+        {
+            <form class="sm-compose" asp-action="Reply" asp-route-id="@Model.Id" method="post">
+                <label for="thread-response" class="visually-hidden">Reply</label>
+                <textarea id="thread-response" name="response" required maxlength="3000" rows="2" placeholder="Write your reply&hellip;"></textarea>
+                <button type="submit" class="sm-send" aria-label="Send response"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
+            </form>
+        }
+        else
+        {
+            <p class="sm-closed">This conversation is closed or its stage no longer permits a response. You can still read its history.</p>
+        }
+    </section>
 </div>
+@section Scripts {
+    <script src="~/js/sourcing-messages.js" asp-append-version="true"></script>
+    <script>
+    // Ctrl/Cmd + Enter sends the reply.
+    (function(){var ta=document.getElementById('thread-response');
+    if(ta)ta.addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();ta.form.requestSubmit()}})})();
+    </script>
+}
