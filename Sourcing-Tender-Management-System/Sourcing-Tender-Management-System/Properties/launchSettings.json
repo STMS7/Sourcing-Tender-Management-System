@@ -16,7 +16,7 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "dotnetRunMessages": true,
-      "applicationUrl": "https://localhost:7288;http://localhost:5192"
+      "applicationUrl": "https://localhost:7288;http://localhost:5192;https://abdallahmdalalg-001-site1.itempurl.com/"
     },
     "Container (.NET SDK)": {
       "commandName": "SdkContainer",

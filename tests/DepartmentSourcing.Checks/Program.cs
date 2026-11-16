@@ -63,8 +63,8 @@ try {
         db.AddRange(department, other, category); await db.SaveChangesAsync(); categoryId = category.Id;
         var manager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         foreach (var (id, role, departmentId) in new[] {
-            ("requester", "DepartmentRepresentative", (int?)department.Id),
-            ("stranger", "DepartmentRepresentative", (int?)other.Id),
+            ("requester", "DepartmentRequester", (int?)department.Id),
+            ("stranger", "DepartmentRequester", (int?)other.Id),
             ("officer", "SourcingOfficer", (int?)null), ("other", "SourcingOfficer", (int?)null) }) {
             var user = new ApplicationUser { Id = id, FullName = id, UserName = id + "@example.test",
                 Email = id + "@example.test", EmailConfirmed = true, IsActive = true, DepartmentId = departmentId };

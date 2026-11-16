@@ -1,5 +1,6 @@
 ﻿@model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
 @using Sourcing_Tender_Management_System.Models
+
 @inject Sourcing_Tender_Management_System.Data.ApplicationDbContext Db
 @{
     ViewData["Title"] = "Department Dashboard";
@@ -48,6 +49,7 @@
     <li><a class="zt-tile" asp-action="Index" asp-route-status="UnderReview"><span class="zt-tile-label">In review</span><span class="zt-tile-value">@(submitted + underReview)</span><span class="zt-tile-note">@submitted submitted · @underReview under review</span></a></li>
     <li><a class="zt-tile" asp-action="Index" asp-route-status="Approved"><span class="zt-tile-label">Approved</span><span class="zt-tile-value">@(approved + converted)</span><span class="zt-tile-note">@converted converted to tender</span></a></li>
 </ul>
+
 
 <section class="card manager-card mb-4" aria-labelledby="dp-breakdown">
     <div class="card-header"><h2 id="dp-breakdown" class="h5 mb-0">Status breakdown</h2></div>

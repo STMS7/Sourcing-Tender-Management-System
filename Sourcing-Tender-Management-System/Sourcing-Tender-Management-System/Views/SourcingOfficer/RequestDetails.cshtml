@@ -4,37 +4,51 @@
     var conversations = (List<Clarification>)ViewBag.RequestConversations;
     var canReview = ViewBag.CanReview is true;
     var canChat = ViewBag.CanChat is true;
+    var isNewSubmission = Model.Status == ProcurementRequestStatus.Submitted;
+    var isActiveReview = Model.Status == ProcurementRequestStatus.UnderReview;
 }
 <link rel="stylesheet" href="~/css/officer-workspace.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/css/officer-request.css" asp-append-version="true" />
 <div id="request-detail-results" class="ow or-request">
-<header class="ow-head">
-<div><h1>@Model.Title</h1><p class="or-reference">@Model.RequestNumber <span class="status">@Model.Status</span></p></div>
-<a class="btn btn-outline-secondary" asp-action="Requests">Back to purchase requests</a>
+<header class="or-hero">
+    <div class="or-hero-copy">
+        <p class="or-eyebrow">Purchase request</p>
+        <h1>@Model.Title</h1>
+        <div class="or-meta"><span class="or-number">@Model.RequestNumber</span><span class="or-status">@Model.Status</span><span>@Model.Department.Name</span><span>Requested by <strong>@Model.RequestedByUser.FullName</strong></span></div>
+    </div>
+    <a class="btn btn-outline-secondary" asp-action="Requests">← Back to purchase requests</a>
 </header>
-<p class="or-owner">@Model.Department.Name · Requested by <strong>@Model.RequestedByUser.FullName</strong></p>
 @if (canReview || canChat) {
-<section class="or-decisions" aria-labelledby="request-actions-title"><h2 id="request-actions-title">Request actions</h2>
-<div class="actions">
-@if (canReview) {
+<section class="or-card or-decisions" aria-labelledby="request-actions-title">
+<div class="or-section-head"><div><p class="or-section-kicker">Next step</p><h2 id="request-actions-title">@(isNewSubmission ? "Begin request review" : isActiveReview ? "Complete your review" : "Request communication")</h2></div><p>@(isNewSubmission ? "Open the review before making a decision." : isActiveReview ? "Approve the request or choose another review outcome." : "Keep the conversation linked to this request.")</p></div>
+<div class="or-actions or-progressive-actions">
+@if (canReview && isNewSubmission) {
+    <form asp-action="StartReview" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Start review</button></form>
+}
+@if (canReview && isActiveReview) {
     <a class="btn btn-primary" asp-action="AcceptRequest" asp-route-id="@Model.Id">Accept and create tender</a>
-    <a class="btn btn-outline-primary" href="#request-return">Return for changes</a>
-    <a class="btn btn-outline-danger" href="#request-reject" data-open-officer-section>Reject permanently</a>
-    @if (Model.Status == ProcurementRequestStatus.Submitted) {
-        <form asp-action="StartReview" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-primary" type="submit">Start review</button></form>
-    }
 }
 @if (canChat) {
-    <a class="btn btn-outline-primary" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{Model.Id}")">Chat with requesting department</a>
+    <a class="btn btn-outline-primary" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{Model.Id}")">Message department</a>
+}
+@if (canReview && isActiveReview) {
+    <div class="dropdown or-more-actions">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More review actions</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#request-return-modal"><strong>Return for changes</strong><small>Department can edit and resubmit</small></button></li>
+            <li><hr class="dropdown-divider" /></li>
+            <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#request-reject-modal"><strong>Reject permanently</strong><small>Close this request without resubmission</small></button></li>
+        </ul>
+    </div>
 }
 </div>
 </section>
 }
 <partial name="_SourcingCycle" model="@(Model.Status == ProcurementRequestStatus.ConvertedToTender ? 1 : 0)" />
-@if (canReview) {
-<section class="so-next" aria-labelledby="request-next-heading">
-    <h2 id="request-next-heading">Review before deciding</h2>
-    <p>Check the items and specifications. Accept creates a draft tender. Return requests an update; permanent rejection closes the request. Both require a reason sent to the department.</p>
+@if (canReview && (isNewSubmission || isActiveReview)) {
+<section class="so-next or-review-note" aria-labelledby="request-next-heading">
+    <h2 id="request-next-heading">@(isNewSubmission ? "Ready to review?" : "Review before deciding")</h2>
+    <p>@(isNewSubmission ? "Starting the review marks this request as in progress. No decision is sent to the department yet." : "Check the items and specifications. Acceptance creates a draft tender; alternative outcomes are available under More review actions.")</p>
 </section>
 }
 
@@ -43,60 +57,127 @@
 } else if (Model.Status == ProcurementRequestStatus.Rejected) {
     <p class="alert alert-info">This request was rejected. Its decision and message remain available in the history.</p>
 }
-<section class="or-summary" aria-labelledby="request-summary-title"><h2 id="request-summary-title">Request details</h2><dl class="row"><dt class="col-sm-3">Reason</dt><dd class="col-sm-9 preserve-lines">@(string.IsNullOrWhiteSpace(Model.Reason) ? "Not specified" : Model.Reason)</dd><dt class="col-sm-3">Description</dt><dd class="col-sm-9 preserve-lines">@(string.IsNullOrWhiteSpace(Model.Description) ? "Not specified" : Model.Description)</dd><dt class="col-sm-3">Required by</dt><dd class="col-sm-9">@(Model.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</dd><dt class="col-sm-3">Estimated budget</dt><dd class="col-sm-9">@Model.EstimatedBudget.ToString("N2")</dd></dl></section>
-<details class="or-sharing"><summary>Record QR code and sharing link</summary><partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "PurchaseRequest", Model.RequestNumber)' /></details>
+<section class="or-card or-summary" aria-labelledby="request-summary-title">
+    <div class="or-section-head"><div><p class="or-section-kicker">Overview</p><h2 id="request-summary-title">Request details</h2></div></div>
+    <dl class="or-facts">
+        <div><dt>Reason</dt><dd class="preserve-lines">@(string.IsNullOrWhiteSpace(Model.Reason) ? "Not specified" : Model.Reason)</dd></div>
+        <div><dt>Description</dt><dd class="preserve-lines">@(string.IsNullOrWhiteSpace(Model.Description) ? "Not specified" : Model.Description)</dd></div>
+        <div><dt>Required by</dt><dd>@(Model.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</dd></div>
+        <div><dt>Estimated budget</dt><dd class="or-budget">@Model.EstimatedBudget.ToString("N2")</dd></div>
+    </dl>
+</section>
+<details class="or-card or-sharing">
+    <summary><span><strong>QR code and sharing link</strong><small>Open the live PDF for this request</small></span><span class="or-chevron" aria-hidden="true">⌄</span></summary>
+    <div class="or-sharing-body"><partial name="_RecordQrCode" model='new Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel(Model.Id, "PurchaseRequest", Model.RequestNumber)' /></div>
+</details>
 
-<partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "request-detail-search", ResultsId = "request-detail-results", Label = "Search requested items, reviews and conversations" })" />
-<h2>Requested items</h2>
-<div class="table-responsive"><table class="table"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit</th><th scope="col">Specifications</th></tr></thead><tbody>
+<section class="or-search" aria-label="Search request content"><partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "request-detail-search", ResultsId = "request-detail-results", Label = "Search requested items, reviews and conversations" })" /></section>
+<section class="or-card or-items" aria-labelledby="requested-items-title">
+<div class="or-section-head"><div><p class="or-section-kicker">Scope</p><h2 id="requested-items-title">Requested items</h2></div><span class="or-count">@Model.Items.Count item(s)</span></div>
+<div class="table-responsive"><table class="table mb-0"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit</th><th scope="col">Specifications</th></tr></thead><tbody>
 @foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3")</td><td>@item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
-</tbody></table></div>
-@if (canReview) {
-    <section id="request-return" class="form-panel my-4" aria-labelledby="return-heading">
-        <h2 id="return-heading" class="mt-0">Return for changes</h2>
-        <p>Send a reason to the department so they can update this request and resubmit it.</p>
-        <form asp-action="ReturnRequest" method="post">
-            <input name="Id" value="@Model.Id" type="hidden" />
-            <label for="return-reason" class="form-label">Changes required</label>
-            <textarea id="return-reason" name="Reason" class="form-control mb-3" required maxlength="2000" rows="3"></textarea>
-            <button type="submit" class="btn btn-outline-primary">Return to department with message</button>
-        </form>
-    </section>
-    <details id="request-reject" class="mb-4">
-        <summary class="text-danger">Reject request permanently</summary>
-        <p class="mt-3">The department will see your reason. Rejected requests cannot be edited or resubmitted.</p>
-        <form asp-action="RejectRequest" method="post">
-            <input name="Id" value="@Model.Id" type="hidden" />
-            <label for="reject-reason" class="form-label">Rejection reason</label>
-            <textarea id="reject-reason" name="Reason" class="form-control mb-3" required maxlength="2000" rows="3"></textarea>
-            <button type="submit" class="btn btn-danger">Reject request with message</button>
-        </form>
-    </details>
+</tbody></table></div></section>
+@if (canReview && isActiveReview) {
+    <div class="modal fade" id="request-return-modal" tabindex="-1" aria-labelledby="request-return-modal-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h4 mb-1" id="request-return-modal-title">Return for changes</h2>
+                        <p class="text-secondary small mb-0">The department can update and resubmit this request.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form asp-action="ReturnRequest" method="post">
+                    <div class="modal-body">
+                        <input name="Id" value="@Model.Id" type="hidden" />
+                        <label for="return-reason" class="form-label">Changes required</label>
+                        <textarea id="return-reason" name="Reason" class="form-control" required maxlength="2000" rows="5" data-decision-reason></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" data-decision-submit disabled>Return to department</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="request-reject-modal" tabindex="-1" aria-labelledby="request-reject-modal-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h4 mb-1 text-danger" id="request-reject-modal-title">Reject request permanently</h2>
+                        <p class="text-secondary small mb-0">Rejected requests cannot be edited or resubmitted.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form asp-action="RejectRequest" method="post">
+                    <div class="modal-body">
+                        <input name="Id" value="@Model.Id" type="hidden" />
+                        <label for="reject-reason" class="form-label">Rejection reason</label>
+                        <textarea id="reject-reason" name="Reason" class="form-control" required maxlength="2000" rows="5" data-decision-reason></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger" data-decision-submit disabled>Reject request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 }
 @if (Model.Reviews.Count > 0) {
-    <h2>Review history</h2>
-    <ul class="list-group list-group-flush mb-4">
+    <section class="or-card or-history" aria-labelledby="review-history-title">
+    <div class="or-section-head"><div><p class="or-section-kicker">Audit trail</p><h2 id="review-history-title">Review history</h2></div><span class="or-count">@Model.Reviews.Count decision(s)</span></div>
+    <ol class="or-timeline">
     @foreach (var review in Model.Reviews.OrderByDescending(r => r.ReviewedAt)) {
-        <li data-search-item class="list-group-item px-0"><strong>@review.Decision</strong> · @review.ReviewerUser.FullName · @review.ReviewedAt.ToString("dd MMM yyyy HH:mm") UTC<p class="preserve-lines mb-0">@review.Reason</p></li>
+        <li data-search-item><span class="or-timeline-dot" aria-hidden="true"></span><div><div class="or-timeline-head"><strong>@review.Decision</strong><time>@review.ReviewedAt.ToString("dd MMM yyyy HH:mm") UTC</time></div><p class="or-reviewer">Reviewed by @review.ReviewerUser.FullName</p><p class="preserve-lines or-review-reason">@review.Reason</p></div></li>
     }
-    </ul>
+    </ol></section>
 }
-<h2>Department conversation</h2>
-<p class="text-secondary">Ask the request owner to clarify or revise quantities, specifications or other details. Questions and replies stay linked to this purchase request.</p>
+<section class="or-card or-conversations" aria-labelledby="department-conversation-title">
+<div class="or-section-head"><div><p class="or-section-kicker">Clarifications</p><h2 id="department-conversation-title">Department conversation</h2></div><p>Questions and replies stay linked to this purchase request.</p></div>
 @if (conversations.Count == 0) {
-    <p>No department conversations have been started for this request.</p>
+    <p class="or-empty">No department conversations have been started for this request.</p>
 } else {
-    <ul class="list-group list-group-flush mb-4">
+    <ul class="or-conversation-list">
     @foreach (var conversation in conversations) {
-        <li data-search-item class="list-group-item px-0"><a asp-action="Messages" asp-route-conversationId="@conversation.Id">@conversation.Subject</a> <span class="status">@conversation.Status</span></li>
+        <li data-search-item><a asp-action="Messages" asp-route-conversationId="@conversation.Id"><span class="or-conversation-icon" aria-hidden="true">✉</span><span><strong>@conversation.Subject</strong><small>Open conversation</small></span><span class="or-conversation-status">@conversation.Status</span></a></li>
     }
     </ul>
 }
+</section>
 @if ((bool)ViewBag.CanCreateTender) {
-    <a class="btn btn-primary" asp-action="Create" asp-route-requestId="@Model.Id">Create tender draft</a>
+    <div class="or-footer-action"><div><strong>Ready to continue?</strong><span>Create a tender draft from this approved request.</span></div><a class="btn btn-primary" asp-action="Create" asp-route-requestId="@Model.Id">Create tender draft</a></div>
 } else if (Model.Status == ProcurementRequestStatus.ConvertedToTender) {
-    @if (ViewBag.LinkedTenderId is int linkedTenderId) { <a class="btn btn-primary" asp-action="Details" asp-route-id="@linkedTenderId">Open linked tender</a> }
-    <p class="text-secondary">This request has already been converted to a tender. Its department conversation remains available while sourcing is active.</p>
+    <div class="or-footer-action"><div><strong>Converted to tender</strong><span>The department conversation remains available while sourcing is active.</span></div>@if (ViewBag.LinkedTenderId is int linkedTenderId) { <a class="btn btn-primary" asp-action="Details" asp-route-id="@linkedTenderId">Open linked tender</a> }</div>
 }
 
 </div>
+
+@if (canReview && isActiveReview)
+{
+    <script>
+        (function () {
+            // Heritage pages use backdrop filters which create a stacking context.
+            // Keep Bootstrap modals directly under body so their backdrop stays behind them.
+            document.querySelectorAll('#request-return-modal, #request-reject-modal').forEach(function (modal) {
+                document.body.appendChild(modal);
+                modal.addEventListener('shown.bs.modal', function () {
+                    modal.querySelector('[data-decision-reason]')?.focus();
+                });
+            });
+            document.querySelectorAll('[data-decision-reason]').forEach(function (reason) {
+                var form = reason.closest('form');
+                var submit = form && form.querySelector('[data-decision-submit]');
+                if (!submit) return;
+                var sync = function () {
+                    submit.disabled = reason.value.trim().length === 0;
+                };
+                reason.addEventListener('input', sync);
+                sync();
+            });
+        })();
+    </script>
+}

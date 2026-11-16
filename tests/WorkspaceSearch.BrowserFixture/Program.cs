@@ -24,8 +24,9 @@ db.AddRange(department, it, category, hardware, supplier, otherSupplier); await 
 db.SupplierCategories.AddRange(new SupplierCategory { SupplierId = supplier.Id, CategoryId = category.Id },
     new SupplierCategory { SupplierId = otherSupplier.Id, CategoryId = category.Id });
 var roleIds = await db.Roles.ToDictionaryAsync(r => r.Name!, r => r.Id);
-foreach (var (id, role) in new[] { ("admin","Admin"), ("officer","SourcingOfficer"), ("requester","DepartmentRepresentative"),
-    ("manager","SourcingManager"), ("technical","TechnicalRepresentative"), ("financial","FinancialRepresentative"),
+foreach (var (id, role) in new[] { ("admin","Admin"), ("officer","SourcingOfficer"), ("requester","DepartmentRequester"),
+    ("department","DepartmentRepresentative"), ("manager","SourcingManager"),
+    ("technical","TechnicalRepresentative"), ("financial","FinancialRepresentative"),
     ("supplier","Supplier"), ("outsider","Supplier"), ("top","TopCommittee"), ("top2","TopCommittee"),
     ("top3","TopCommittee"), ("top4","TopCommittee") })
 {
@@ -33,7 +34,7 @@ foreach (var (id, role) in new[] { ("admin","Admin"), ("officer","SourcingOffice
         UserName = id + "@example.test", Email = id + "@example.test",
         NormalizedUserName = (id + "@example.test").ToUpperInvariant(), NormalizedEmail = (id + "@example.test").ToUpperInvariant(),
         EmailConfirmed = true, IsActive = true, SecurityStamp = Guid.NewGuid().ToString(),
-        DepartmentId = id == "requester" ? department.Id : null,
+        DepartmentId = id is "requester" or "department" ? department.Id : null,
         SupplierId = id == "supplier" ? supplier.Id : id == "outsider" ? otherSupplier.Id : null };
     user.PasswordHash = new PasswordHasher<ApplicationUser>().HashPassword(user, "Preview-Only!4729");
     db.Users.Add(user);
@@ -59,7 +60,7 @@ Tender Tender(string number, string title, TenderStatus status) => new() {
     EvaluationCriteria = [new EvaluationCriterion { Name = "الجودة Quality", Weight = 100, MaximumScore = 100, Type = CriterionType.Technical },
                           new EvaluationCriterion { Name = "التكلفة Cost", Weight = 100, MaximumScore = 100, Type = CriterionType.Financial }] };
 void Committee(Tender tender) {
-    foreach (var (id, role) in new[] { ("manager",CommitteeMemberRole.SourcingManager), ("requester",CommitteeMemberRole.DepartmentRepresentative),
+    foreach (var (id, role) in new[] { ("manager",CommitteeMemberRole.SourcingManager), ("department",CommitteeMemberRole.DepartmentRepresentative),
         ("technical",CommitteeMemberRole.TechnicalRepresentative), ("financial",CommitteeMemberRole.FinancialRepresentative) })
         tender.CommitteeMembers.Add(new TenderCommitteeMember { UserId = id, Role = role.ToString(), RoleType = role });
 }

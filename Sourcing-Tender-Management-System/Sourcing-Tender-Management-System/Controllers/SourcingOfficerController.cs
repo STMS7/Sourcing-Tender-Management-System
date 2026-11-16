@@ -40,7 +40,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             PendingCompliance = await SubmittedOffers(db.Bids).CountAsync(b =>
                 tenders.Any(t => t.Id == b.TenderId && t.Status == TenderStatus.Closed) &&
                 (b.ComplianceStatus == ComplianceDecision.Pending || b.ComplianceStatus == ComplianceDecision.PendingClarification)),
-            RecentTenders = await tenders.AsNoTracking().OrderByDescending(t => t.CreatedAt).Take(10).ToListAsync(),
+            RecentTenders = await tenders.AsNoTracking().OrderByDescending(t => t.CreatedAt).Take(4).ToListAsync(),
             Tasks = await db.UserTasks.AsNoTracking().Where(t => t.UserId == OfficerId &&
                 (t.Status == UserTaskStatus.Open || t.Status == UserTaskStatus.InProgress))
                 .OrderBy(t => t.DueAt).Take(100).ToListAsync()
@@ -187,7 +187,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             [CommitteeMemberRole.SourcingManager] = ["SourcingManager"],
             [CommitteeMemberRole.TechnicalRepresentative] = ["TechnicalRepresentative"],
             [CommitteeMemberRole.FinancialRepresentative] = ["FinancialRepresentative"],
-            [CommitteeMemberRole.DepartmentRepresentative] = ["DepartmentRepresentative", "DepartmentRequester", "RequestingDepartment"]
+            [CommitteeMemberRole.DepartmentRepresentative] = ["DepartmentRepresentative"]
         };
 
         foreach (var entry in roleNames)
@@ -356,7 +356,91 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         var (resultReport, resultStep) = await CurrentResultStep(id);
         ViewBag.ResultReport = resultReport;
         ViewBag.ResultStep = resultStep;
+        ViewBag.ResponsibilityStatuses = await ResponsibilityStatuses(tender, resultStep);
         return View(tender);
+    }
+
+    private async Task<List<TenderResponsibilityStatus>> ResponsibilityStatuses(Tender tender, TenderResultFlow.Step resultStep)
+    {
+        var result = new List<TenderResponsibilityStatus>();
+        var members = tender.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation && m.RoleType != null)
+            .GroupBy(m => m.RoleType!.Value).ToDictionary(g => g.Key, g => g.First());
+        string Person(CommitteeMemberRole role) => members.TryGetValue(role, out var member)
+            ? member.User.FullName : "Not assigned";
+        void Add(CommitteeMemberRole role, string state, string detail, bool waiting, bool complete = false) => result.Add(new TenderResponsibilityStatus
+        {
+            Role = CommitteeWeighting.RoleLabel(role), Person = Person(role), State = state,
+            Detail = detail, IsWaiting = waiting, IsComplete = complete
+        });
+
+        if (tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null)
+        {
+            var proposals = CommitteeWeighting.ReadProposals(tender.EvaluationCriteria);
+            foreach (var role in CommitteeWeighting.Evaluators)
+            {
+                var done = proposals.Any(p => p.Role == role);
+                Add(role, done ? "Submitted" : members.ContainsKey(role) ? "Waiting" : "Assignment required",
+                    done ? "Weight proposal received." : members.ContainsKey(role)
+                        ? "Must submit a technical and financial weight proposal."
+                        : "Admin must assign this role before preparation can finish.", !done, done);
+            }
+            return result;
+        }
+
+        if (tender.Status == TenderStatus.UnderEvaluation)
+        {
+            var roundStart = await db.EvaluationReports.Where(r => r.TenderId == tender.Id)
+                .Select(r => (DateTime?)(r.SubmittedAt ?? r.CreatedAt)).MaxAsync() ?? DateTime.MinValue;
+            var memberIds = members.Values.Select(m => m.UserId).ToList();
+            var rows = await db.BidEvaluations.AsNoTracking().Where(e => e.Bid.TenderId == tender.Id &&
+                    memberIds.Contains(e.EvaluatorUserId) && e.EvaluatedAt > roundStart)
+                .Select(e => new { e.EvaluatorUserId, e.BidId, e.IsRecommended, e.EvaluatedAt, e.Comments }).ToListAsync();
+            var choices = new Dictionary<CommitteeMemberRole, int?>();
+            DateTime? agreedAt = null;
+            foreach (var role in CommitteeWeighting.Evaluators)
+            {
+                var pick = members.TryGetValue(role, out var member)
+                    ? rows.Where(r => r.EvaluatorUserId == member.UserId && r.IsRecommended).MaxBy(r => r.EvaluatedAt) : null;
+                choices[role] = pick?.BidId;
+                if (pick != null && (agreedAt == null || pick.EvaluatedAt > agreedAt)) agreedAt = pick.EvaluatedAt;
+            }
+            var agreedBid = CommitteeWeighting.AgreedBid(choices);
+            var bothPicked = CommitteeWeighting.Evaluators.All(r => choices.GetValueOrDefault(r) != null);
+            foreach (var role in CommitteeWeighting.Evaluators)
+            {
+                var picked = choices.GetValueOrDefault(role) != null;
+                var disagreed = bothPicked && agreedBid == null;
+                Add(role, !picked ? "Waiting" : disagreed ? "Needs agreement" : "Submitted",
+                    !picked ? "Must review the compliant offers and recommend one."
+                    : disagreed ? "The technical and financial recommendations differ; both members must agree on one offer."
+                    : "Recommendation received.", !picked || disagreed, picked && !disagreed);
+            }
+            if (agreedBid != null)
+            {
+                foreach (var role in CommitteeWeighting.Reviewers)
+                {
+                    var decision = members.TryGetValue(role, out var member) ? rows.Where(r => r.EvaluatorUserId == member.UserId &&
+                        r.BidId == agreedBid && r.EvaluatedAt > agreedAt).MaxBy(r => r.EvaluatedAt) : null;
+                    var accepted = decision?.IsRecommended == true;
+                    Add(role, accepted ? "Approved" : decision == null ? "Waiting" : "Changes requested",
+                        accepted ? "Accepted the evaluators' recommended offer."
+                        : decision == null ? "Must review the agreed recommendation."
+                        : "Returned the recommendation to the evaluators with comments.", !accepted, accepted);
+                }
+            }
+            return result;
+        }
+
+        var waitingRole = resultStep switch
+        {
+            TenderResultFlow.Step.AtOfficerToForward or TenderResultFlow.Step.AtOfficerToAnnounce or TenderResultFlow.Step.AtOfficerToSendBack => "Sourcing officer",
+            TenderResultFlow.Step.AtManagerReview or TenderResultFlow.Step.AtManagerToForwardDecision => "Sourcing manager",
+            TenderResultFlow.Step.AtTopCommittee => "Top Committee",
+            _ => null
+        };
+        if (waitingRole != null) result.Add(new TenderResponsibilityStatus { Role = waitingRole, Person = waitingRole,
+            State = "Waiting", Detail = "The next workflow action belongs to this role.", IsWaiting = true });
+        return result;
     }
 
     // Evaluation criteria are owned by the evaluation committee, not the officer.
@@ -488,7 +572,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         Log(tender, "CloseBidding", WorkflowStage.SupplierBidding, WorkflowStage.Compliance);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
-        return RedirectToAction(nameof(Details), new { id });
+        return RedirectToAction(nameof(Offers), new { id });
     }
 
     public async Task<IActionResult> Offers(int id)

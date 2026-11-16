@@ -2,6 +2,7 @@
 @using Sourcing_Tender_Management_System.Models
 @{
     ViewData["Title"] = "Request Details";
+
     var editable = Model.Status == ProcurementRequestStatus.Draft || Model.Status == ProcurementRequestStatus.Returned;
     var canAsk = Model.Status == ProcurementRequestStatus.Submitted || Model.Status == ProcurementRequestStatus.UnderReview || Model.Status == ProcurementRequestStatus.Returned || Model.Status == ProcurementRequestStatus.Approved ||
         (Model.Status == ProcurementRequestStatus.ConvertedToTender && Model.Tenders.Any(t => t.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation));
@@ -40,9 +41,11 @@ else
             <div><strong>@who</strong><span>@what</span></div>
         </div>
     </section>
+
 }
 @if (Model.Status == ProcurementRequestStatus.Returned)
 {
+
     <div class="alert alert-warning" role="status">The sourcing officer returned this request. Read the review notes, edit it, then resubmit.</div>
 }
 
@@ -143,5 +146,6 @@ else
             </section>
         </div>
     </div>
+
 </div>
 </div>

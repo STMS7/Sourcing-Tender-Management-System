@@ -4,6 +4,7 @@
     var reviews = (List<BidComplianceReview>)ViewBag.Reviews;
     ViewData["Title"] = "Offer comparison";
 }
+<link rel="stylesheet" href="~/css/offer-comparison.css" asp-append-version="true" />
 <div id="offer-comparison-search-results">
 <a asp-action="Details" asp-route-id="@tender.Id">Back to tender</a>
 <h1 class="mt-3">Compare offers</h1>
@@ -12,12 +13,12 @@
 <a class="btn btn-outline-secondary" asp-action="Messages" asp-route-group="EvaluationCommittee" asp-route-context="@($"tender:{tender.Id}")">Message evaluation committee</a>
 @if (Model.Count > 0) { <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#bid-analysis-modal">Analyze offers with AI assistant</button> }
 </div>
-<p>@tender.Title · @tender.TenderNumber</p>
-@await Component.InvokeAsync("TenderJourney", new { tenderId = tender.Id })
+<p class="oc-tender-name">@tender.Title</p>
+<partial name="_SourcingCycle" model="@(tender.Status == TenderStatus.Closed ? 3 : 5)" />
 <section class="so-next" aria-labelledby="compliance-next-heading">
     <h2 id="compliance-next-heading">@(tender.Status == TenderStatus.Closed ? "Your next step: review every submitted offer" : "Compliance handoff recorded")</h2>
     @if (tender.Status == TenderStatus.Closed) {
-        <p>Read the supplier response, check the required documents and record a compliance outcome with a reason. Resolve pending clarifications before handoff. The evaluation committee handles scoring and recommendations.</p>
+        <p>Compare every offer, then mark it as eligible, excluded, or waiting for clarification. Only eligible offers are sent to the four evaluation committee members.</p>
     } else {
         <p>These offers are available for tracking. Compliance decisions are read-only after handoff; the evaluation committee handles scoring and recommendations.</p>
     }
@@ -27,24 +28,45 @@
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "offer-comparison-search", ResultsId = "offer-comparison-search-results", Label = "Search offer details by supplier and specifications" })" />
 @if (Model.Count == 0) { <p class="empty-state">No submitted offers are available. Draft and withdrawn offers are excluded.</p> }
 else {
-<div class="table-responsive"><table class="table"><caption>Supplier comparison. Amounts are shown as recorded by suppliers; the total is not recalculated.</caption><thead><tr><th scope="col">Supplier</th><th scope="col">Offer total</th><th scope="col">Delivery</th><th scope="col">Payment terms</th><th scope="col">Compliance</th></tr></thead><tbody>
+<div class="oc-summary-grid" aria-label="Supplier offer summary">
 @foreach (var bid in Model) {
-<tr><td><a href="#bid-@bid.Id">@bid.Supplier.CompanyName</a><br /><small>@bid.BidNumber</small></td><td>@bid.TotalAmount.ToString("N2") @bid.Currency</td><td>@bid.DeliveryDays days</td><td>@bid.PaymentTerms</td><td><span class="status">@bid.ComplianceStatus</span></td></tr>
+<button type="button" class="oc-summary-card" data-bs-toggle="modal" data-bs-target="#bid-modal-@bid.Id" aria-label="Review offer from @bid.Supplier.CompanyName">
+    <span class="oc-summary-name">@bid.Supplier.CompanyName</span>
+    <strong>@bid.TotalAmount.ToString("N2") @bid.Currency</strong>
+    <span>@bid.DeliveryDays day(s) delivery</span>
+    <span class="status">@bid.ComplianceStatus</span>
+    <span class="oc-open-label">View &amp; decide →</span>
+</button>
 }
-</tbody></table></div>
+</div>
+<p class="oc-note">Review and decide on each supplier separately. Amounts are shown as submitted.</p>
 @foreach (var bid in Model) {
-<section data-search-item id="bid-@bid.Id" class="mb-5">
-<h2>@bid.Supplier.CompanyName — @bid.BidNumber</h2>
-<p class="preserve-lines">@bid.TechnicalSummary</p>
-<p>Valid until: @(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified"). Current bid status: @bid.Status.</p>
-<div class="table-responsive"><table class="table"><caption>Cost components as recorded, in @bid.Currency. Confirm their inclusion in the offered total during financial review.</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
+<div data-search-item class="modal fade oc-offer-modal" id="bid-modal-@bid.Id" tabindex="-1" aria-labelledby="bid-modal-title-@bid.Id" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+<header class="modal-header oc-modal-head">
+    <div><span class="oc-kicker">Supplier offer</span><h2 class="modal-title" id="bid-modal-title-@bid.Id">@bid.Supplier.CompanyName</h2></div>
+    <div class="oc-offer-total"><span>Offer total</span><strong>@bid.TotalAmount.ToString("N2") @bid.Currency</strong><span class="status">@bid.ComplianceStatus</span></div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</header>
+<div class="modal-body oc-modal-body">
+<p class="preserve-lines oc-technical-summary">@bid.TechnicalSummary</p>
+<div class="oc-facts">
+    <div><span>Delivery</span><strong>@bid.DeliveryDays day(s)</strong></div>
+    <div><span>Valid until</span><strong>@(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</strong></div>
+    <div><span>Payment terms</span><strong>@bid.PaymentTerms</strong></div>
+    <div><span>Offer status</span><strong>@bid.Status</strong></div>
+</div>
+<section class="oc-section"><h3>Cost details</h3><div class="oc-costs">
+    <div><span>Tax</span><strong>@bid.TaxAmount.ToString("N2")</strong></div><div><span>Fees</span><strong>@bid.FeesAmount.ToString("N2")</strong></div><div><span>Shipping</span><strong>@bid.ShippingAmount.ToString("N2")</strong></div><div><span>Installation</span><strong>@bid.InstallationAmount.ToString("N2")</strong></div><div><span>Maintenance</span><strong>@bid.MaintenanceAmount.ToString("N2")</strong></div>
+</div></section>
+<section class="oc-section"><h3>Requested items</h3>
 <div class="table-responsive"><table class="table"><thead><tr><th scope="col">Requested item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
 @foreach (var item in tender.Items) {
     var offered = bid.Items.FirstOrDefault(i => i.TenderItemId == item.Id);
     <tr><td>@item.ItemName<br /><small>@item.Specifications</small></td><td>@item.Quantity @item.Unit</td><td>@(offered?.UnitPrice.ToString("N2") ?? "Not quoted")</td><td>@(offered?.TotalPrice.ToString("N2") ?? "Not quoted")</td><td class="preserve-lines">@offered?.TechnicalResponse @offered?.BrandOrModel</td></tr>
 }
-</tbody></table></div>
-<h3>Required documents</h3>
+</tbody></table></div></section>
+<section class="oc-section"><h3>Required documents</h3>
 @if (tender.DocumentRequirements.Count == 0) { <p>No tender document requirements configured.</p> }
 <ul>@foreach (var requirement in tender.DocumentRequirements) {
     var document = bid.Documents.FirstOrDefault(d => d.TenderDocumentRequirementId == requirement.Id);
@@ -53,20 +75,24 @@ else {
 @if (bid.Documents.Count > 0) {
 <details><summary>Submitted documents (@bid.Documents.Count)</summary><ul>@foreach (var document in bid.Documents) { <li><a asp-action="DownloadBidDocument" asp-route-id="@document.Id">@document.FileName</a> · @document.DocumentType · @document.FileSize bytes</li> }</ul></details>
 }
+</section>
 @if (tender.Status == TenderStatus.Closed) {
-<form asp-action="Compliance" method="post" class="form-panel mt-3">
+<form asp-action="Compliance" method="post" class="oc-decision">
 <input type="hidden" name="BidId" value="@bid.Id" />
-<div class="mb-3"><label for="decision-@bid.Id" class="form-label">Compliance decision</label><select id="decision-@bid.Id" name="Decision" required class="form-select"><option value="">Choose an outcome</option>
-@foreach (var decision in new[] { ComplianceDecision.Compliant, ComplianceDecision.NonCompliant, ComplianceDecision.PendingClarification }) { <option value="@decision" selected="@(bid.ComplianceStatus == decision)">@(decision switch { ComplianceDecision.NonCompliant => "Not compliant", ComplianceDecision.PendingClarification => "Needs supplier clarification", _ => "Compliant" })</option> }
+<h3>Decide on this supplier</h3>
+<div class="mb-3"><label for="decision-@bid.Id" class="form-label">Does this offer go to the evaluation committee?</label><select id="decision-@bid.Id" name="Decision" required class="form-select"><option value="">Choose an outcome</option>
+<option value="@ComplianceDecision.Compliant" selected="@(bid.ComplianceStatus == ComplianceDecision.Compliant)">Yes — eligible for the 4 evaluation members</option>
+<option value="@ComplianceDecision.NonCompliant" selected="@(bid.ComplianceStatus == ComplianceDecision.NonCompliant)">No — exclude this offer</option>
+<option value="@ComplianceDecision.PendingClarification" selected="@(bid.ComplianceStatus == ComplianceDecision.PendingClarification)">Not yet — waiting for clarification</option>
 </select></div>
 <div class="mb-3"><label for="reason-@bid.Id" class="form-label">Reason and observations</label><textarea id="reason-@bid.Id" name="Reason" maxlength="2000" required class="form-control" rows="3"></textarea></div>
-<div class="actions"><button type="submit" class="btn btn-primary">Record compliance review</button><a class="btn btn-outline-primary" asp-action="Clarifications" asp-route-tenderId="@tender.Id" asp-route-bidId="@bid.Id">Request supplier clarification</a></div>
+<div class="actions"><button type="submit" class="btn btn-primary">Save this supplier decision</button><a class="btn btn-outline-primary" asp-action="Clarifications" asp-route-tenderId="@tender.Id" asp-route-bidId="@bid.Id">Request clarification</a></div>
 </form>
 }
 @if (reviews.Any(r => r.BidId == bid.Id)) {
 <details class="mt-3"><summary>Compliance review history</summary><ol>@foreach (var review in reviews.Where(r => r.BidId == bid.Id)) { <li class="mb-2">@review.Decision · @review.ReviewedAt.ToString("dd MMM yyyy HH:mm") UTC<p class="preserve-lines">@review.Reason</p></li> }</ol></details>
 }
-</section>
+</div></div></div></div>
 }
 }
 
@@ -76,3 +102,13 @@ else {
 {
     <partial name="_BidAnalysisButton" model="@(new BidAnalysisButtonViewModel { Url = Url.Action("AnalyzeOffers", "SourcingOfficer", new { id = tender.Id })!, TenderNumber = tender.TenderNumber })" />
 }
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Modals inside the workspace inherit its stacking context, which can place
+    // Bootstrap's backdrop above the dialog. Keep dialogs directly under body.
+    document.querySelectorAll('.oc-offer-modal').forEach(function (modal) {
+        document.body.appendChild(modal);
+    });
+});
+</script>

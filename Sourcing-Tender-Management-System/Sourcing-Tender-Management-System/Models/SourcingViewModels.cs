@@ -116,3 +116,13 @@ public class SourcingPublicationReadiness
     public List<string> TeamDependencies { get; set; } = [];
     public bool Ready => OfficerTasks.Count == 0 && TeamDependencies.Count == 0;
 }
+
+public sealed class TenderResponsibilityStatus
+{
+    public string Role { get; init; } = string.Empty;
+    public string Person { get; init; } = string.Empty;
+    public string State { get; init; } = string.Empty;
+    public string Detail { get; init; } = string.Empty;
+    public bool IsWaiting { get; init; }
+    public bool IsComplete { get; init; }
+}
