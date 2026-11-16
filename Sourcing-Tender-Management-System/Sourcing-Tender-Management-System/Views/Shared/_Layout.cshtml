@@ -18,7 +18,7 @@
     // The olive heritage skin (css/heritage.css) is only for inner pages. Dashboards, the admin area, sign-in and the
     // profile pages (no MVC controller) never get it, so they keep the look the team set.
     var isDashboard = (controller, currentAction) is ("SourcingOfficer", "Index") or ("SourcingManager", "Index")
-        or ("TopCommittee", "Index") or ("EvaluationCommittee", "Index") or ("Suppliers", "Index") or ("Department", "Dashboard");
+        or ("TopCommittee", "Index") or ("EvaluationCommittee", "Dashboard") or ("Suppliers", "Index") or ("Department", "Dashboard");
     var heritage = controller != "" && controller is not ("Admin" or "AdminCatalog" or "AdminCommittee" or "Auth" or "Home");
 
     // Tab bars get the glass look on every page of the cycle, dashboards included; admin, sign-in and home are left alone.
@@ -77,7 +77,10 @@
         links.Add(("Reports", Url.Action("Index", "Reports")!, IconDoc, controller == "Reports"));
     }
     if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative"))
-        links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee"));
+    {
+        links.Add(("Dashboard", Url.Action("Dashboard", "EvaluationCommittee")!, IconGrid, controller == "EvaluationCommittee" && currentAction == "Dashboard"));
+        links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee" && currentAction is "Index" or "Evaluate"));
+    }
     var tools = new List<(string Label, string Href, string Icon, bool Active)>();
     if (signedIn && !isOfficer && !isAdmin)
         tools.Add(("Messages", Url.Action("Index", "Messages")!, IconChat, controller == "Messages"));
@@ -132,6 +135,10 @@
     }
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/search.css" asp-append-version="true" />
+    @if (controller == "Department")
+    {
+        <link rel="stylesheet" href="~/css/department-requests.css" asp-append-version="true" />
+    }
 </head>
 <body class="zt-app @(isAdminArea ? "zt-admin" : null)">
 <div class="zt-shell">

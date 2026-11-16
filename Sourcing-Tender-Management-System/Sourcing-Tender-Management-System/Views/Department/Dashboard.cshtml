@@ -1,8 +1,17 @@
 @model IEnumerable<Sourcing_Tender_Management_System.Models.ProcurementRequest>
 @using Sourcing_Tender_Management_System.Models
+@using System.Text.RegularExpressions
 @{
     ViewData["Title"] = "Department Dashboard";
     var notifications = ((IEnumerable<Notification>)ViewBag.Notifications).ToList();
+    string FriendlyNotification(Notification notification)
+    {
+        if (notification.Title == "Purchase request accepted")
+            return "Your purchase request has been converted to a tender.";
+
+        var message = Regex.Replace(notification.Message, @"\bPR-[A-Za-z0-9]+\b", "This request");
+        return Regex.Replace(message, @"\bTND-[A-Za-z0-9]+\b", "the tender");
+    }
 }
 <link rel="stylesheet" href="~/css/department-dashboard.css" asp-append-version="true" />
 <div id="department-dashboard-search-results">
@@ -33,7 +42,7 @@
                 @foreach (var request in Model)
                 {
                     <tr data-search-item>
-                        <td><strong>@request.Title</strong><small>@request.RequestNumber</small></td>
+                        <td><strong>@request.Title</strong></td>
                         <td><span class="dd-status">@request.Status</span></td>
                         <td>@(request.RequiredByDate?.ToString("dd MMM yyyy") ?? "Not specified")</td>
                         <td class="text-end"><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@request.Id">Manage</a></td>
@@ -54,7 +63,7 @@
             <div class="dd-notifications">
             @foreach (var notification in notifications)
             {
-                <article data-search-item><span class="dd-notification-dot" aria-hidden="true"></span><div><strong>@notification.Title</strong><p>@notification.Message</p><time class="device-local-time" datetime="@DateTime.SpecifyKind(notification.CreatedAt, DateTimeKind.Utc).ToString("O")">@notification.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC</time></div></article>
+                <article data-search-item><span class="dd-notification-dot" aria-hidden="true"></span><div><strong>@notification.Title</strong><p>@FriendlyNotification(notification)</p><time class="device-local-time" datetime="@DateTime.SpecifyKind(notification.CreatedAt, DateTimeKind.Utc).ToString("O")">@notification.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC</time></div></article>
             }
             </div>
         }

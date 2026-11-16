@@ -1,20 +1,29 @@
 @model Sourcing_Tender_Management_System.Models.ProcurementRequest
 @using Sourcing_Tender_Management_System.Models
-@{ ViewData["Title"] = "Request Details"; }
-<div id="department-details-search-results">
-<h2>Request Details</h2>
-<dl>
-<dt>Number</dt><dd>@Model.RequestNumber</dd>
-<dt>Title</dt><dd>@Model.Title</dd>
-<dt>Description / reason</dt><dd>@Model.Description</dd>
-<dt>Priority</dt><dd>@Model.Priority</dd>
-<dt>Required date</dt><dd>@Model.RequiredByDate?.ToString("yyyy-MM-dd")</dd>
-<dt>Estimated budget</dt><dd>@Model.EstimatedBudget</dd>
-<dt>Status</dt><dd>@Model.Status</dd>
-</dl>
+@{
+    ViewData["Title"] = "Request Details";
+    string statusLabel = Model.Status switch { ProcurementRequestStatus.UnderReview => "Under review", ProcurementRequestStatus.ConvertedToTender => "Tender created", _ => Model.Status.ToString() };
+    string statusClass = Model.Status switch { ProcurementRequestStatus.Draft => "is-draft", ProcurementRequestStatus.Returned or ProcurementRequestStatus.Rejected => "is-attention", ProcurementRequestStatus.Approved or ProcurementRequestStatus.ConvertedToTender => "is-complete", _ => "is-progress" };
+}
+<div id="department-details-search-results" class="department-request-details">
+<div class="dr-detail-head">
+    <a class="dr-back" asp-action="Index">← All requests</a>
+    <div class="dr-detail-title"><div><span class="dr-eyebrow">Purchase request</span><h1>@Model.Title</h1></div><span class="dr-status @statusClass">@statusLabel</span></div>
+</div>
+
+<div class="dr-summary-card">
+        <dl class="dr-summary-grid">
+            <div class="dr-summary-wide"><dt>Description / reason</dt><dd>@Model.Description</dd></div>
+            <div><dt>Priority</dt><dd>@Model.Priority</dd></div>
+            <div><dt>Required date</dt><dd>@Model.RequiredByDate?.ToString("dd MMM yyyy")</dd></div>
+            <div><dt>Estimated budget</dt><dd class="dr-budget">@Model.EstimatedBudget.ToString("N2")</dd></div>
+            <div><dt>Items</dt><dd>@Model.Items.Count</dd></div>
+        </dl>
+</div>
 <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "department-details-search", ResultsId = "department-details-search-results", Label = "Search request items and review notes" })" />
-<h3>Items</h3>
-<table class="table table-bordered">
+<section class="dr-section"><div class="dr-section-head"><div><span class="dr-eyebrow">Request contents</span><h2>Items</h2></div><span>@Model.Items.Count item(s)</span></div>
+<div class="table-responsive dr-items-table">
+<table class="table table-hover align-middle mb-0">
 <thead><tr><th>Item</th><th>Specifications</th><th>Quantity</th><th>Unit</th><th>Estimated unit price</th></tr></thead>
 <tbody>
 @foreach (var i in Model.Items)
@@ -22,28 +31,42 @@
     <tr data-search-item><td>@i.ItemName</td><td>@i.Specifications</td><td>@i.Quantity</td><td>@i.Unit</td><td>@i.EstimatedUnitPrice</td></tr>
 }
 </tbody></table>
-<h3>Review notes from Sourcing Officer</h3>
-<ul>
+</div>
+</section>
+<div class="dr-two-column">
+<section class="dr-section"><div class="dr-section-head"><h2>Review notes</h2></div>
+<div class="dr-feed">
 @foreach (var r in Model.Reviews.OrderByDescending(r => r.ReviewedAt))
 {
-    <li data-search-item>@r.ReviewedAt.ToLocalTime() — @r.Decision — @r.Reason (@r.ReviewerUser?.FullName)</li>
+    <article data-search-item><strong>@r.Decision</strong><p>@r.Reason</p><small>@r.ReviewerUser?.FullName · @r.ReviewedAt.ToLocalTime().ToString("dd MMM yyyy")</small></article>
 }
-</ul>
-<h3>Related tenders</h3>
-<ul>
-@foreach (var t in Model.Tenders) { <li data-search-item>@t.TenderNumber – @t.Status</li> }
-</ul>
+@if (!Model.Reviews.Any())
+{
+    <div class="dr-empty dr-empty-small"><strong>No review notes yet</strong><span>Sourcing feedback will appear here.</span></div>
+}
+</div></section>
+<section class="dr-section"><div class="dr-section-head"><h2>Related tenders</h2></div>
+<div class="dr-feed">
+@foreach (var t in Model.Tenders) { <article data-search-item><strong>@t.Title</strong><small>@t.Status</small></article> }
+@if (!Model.Tenders.Any())
+{
+    <div class="dr-empty dr-empty-small"><strong>No tender created yet</strong><span>A linked tender will appear after sourcing approval.</span></div>
+}
+</div></section>
+</div>
+<div class="dr-action-bar">
+<div class="dr-action-primary">
 @if (Model.Status == ProcurementRequestStatus.Draft || Model.Status == ProcurementRequestStatus.Returned)
 {
-    <a asp-action="Edit" asp-route-id="@Model.Id">Edit</a>
-    <form asp-action="Submit" asp-route-id="@Model.Id" method="post"><button type="submit">Submit / Resubmit</button></form>
+    <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit request</a>
+    <form asp-action="Submit" asp-route-id="@Model.Id" method="post" class="m-0"><button class="btn btn-primary" type="submit">Submit / Resubmit</button></form>
 }
 @if (Model.Status == ProcurementRequestStatus.Submitted || Model.Status == ProcurementRequestStatus.UnderReview || Model.Status == ProcurementRequestStatus.Returned || Model.Status == ProcurementRequestStatus.Approved ||
     (Model.Status == ProcurementRequestStatus.ConvertedToTender && Model.Tenders.Any(t => t.Status is TenderStatus.Draft or TenderStatus.Published or TenderStatus.Closed or TenderStatus.UnderEvaluation)))
 {
-    <a asp-controller="CycleChat" asp-action="New" asp-route-procurementRequestId="@Model.Id">Ask for clarification</a>
+    <a class="btn btn-outline-secondary" asp-controller="CycleChat" asp-action="New" asp-route-procurementRequestId="@Model.Id">Ask for clarification</a>
 }
-<p><a asp-controller="CycleChat" asp-action="Index">Messages and clarification responses</a></p>
-<p><a asp-action="Index">Back to requests</a></p>
-
+<a class="btn btn-link" asp-controller="CycleChat" asp-action="Index">Messages and responses</a>
+</div><a class="dr-back-link" asp-action="Index">Back to requests</a>
+</div>
 </div>

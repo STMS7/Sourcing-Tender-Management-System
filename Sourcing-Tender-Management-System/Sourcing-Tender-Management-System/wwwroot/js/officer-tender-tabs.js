@@ -12,10 +12,11 @@
     function remember(name) { try { sessionStorage.setItem(storeKey, name); } catch (e) { /* optional */ } }
     function recall() { try { return sessionStorage.getItem(storeKey); } catch (e) { return null; } }
 
-    function show(name, focus) {
+    function show(name, focus, allowHidden) {
         if (name === 'evaluation-handoff') { name = 'evaluation'; }
         if (name.indexOf('tab-') === 0) { name = name.substring(4); }
         if (!panels.some(function (p) { return p.getAttribute('data-panel') === name; })) { name = 'overview'; }
+        if (!allowHidden && !tabs.some(function (tab) { return tab.getAttribute('data-tab') === name; })) { name = 'overview'; }
         tabs.forEach(function (tab) {
             var on = tab.getAttribute('data-tab') === name;
             tab.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -42,7 +43,7 @@
         var link = event.target instanceof Element ? event.target.closest('[data-goto-tab]') : null;
         if (!link) { return; }
         event.preventDefault();
-        show(link.getAttribute('data-goto-tab'));
+        show(link.getAttribute('data-goto-tab'), false, true);
         tablist.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     });
 

@@ -4,6 +4,8 @@
     var conversations = (List<Clarification>)ViewBag.RequestConversations;
     var canReview = ViewBag.CanReview is true;
     var canChat = ViewBag.CanChat is true;
+    var isNewSubmission = Model.Status == ProcurementRequestStatus.Submitted;
+    var isActiveReview = Model.Status == ProcurementRequestStatus.UnderReview;
 }
 <link rel="stylesheet" href="~/css/officer-workspace.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/css/officer-request.css" asp-append-version="true" />
@@ -18,27 +20,35 @@
 </header>
 @if (canReview || canChat) {
 <section class="or-card or-decisions" aria-labelledby="request-actions-title">
-<div class="or-section-head"><div><p class="or-section-kicker">Next step</p><h2 id="request-actions-title">Request actions</h2></div><p>Choose how this request should move forward.</p></div>
-<div class="or-actions">
-@if (canReview) {
+<div class="or-section-head"><div><p class="or-section-kicker">Next step</p><h2 id="request-actions-title">@(isNewSubmission ? "Begin request review" : isActiveReview ? "Complete your review" : "Request communication")</h2></div><p>@(isNewSubmission ? "Open the review before making a decision." : isActiveReview ? "Approve the request or choose another review outcome." : "Keep the conversation linked to this request.")</p></div>
+<div class="or-actions or-progressive-actions">
+@if (canReview && isNewSubmission) {
+    <form asp-action="StartReview" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary" type="submit">Start review</button></form>
+}
+@if (canReview && isActiveReview) {
     <a class="btn btn-primary" asp-action="AcceptRequest" asp-route-id="@Model.Id">Accept and create tender</a>
-    <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#request-return-modal">Return for changes</button>
-    <button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#request-reject-modal">Reject permanently</button>
-    @if (Model.Status == ProcurementRequestStatus.Submitted) {
-        <form asp-action="StartReview" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-primary" type="submit">Start review</button></form>
-    }
 }
 @if (canChat) {
-    <a class="btn btn-outline-primary" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{Model.Id}")">Chat with requesting department</a>
+    <a class="btn btn-outline-primary" asp-action="Messages" asp-route-group="RequestingDepartment" asp-route-context="@($"request:{Model.Id}")">Message department</a>
+}
+@if (canReview && isActiveReview) {
+    <div class="dropdown or-more-actions">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More review actions</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#request-return-modal"><strong>Return for changes</strong><small>Department can edit and resubmit</small></button></li>
+            <li><hr class="dropdown-divider" /></li>
+            <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#request-reject-modal"><strong>Reject permanently</strong><small>Close this request without resubmission</small></button></li>
+        </ul>
+    </div>
 }
 </div>
 </section>
 }
 <partial name="_SourcingCycle" model="@(Model.Status == ProcurementRequestStatus.ConvertedToTender ? 1 : 0)" />
-@if (canReview) {
+@if (canReview && (isNewSubmission || isActiveReview)) {
 <section class="so-next or-review-note" aria-labelledby="request-next-heading">
-    <h2 id="request-next-heading">Review before deciding</h2>
-    <p>Check the items and specifications. Accept creates a draft tender. Return requests an update; permanent rejection closes the request. Both require a reason sent to the department.</p>
+    <h2 id="request-next-heading">@(isNewSubmission ? "Ready to review?" : "Review before deciding")</h2>
+    <p>@(isNewSubmission ? "Starting the review marks this request as in progress. No decision is sent to the department yet." : "Check the items and specifications. Acceptance creates a draft tender; alternative outcomes are available under More review actions.")</p>
 </section>
 }
 
@@ -67,7 +77,7 @@
 <div class="table-responsive"><table class="table mb-0"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit</th><th scope="col">Specifications</th></tr></thead><tbody>
 @foreach (var item in Model.Items) { <tr data-search-item><td>@item.ItemName</td><td>@item.Quantity.ToString("N3")</td><td>@item.Unit</td><td class="preserve-lines">@item.Specifications</td></tr> }
 </tbody></table></div></section>
-@if (canReview) {
+@if (canReview && isActiveReview) {
     <div class="modal fade" id="request-return-modal" tabindex="-1" aria-labelledby="request-return-modal-title" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -146,7 +156,7 @@
 
 </div>
 
-@if (canReview)
+@if (canReview && isActiveReview)
 {
     <script>
         (function () {

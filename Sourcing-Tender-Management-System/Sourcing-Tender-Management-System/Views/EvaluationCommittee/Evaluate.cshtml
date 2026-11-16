@@ -5,7 +5,7 @@
     var open = tender.Status == TenderStatus.UnderEvaluation;
     var preparing = tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null;
     var offersReleased = tender.Status is TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision or TenderStatus.Awarded;
-    string BidLabel(int? id) => Model.Bids.FirstOrDefault(b => b.Id == id) is { } b ? $"{b.Supplier.CompanyName} ({b.BidNumber})" : "Not chosen";
+    string BidLabel(int? id) => Model.Bids.FirstOrDefault(b => b.Id == id) is { } b ? b.Supplier.CompanyName : "Not chosen";
     string ReviewLabel(CommitteeWeighting.ReviewState s) => s switch
     {
         CommitteeWeighting.ReviewState.Accepted => "Accepted",
@@ -16,13 +16,13 @@
     var myType = Model.MyRole == CommitteeMemberRole.TechnicalRepresentative ? CriterionType.Technical : CriterionType.Financial;
     var myCriteria = criteria.Where(c => c.Type == myType).ToList();
     var myReview = Model.Reviews.GetValueOrDefault(Model.MyRole);
-    ViewData["Title"] = "Evaluate " + tender.TenderNumber;
+    ViewData["Title"] = "Evaluate " + tender.Title;
 }
 <div id="evaluation-details-search-results" class="manager-page">
 <p><a asp-action="Index" class="link-secondary text-decoration-none">&larr; Back to my tenders</a></p>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 manager-detail-head">
     <div>
-        <p class="manager-kicker mb-1">@tender.TenderNumber · @CommitteeWeighting.RoleLabel(Model.MyRole)</p>
+        <p class="manager-kicker mb-1">@CommitteeWeighting.RoleLabel(Model.MyRole)</p>
         <h1 class="manager-title mb-1">@tender.Title</h1>
         <div class="manager-intro">You are the <strong>@CommitteeWeighting.RoleLabel(Model.MyRole)</strong> on this tender.</div>
     </div>
@@ -31,9 +31,11 @@
 @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 
+@if (offersReleased && Model.Bids.Count > 0) {
 <section class="manager-search-panel mb-4" aria-label="Search this tender">
     <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "evaluation-details-search", ResultsId = "evaluation-details-search-results", Label = "Search this tender", Placeholder = "Bid, item, or criterion" })" />
 </section>
+}
 @if (Model.SubmittedReport is { } report) {
 <section class="card manager-card mb-4">
 <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Submitted report</h2></div>
@@ -46,10 +48,9 @@
 }
 
 <section class="card manager-card mb-4">
-<div class="card-header bg-white py-3"><h2 class="h5 mb-0">@(preparing ? "Pre-publication approval (technical and financial members)" : "Approved evaluation weights")</h2></div>
+<div class="card-header bg-white py-3"><h2 class="h5 mb-0">Evaluation split</h2></div>
 <div class="card-body">
-<p class="manager-intro">Each member proposes a technical and a financial weight (total 100%). The agreed weight of each type is the average of both members' proposals.</p>
-@if (preparing) { <p class="alert alert-info">Propose only the overall Technical/Financial split. The two values must total 100%. The final split is the average of the Technical and Financial members' proposals and applies to all four committee members.</p> }
+@if (preparing) { <p class="manager-intro">Enter the Technical and Financial percentages. Together they must equal 100%.</p> }
 @if (Model.AgreedWeights is { } agreed) {
 <div class="table-responsive"><table class="table align-middle mb-0"><caption>Agreed weights are final.</caption><thead><tr><th scope="col">Member</th><th scope="col">Technical</th><th scope="col">Financial</th></tr></thead><tbody>
 @foreach (var p in Model.Proposals) { <tr><td>@CommitteeWeighting.RoleLabel(p.Role)</td><td>@p.Technical%</td><td>@p.Financial%</td></tr> }
@@ -58,18 +59,15 @@
 } else if (Model.IsReviewer) {
 <p class="mb-0">Waiting for the technical and financial members to submit their weights.</p>
 } else {
-<p>Your proposal: @(Model.MyProposal is { } mine ? $"technical {mine.Technical}%, financial {mine.Financial}%" : "not submitted").
-Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both submit)" : "not submitted").</p>
+<div class="ec-member-status"><span><strong>You</strong> @(Model.MyProposal is { } mine ? $"{mine.Technical}% / {mine.Financial}%" : "Pending")</span><span><strong>Other member</strong> @(Model.OtherProposalSubmitted ? "Submitted" : "Pending")</span></div>
 @if (preparing) {
-<form asp-action="SubmitWeights" method="post" class="border p-3">
+<form asp-action="SubmitWeights" method="post" class="ec-split-form">
 <input type="hidden" name="tenderId" value="@tender.Id" />
-<h3 class="h5">Propose the overall evaluation split</h3>
 <div class="row g-3">
-<div class="col-md-4"><label for="technicalWeight" class="form-label">Technical weight (%)</label><input id="technicalWeight" name="technicalWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Technical" /></div>
-<div class="col-md-4"><label for="financialWeight" class="form-label">Financial weight (%)</label><input id="financialWeight" name="financialWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Financial" /></div>
+<div class="col-md-4"><label for="technicalWeight" class="form-label">Technical %</label><input id="technicalWeight" name="technicalWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Technical" /></div>
+<div class="col-md-4"><label for="financialWeight" class="form-label">Financial %</label><input id="financialWeight" name="financialWeight" type="number" min="0" max="100" step="0.01" required class="form-control" value="@Model.MyProposal?.Financial" /></div>
+<div class="col-md-4 d-flex align-items-end"><button type="submit" class="btn btn-primary w-100">@(Model.MyProposal == null ? "Submit proposal" : "Update proposal")</button></div>
 </div>
-<p class="small mt-3">Example: Technical 60% and Financial 40%. Both members submit independently; the system calculates their average.</p>
-<div class="actions mt-3"><button type="submit" class="btn btn-primary">@(Model.MyProposal == null ? "Submit split proposal" : "Update split proposal")</button></div>
 </form>
 }
 }
@@ -77,6 +75,7 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 </section>
 
 @if (open) {
+@if (Model.AgreedBidId != null || Model.LastDenial != null || Model.BothChosen) {
 <section class="card manager-card mb-4">
 <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Step 2 — Agreed bid (technical and financial members)</h2></div>
 <div class="card-body">
@@ -94,7 +93,9 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 }
 </div>
 </section>
+}
 
+@if (Model.AgreedBidId != null) {
 <section class="card manager-card mb-4">
 <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Step 3 — Sourcing manager and department decision</h2></div>
 <div class="card-body">
@@ -122,17 +123,19 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 </div>
 </section>
 }
+}
 
 @if (offersReleased) {
 <section class="card manager-card mb-4">
 <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Compliant bids</h2></div>
 @if (Model.Bids.Count == 0) { <p class="empty-state">No compliant bids were forwarded.</p> }
+<div class="ec-bid-grid" data-bid-pages data-page-size="3">
 @foreach (var bid in Model.Bids) {
-<article data-search-item id="bid-@bid.Id" class="manager-bid">
-<h3>@bid.Supplier.CompanyName — @bid.BidNumber @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3>
-<p><strong>Total:</strong> @bid.TotalAmount.ToString("N2") @bid.Currency · <strong>Delivery:</strong> @bid.DeliveryDays days · <strong>Valid until:</strong> @(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</p>
-<p><strong>Payment terms:</strong> @bid.PaymentTerms</p>
-<p class="preserve-lines"><strong>Technical summary:</strong> @bid.TechnicalSummary</p>
+<article data-search-item class="manager-bid ec-bid-card">
+<header class="ec-bid-head"><div><span class="manager-kicker">Supplier offer</span><h3>@bid.Supplier.CompanyName @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3></div><strong>@bid.TotalAmount.ToString("N2") @bid.Currency</strong></header>
+<div class="ec-bid-facts"><span><small>Delivery</small><strong>@bid.DeliveryDays days</strong></span><span><small>Valid until</small><strong>@(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</strong></span><span><small>Payment</small><strong>@bid.PaymentTerms</strong></span></div>
+<p class="preserve-lines ec-bid-summary">@bid.TechnicalSummary</p>
+<details class="ec-bid-details"><summary>View full offer details</summary><div class="ec-bid-details-body">
 <div class="table-responsive"><table class="table align-middle"><caption>Cost components in @bid.Currency</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
 <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
 @foreach (var item in tender.Items) {
@@ -141,18 +144,21 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 }
 </tbody></table></div>
 @if (bid.Documents.Count > 0) { <p><strong>Documents:</strong> @string.Join(", ", bid.Documents.Select(d => d.FileName))</p> }
+</div></details>
 @if (open && !Model.IsReviewer && Model.AgreedWeights != null && Model.AgreedBidId == null && bid.Id != Model.MyChoiceBidId) {
 <form asp-action="ChooseBid" method="post"><input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="bidId" value="@bid.Id" /><button type="submit" class="btn btn-primary">Choose this bid</button></form>
 }
 </article>
 }
+</div>
+<nav class="ec-bid-pagination" aria-label="Compliant bid pages" data-bid-pagination hidden></nav>
 </section>
 
 } else {
-    <p class="alert alert-info">Supplier offers stay sealed until bidding closes, compliance is completed and the sourcing officer forwards them for evaluation.</p>
+    <p class="ec-locked-note">Offers are not available yet.</p>
 }
-<section class="card manager-card mb-4">
-<div class="card-header bg-white py-3"><h2 class="h5 mb-0">Preparation details</h2></div>
+<details class="card manager-card mb-4 ec-tender-details">
+<summary class="card-header bg-white py-3">Tender details</summary>
 <div class="card-body">
 <p class="preserve-lines">@tender.Description</p>
 <p><strong>Deadline:</strong> @tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</p>
@@ -162,7 +168,7 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 </tbody></table></div>
 <p class="mb-0"><strong>Required documents:</strong> @(tender.DocumentRequirements.Count == 0 ? "None configured" : string.Join(", ", tender.DocumentRequirements.Select(d => d.DocumentType + (d.IsMandatory ? " (mandatory)" : " (optional)"))))</p>
 </div>
-</section>
+</details>
 @if (criteria.Count > 0) {
 <section class="card manager-card mb-5">
 <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Tender evaluation criteria</h2></div>
@@ -180,3 +186,34 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 {
     <partial name="_BidAnalysisButton" model="@(new BidAnalysisButtonViewModel { Url = Url.Action("AnalyzeBids", "EvaluationCommittee", new { tenderId = tender.Id })!, TenderNumber = tender.TenderNumber })" />
 }
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const grid = document.querySelector('[data-bid-pages]');
+    const nav = document.querySelector('[data-bid-pagination]');
+    if (!grid || !nav) return;
+    const cards = Array.from(grid.querySelectorAll('.ec-bid-card'));
+    const size = Number(grid.dataset.pageSize) || 3;
+    let page = 1;
+    function render() {
+        const visible = cards.filter(card => !card.hidden);
+        const pages = Math.max(1, Math.ceil(visible.length / size));
+        page = Math.min(page, pages);
+        cards.forEach(card => card.style.display = 'none');
+        visible.slice((page - 1) * size, page * size).forEach(card => card.style.display = 'flex');
+        nav.hidden = visible.length <= size;
+        nav.replaceChildren();
+        if (visible.length <= size) return;
+        const add = (label, target, disabled, current) => {
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = label; button.disabled = disabled;
+            if (current) button.setAttribute('aria-current', 'page');
+            button.addEventListener('click', () => { page = target; render(); grid.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+            nav.appendChild(button);
+        };
+        add('Previous', page - 1, page === 1, false);
+        for (let number = 1; number <= pages; number++) add(String(number), number, false, number === page);
+        add('Next', page + 1, page === pages, false);
+    }
+    render();
+});
+</script>

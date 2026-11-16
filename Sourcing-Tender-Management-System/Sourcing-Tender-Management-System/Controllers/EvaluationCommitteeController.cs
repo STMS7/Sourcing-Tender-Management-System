@@ -100,7 +100,7 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         return state;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(int page = 1)
     {
         var memberships = await MyMemberships().AsNoTracking().Include(m => m.Tender).ThenInclude(t => t.EvaluationCriteria)
             .Where(m => m.Tender.Status != TenderStatus.Cancelled &&
@@ -137,7 +137,24 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             }
             rows.Add(row);
         }
-        return View(rows);
+        const int pageSize = 7;
+        rows = rows.OrderByDescending(r => r.ActionNeeded).ThenByDescending(r => r.Tender.CreatedAt).ToList();
+        var total = rows.Count;
+        var pages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Clamp(page, 1, pages);
+        ViewBag.TotalCount = total;
+        ViewBag.ActionCount = rows.Count(r => r.ActionNeeded);
+        ViewBag.EvaluationCount = rows.Count(r => r.Tender.Status == TenderStatus.UnderEvaluation);
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = pages;
+        return View(rows.Skip((page - 1) * pageSize).Take(pageSize).ToList());
+    }
+
+    public async Task<IActionResult> Dashboard()
+    {
+        var result = (ViewResult)await Index(1);
+        var rows = (List<EvaluationCommitteeTenderRow>)result.Model!;
+        return View(rows.Take(5).ToList());
     }
 
     public async Task<IActionResult> Evaluate(int id)
