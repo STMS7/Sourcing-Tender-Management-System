@@ -77,7 +77,10 @@
         links.Add(("Reports", Url.Action("Index", "Reports")!, IconDoc, controller == "Reports"));
     }
     if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative", "RequestingDepartment"))
-        links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee"));
+    {
+        links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconGrid, controller == "EvaluationCommittee" && currentAction == "Index"));
+        links.Add(("My tenders", Url.Action("Tenders", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee" && currentAction != "Index"));
+    }
     var tools = new List<(string Label, string Href, string Icon, bool Active)>();
     if (signedIn && !isOfficer && !isAdmin)
         tools.Add(("Messages", Url.Action("Index", "Messages")!, IconChat, controller == "Messages"));

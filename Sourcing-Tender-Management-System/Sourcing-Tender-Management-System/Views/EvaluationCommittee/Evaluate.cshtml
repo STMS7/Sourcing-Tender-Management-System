@@ -5,7 +5,7 @@
     var open = tender.Status == TenderStatus.UnderEvaluation;
     var preparing = tender.Status == TenderStatus.Draft && tender.EvaluationCriteriaLockedAt != null;
     var offersReleased = tender.Status is TenderStatus.UnderEvaluation or TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision or TenderStatus.Awarded;
-    string BidLabel(int? id) => Model.Bids.FirstOrDefault(b => b.Id == id) is { } b ? $"{b.Supplier.CompanyName} ({b.BidNumber})" : "Not chosen";
+    string BidLabel(int? id) => Model.Bids.FirstOrDefault(b => b.Id == id) is { } b ? b.Supplier.CompanyName : "Not chosen";
     string ReviewLabel(CommitteeWeighting.ReviewState s) => s switch
     {
         CommitteeWeighting.ReviewState.Accepted => "Accepted",
@@ -16,13 +16,13 @@
     var myType = Model.MyRole == CommitteeMemberRole.TechnicalRepresentative ? CriterionType.Technical : CriterionType.Financial;
     var myCriteria = criteria.Where(c => c.Type == myType).ToList();
     var myReview = Model.Reviews.GetValueOrDefault(Model.MyRole);
-    ViewData["Title"] = "Evaluate " + tender.TenderNumber;
+    ViewData["Title"] = "Evaluate " + tender.Title;
 }
-<div id="evaluation-details-search-results" class="manager-page">
-<p><a asp-action="Index" class="link-secondary text-decoration-none">&larr; Back to my tenders</a></p>
+<link rel="stylesheet" href="~/css/evaluation-committee.css" asp-append-version="true" />
+<div id="evaluation-details-search-results" class="manager-page ec-page">
+<p><a asp-action="Tenders" class="link-secondary text-decoration-none">&larr; Back to my tenders</a></p>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 manager-detail-head">
     <div>
-        <p class="manager-kicker mb-1">@tender.TenderNumber · @CommitteeWeighting.RoleLabel(Model.MyRole)</p>
         <h1 class="manager-title mb-1">@tender.Title</h1>
         <div class="manager-intro">You are the <strong>@CommitteeWeighting.RoleLabel(Model.MyRole)</strong> on this tender.</div>
     </div>
@@ -38,22 +38,20 @@
 <section class="card manager-card mb-4">
 <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Submitted report</h2></div>
 <div class="card-body">
-<div class="alert alert-success" role="status">All four members agreed. Report round @report.Round was sent to the sourcing officer
-@(report.CreatedAt.ToString("dd MMM yyyy HH:mm") + " UTC"). Chosen bid: <strong>@report.RecommendedBid?.Supplier.CompanyName (@report.RecommendedBid?.BidNumber)</strong>. Report status: @report.Status.</div>
-<pre class="preserve-lines mb-0">@report.Summary</pre>
+<div class="alert alert-success mb-0" role="status">Report status: <strong>@System.Text.RegularExpressions.Regex.Replace(report.Status.ToString(), "(?<=[a-z])(?=[A-Z])", " ")</strong></div>
 </div>
 </section>
 }
 
 <section class="card manager-card mb-4">
-<div class="card-header bg-white py-3"><h2 class="h5 mb-0">@(preparing ? "Pre-publication approval (technical and financial members)" : "Approved evaluation weights")</h2></div>
+<div class="card-header bg-white py-3"><h2 class="h5 mb-0">Step 1 — @(preparing ? "Pre-publication approval (technical and financial members)" : "Approved evaluation weights")</h2></div>
 <div class="card-body">
 <p class="manager-intro">Each member proposes a technical and a financial weight (total 100%). The agreed weight of each type is the average of both members' proposals.</p>
 @if (preparing) { <p class="alert alert-info">Propose only the overall Technical/Financial split. The two values must total 100%. The final split is the average of the Technical and Financial members' proposals and applies to all four committee members.</p> }
 @if (Model.AgreedWeights is { } agreed) {
 <div class="table-responsive"><table class="table align-middle mb-0"><caption>Agreed weights are final.</caption><thead><tr><th scope="col">Member</th><th scope="col">Technical</th><th scope="col">Financial</th></tr></thead><tbody>
 @foreach (var p in Model.Proposals) { <tr><td>@CommitteeWeighting.RoleLabel(p.Role)</td><td>@p.Technical%</td><td>@p.Financial%</td></tr> }
-<tr class="table-primary"><th scope="row">Agreed (average)</th><th>@agreed.Technical%</th><th>@agreed.Financial%</th></tr>
+<tr class="table-primary"><th scope="row">Agreed (average)</th><td><strong>@agreed.Technical%</strong></td><td><strong>@agreed.Financial%</strong></td></tr>
 </tbody></table></div>
 } else if (Model.IsReviewer) {
 <p class="mb-0">Waiting for the technical and financial members to submit their weights.</p>
@@ -108,7 +106,7 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 <div class="col-md-6"><form asp-action="Review" method="post" class="border p-3 h-100">
 <input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="decision" value="accept" />
 <p>Accept <strong>@BidLabel(Model.AgreedBidId)</strong>.</p>
-<button type="submit" class="btn btn-success" disabled="@(myReview == CommitteeWeighting.ReviewState.Accepted)">Accept</button>
+<button type="submit" class="btn btn-success" disabled="@(myReview == CommitteeWeighting.ReviewState.Accepted)">@(myReview == CommitteeWeighting.ReviewState.Accepted ? "Accepted" : "Accept")</button>
 </form></div>
 <div class="col-md-6"><form asp-action="Review" method="post" class="border p-3 h-100">
 <input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="decision" value="deny" />
@@ -129,12 +127,12 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 @if (Model.Bids.Count == 0) { <p class="empty-state">No compliant bids were forwarded.</p> }
 @foreach (var bid in Model.Bids) {
 <article data-search-item id="bid-@bid.Id" class="manager-bid">
-<h3>@bid.Supplier.CompanyName — @bid.BidNumber @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3>
+<h3>@bid.Supplier.CompanyName @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3>
 <p><strong>Total:</strong> @bid.TotalAmount.ToString("N2") @bid.Currency · <strong>Delivery:</strong> @bid.DeliveryDays days · <strong>Valid until:</strong> @(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</p>
 <p><strong>Payment terms:</strong> @bid.PaymentTerms</p>
 <p class="preserve-lines"><strong>Technical summary:</strong> @bid.TechnicalSummary</p>
-<div class="table-responsive"><table class="table align-middle"><caption>Cost components in @bid.Currency</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
-<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
+<div class="table-responsive mb-4"><table class="table align-middle"><caption>Cost components in @bid.Currency</caption><thead><tr><th scope="col">Tax</th><th scope="col">Fees</th><th scope="col">Shipping</th><th scope="col">Installation</th><th scope="col">Maintenance</th></tr></thead><tbody><tr><td>@bid.TaxAmount.ToString("N2")</td><td>@bid.FeesAmount.ToString("N2")</td><td>@bid.ShippingAmount.ToString("N2")</td><td>@bid.InstallationAmount.ToString("N2")</td><td>@bid.MaintenanceAmount.ToString("N2")</td></tr></tbody></table></div>
+<div class="table-responsive mb-4"><table class="table table-hover align-middle"><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Line total</th><th scope="col">Technical response</th></tr></thead><tbody>
 @foreach (var item in tender.Items) {
     var offered = bid.Items.FirstOrDefault(i => i.TenderItemId == item.Id);
     <tr data-search-item><td>@item.ItemName<br /><small>@item.Specifications</small></td><td>@item.Quantity @item.Unit</td><td>@(offered?.UnitPrice.ToString("N2") ?? "Not quoted")</td><td>@(offered?.TotalPrice.ToString("N2") ?? "Not quoted")</td><td class="preserve-lines">@offered?.TechnicalResponse @offered?.BrandOrModel</td></tr>
@@ -142,7 +140,7 @@ Other member: @(Model.OtherProposalSubmitted ? "submitted (hidden until both sub
 </tbody></table></div>
 @if (bid.Documents.Count > 0) { <p><strong>Documents:</strong> @string.Join(", ", bid.Documents.Select(d => d.FileName))</p> }
 @if (open && !Model.IsReviewer && Model.AgreedWeights != null && Model.AgreedBidId == null && bid.Id != Model.MyChoiceBidId) {
-<form asp-action="ChooseBid" method="post"><input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="bidId" value="@bid.Id" /><button type="submit" class="btn btn-primary">Choose this bid</button></form>
+<form asp-action="ChooseBid" method="post"><input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="bidId" value="@bid.Id" /><button type="submit" class="btn btn-primary" aria-label="Choose bid from @bid.Supplier.CompanyName">Choose this bid</button></form>
 }
 </article>
 }

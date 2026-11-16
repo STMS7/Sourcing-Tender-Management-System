@@ -101,7 +101,7 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
         return state;
     }
 
-    public async Task<IActionResult> Index()
+    private async Task<List<EvaluationCommitteeTenderRow>> BuildRowsAsync()
     {
         var memberships = await MyMemberships().AsNoTracking().Include(m => m.Tender).ThenInclude(t => t.EvaluationCriteria)
             .Where(m => m.Tender.Status != TenderStatus.Cancelled &&
@@ -125,7 +125,10 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
                     !proposals.Any(p => p.Role == role);
             }
             else if (m.Tender.Status != TenderStatus.UnderEvaluation)
+            {
                 row.Stage = "Report sent to the sourcing officer";
+                row.Completed = true;
+            }
             else if (round.AgreedBid == null)
             {
                 row.Stage = "Technical/financial choosing a bid";
@@ -138,8 +141,14 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
             }
             rows.Add(row);
         }
-        return View(rows);
+        return rows;
     }
+
+    /// <summary>Landing page: what needs the member now, what is in progress and what is finished.</summary>
+    public async Task<IActionResult> Index() => View(await BuildRowsAsync());
+
+    /// <summary>Every tender assigned to the member, searchable.</summary>
+    public async Task<IActionResult> Tenders() => View(await BuildRowsAsync());
 
     public async Task<IActionResult> Evaluate(int id)
     {

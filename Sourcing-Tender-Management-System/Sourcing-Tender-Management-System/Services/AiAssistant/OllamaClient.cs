@@ -16,6 +16,8 @@ public class OllamaOptions
     /// <summary>Context window in tokens. 8192 fits a 7B model on an 8 GB GPU.</summary>
     public int ContextTokens { get; set; } = 8192;
     public double Temperature { get; set; } = 0.1;
+    /// <summary>Maximum tokens the model may write. Output length is most of the wait, so keep it short.</summary>
+    public int MaxOutputTokens { get; set; } = 600;
 }
 
 public interface IOllamaClient
@@ -38,7 +40,7 @@ public class OllamaClient(HttpClient http, IOptions<OllamaOptions> options) : IO
             [new ChatMessage("system", system), new ChatMessage("user", user)],
             Stream: false,
             Format: jsonSchema,
-            Options: new ChatOptions(settings.Temperature, settings.ContextTokens),
+            Options: new ChatOptions(settings.Temperature, settings.ContextTokens, settings.MaxOutputTokens),
             KeepAlive: "10m");
 
         using var response = await http.PostAsJsonAsync("api/chat", request, ct);
@@ -65,7 +67,8 @@ public class OllamaClient(HttpClient http, IOptions<OllamaOptions> options) : IO
 
     private sealed record ChatOptions(
         [property: JsonPropertyName("temperature")] double Temperature,
-        [property: JsonPropertyName("num_ctx")] int NumCtx);
+        [property: JsonPropertyName("num_ctx")] int NumCtx,
+        [property: JsonPropertyName("num_predict")] int NumPredict);
 
     private sealed record ChatResponse([property: JsonPropertyName("message")] ChatMessage? Message);
 }
