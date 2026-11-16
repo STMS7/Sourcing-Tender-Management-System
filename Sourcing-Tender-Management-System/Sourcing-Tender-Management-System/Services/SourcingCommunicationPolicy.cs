@@ -28,7 +28,7 @@ public class SourcingCommunicationPolicy(ApplicationDbContext db)
         ApplicationDbContext db, string officerId, int tenderId)
     {
         var roleNames = new[] { "EvaluationCommittee", "SourcingManager", "DepartmentRepresentative",
-            "DepartmentRequester", "RequestingDepartment", "FinancialRepresentative", "TechnicalRepresentative" };
+            "FinancialRepresentative", "TechnicalRepresentative" };
         return db.Users.Where(u => u.IsActive && u.Id != officerId &&
             db.UserRoles.Any(a => a.UserId == u.Id && db.Roles.Any(r => r.Id == a.RoleId && roleNames.Contains(r.Name!))) &&
             TendersFor(db, officerId).Any(t => t.Id == tenderId &&

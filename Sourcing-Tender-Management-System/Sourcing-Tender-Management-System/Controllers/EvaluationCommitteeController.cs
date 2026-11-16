@@ -23,7 +23,7 @@ namespace Sourcing_Tender_Management_System.Controllers;
 /// A round starts after the latest report; choices older than it no longer count, so a report
 /// the manager rejects or returns starts a fresh round of bid choices (agreed weights stay).
 /// </summary>
-[Authorize(Roles = "TechnicalRepresentative,FinancialRepresentative,SourcingManager,DepartmentRepresentative,DepartmentRequester,RequestingDepartment")]
+[Authorize(Roles = "TechnicalRepresentative,FinancialRepresentative,SourcingManager,DepartmentRepresentative")]
 [AutoValidateAntiforgeryToken]
 public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
 {
@@ -42,8 +42,7 @@ public class EvaluationCommitteeController(ApplicationDbContext db) : Controller
                 ((m.RoleType == CommitteeMemberRole.TechnicalRepresentative && r.Name == "TechnicalRepresentative") ||
                  (m.RoleType == CommitteeMemberRole.FinancialRepresentative && r.Name == "FinancialRepresentative") ||
                  (m.RoleType == CommitteeMemberRole.SourcingManager && r.Name == "SourcingManager") ||
-                 (m.RoleType == CommitteeMemberRole.DepartmentRepresentative &&
-                    (r.Name == "DepartmentRepresentative" || r.Name == "DepartmentRequester" || r.Name == "RequestingDepartment")))))));
+                 (m.RoleType == CommitteeMemberRole.DepartmentRepresentative && r.Name == "DepartmentRepresentative"))))));
 
     private static IQueryable<Bid> CompliantBids(IQueryable<Bid> bids, int tenderId) => bids.Where(b =>
         b.TenderId == tenderId && b.Status != BidStatus.Draft && b.Status != BidStatus.Withdrawn &&

@@ -54,7 +54,7 @@
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="SourcingOfficer" asp-action="Tenders">Tenders</a></li>
                         }
                         @if (User.IsInRole("TechnicalRepresentative") || User.IsInRole("FinancialRepresentative") ||
-                            User.IsInRole("SourcingManager") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
+                            User.IsInRole("SourcingManager") || User.IsInRole("DepartmentRepresentative"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="EvaluationCommittee" asp-action="Index">Evaluation</a>
@@ -69,7 +69,7 @@
                         {
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="TopCommittee" asp-action="Index">Top committee</a></li>
                         }
-                        @if (User.IsInRole("DepartmentRequester") || User.IsInRole("DepartmentRepresentative") || User.IsInRole("RequestingDepartment"))
+                        @if (User.IsInRole("DepartmentRequester") || User.IsInRole("RequestingDepartment"))
                         {
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Department" asp-action="Dashboard">Department</a></li>
                         }

@@ -187,7 +187,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             [CommitteeMemberRole.SourcingManager] = ["SourcingManager"],
             [CommitteeMemberRole.TechnicalRepresentative] = ["TechnicalRepresentative"],
             [CommitteeMemberRole.FinancialRepresentative] = ["FinancialRepresentative"],
-            [CommitteeMemberRole.DepartmentRepresentative] = ["DepartmentRepresentative", "DepartmentRequester", "RequestingDepartment"]
+            [CommitteeMemberRole.DepartmentRepresentative] = ["DepartmentRepresentative"]
         };
 
         foreach (var entry in roleNames)
