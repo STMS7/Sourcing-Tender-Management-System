@@ -1,14 +1,28 @@
-<style>
+﻿<style>
 /* footer: the family grove at sunset */
 .zf2-grove{background:#0C1F14;isolation:isolate;margin-top:clamp(40px,5vw,72px);border-radius:clamp(28px,3vw,44px) clamp(28px,3vw,44px) 0 0;border-top:0;box-shadow:0 -24px 50px -30px rgba(23,64,42,.45)}
 .zf2-bg{position:absolute;inset:-12% 0 0;z-index:-1;background:url('/landing/images/footer-grove.webp') center 55%/cover no-repeat;will-change:transform}
 .zf2-shade{position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(8,22,14,.86) 0%,rgba(8,22,14,.7) 36%,rgba(8,22,14,.12) 62%,rgba(8,22,14,.25) 84%,rgba(8,22,14,.88) 100%),linear-gradient(90deg,rgba(8,22,14,.45),transparent 60%)}
-.zf2-grove .zf2-in{padding-bottom:28px}
-.zf2-grove .zf2-mid{padding-bottom:clamp(36px,5vw,80px)}
+.zf2-grove .zf2-in{padding-top:40px;padding-bottom:18px}
+.zf2-grove .zf2-top{padding-bottom:24px;gap:20px;align-items:center}
+.zf2-grove .zf2-h{font-size:clamp(28px,2.6vw,40px);line-height:1.08}
+.zf2-grove .zf2-cta .zt-btn{min-height:44px;padding:12px 20px;font-size:14px}
+.zf2-grove .zf2-mid{padding:28px 0 24px}
+.zf2-grove .zf2-cols>div{gap:9px}
+.zf2-grove .zf2-brand{gap:10px}
+.zf2-grove .zf2-bottom{margin-top:0;padding-top:16px;font-size:12px}
 .zf2-grove .zf2-top,.zf2-grove .zf2-bottom{border-color:rgba(251,243,223,.18)}
 .zf2-grove .zf2-h,.zf2-grove .zf2-cols a,.zf2-grove .zf2-brand span{text-shadow:0 2px 14px rgba(0,0,0,.45)}
 .zf2-grove .zf2-bottom{color:#D3D9C6}
 .zf2-grove .zf2-top-btn{background:rgba(8,22,14,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.zf2-grove .zf2-mid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr) minmax(300px,1.15fr);gap:clamp(20px,2.4vw,36px);align-items:start}
+.zf2-grove .zf2-brand{min-width:0;max-width:300px}.zf2-grove .zf2-brand .zt-logo{width:240px;max-width:100%}
+.zf2-grove .zf2-brand>span:last-child{font-size:14px!important}
+.zf2-grove .zf2-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 18px;min-width:0}
+.zf2-grove .zf2-cols>div:last-child{grid-column:1/-1}.zf2-grove .zf2-cols a{overflow-wrap:anywhere;font-size:14px}
+@@media(min-width:1480px){.zf2-grove .zf2-in{max-width:1440px}.zf2-grove .zf2-cols{grid-template-columns:repeat(3,minmax(0,1fr))}.zf2-grove .zf2-cols>div:last-child{grid-column:auto}}
+@@media(max-width:1050px){.zf2-grove .zf2-mid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.zf2-grove .zfm{grid-column:1/-1}.zf2-grove .zf2-cols{grid-template-columns:repeat(3,minmax(0,1fr))}.zf2-grove .zf2-cols>div:last-child{grid-column:auto}}
+@@media(max-width:620px){.zf2-grove .zf2-mid{grid-template-columns:minmax(0,1fr);gap:32px}.zf2-grove .zf2-cols{grid-template-columns:repeat(2,minmax(0,1fr))}.zf2-grove .zf2-cols>div:last-child{grid-column:1/-1}.zf2-grove .zfm{grid-column:auto}}
 @@media(prefers-reduced-motion:reduce){.zf2-bg{transform:none!important}}
 </style>
 <!-- Footer: the last pour -->
@@ -223,10 +237,11 @@
           <span style="font-size: 16px; line-height: 1.5; color: #C9D1B6">Olive oil manufacturer. This is our sourcing and tender management platform for every purchase, from grove to bottle.</span>
         </div>
         <nav class="zf2-cols" aria-label="Footer">
-          <div><span>Platform</span><a href="/#cycle">How it works</a><a href="/Home/About">About</a><a href="/#roles">Roles</a><a href="/#why">Why Zaytouna</a></div>
+          <div><span>Platform</span><a href="/#cycle">How it works</a><a href="/Home/About">About</a><a href="/#roles">Roles</a><a href="/#why">Why Zaytouna</a><a href="/Home/PoweredBy">Powered by</a></div>
           <div><span>Suppliers</span><a href="/Suppliers/Register">Register</a><a href="/Auth/Login">Sign in</a><a href="/#suppliers">How to win</a></div>
-          <div><span>Contact</span><a href="/Home/Contact">Contact us</a><a href="mailto:fatima@zytona.com">fatima@zytona.com</a><a href="tel:07792574463" dir="ltr">0779 257 4463</a><span class="zf2-ph">Irbid, Jordan</span></div>
+          <div><span>Contact</span><a href="/Home/Contact">Contact us</a><span class="zf2-ph">Irbid, Jordan</span></div>
         </nav>
+        @await Html.PartialAsync("_ZtFooterLocation")
       </div>
       <div class="zf2-bottom"><span>&copy; 2026 Zaytouna Olive Oil Co. Training project.</span><span>Pressed with care, audited by default.</span><button type="button" class="zf2-top-btn" id="zf2-up">Back to top <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div>
     </div>

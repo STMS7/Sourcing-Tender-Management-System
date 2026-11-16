@@ -61,26 +61,51 @@ html{scrollbar-width:auto}html::-webkit-scrollbar{display:block}
 .zab-sign.in path{stroke-dashoffset:0}
 .zab-sign small{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6A7A6E;padding-bottom:10px}
 /* 3 wheel */
-.zab-year{position:relative;height:300vh;background:#F0E4C2}
-.zab-year-in{position:sticky;top:0;height:100vh;display:flex;align-items:center;overflow:hidden}
-.zab-year .zab-wrap{width:100%;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:40px;align-items:center}
-.zab-wheelbox{position:relative;width:min(600px,78vh);aspect-ratio:1;justify-self:center}
-.zab-wheel{position:absolute;inset:0;transition:transform .2s linear}
-.zab-wheel svg{width:100%;height:100%}
-.zab-seg{fill:#FFFCF3;stroke:#F0E4C2;stroke-width:4;transition:fill .4s}
-.zab-seg.harvest{fill:#E7EDC9}
-.zab-seg.on{fill:#17402A}
-.zab-mlab{font:600 13px 'DM Mono',monospace;letter-spacing:.14em;fill:#17402A;transition:fill .4s}
-.zab-mlab.on{fill:#DCEB4B}
-.zab-pointer{position:absolute;left:50%;top:-6px;width:0;height:0;margin-left:-12px;border-left:12px solid transparent;border-right:12px solid transparent;border-top:20px solid #B9800C;z-index:2}
-.zab-hub{position:absolute;inset:24%;border-radius:50%;background:#17402A;color:#FBF3DF;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;box-sizing:border-box;box-shadow:inset 0 0 0 8px rgba(220,235,75,.15)}
-.zab-hub small{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#DCEB4B}
-.zab-hub b{margin:8px 0 6px;font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(22px,2.6vw,32px);line-height:1.05}
-.zab-hub span{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:19px;color:#E9C46A}
-.zab-buy{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
-.zab-buy span{padding:8px 14px;border-radius:999px;background:#17402A;color:#FBF3DF;font-size:14px;font-weight:600;animation:zab-chip .4s both}
-@@keyframes zab-chip{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.zab-buy-lbl{margin-top:26px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#6A7A6E}
+/* 3. a year through the grove (arc carousel) */
+.yc{position:relative;background:#F0E4C2;color:#10261A}
+.yc-track{position:relative}
+.yc-stage{position:relative;display:flex;flex-direction:column;padding:72px 0 32px}
+.yc-head{order:1;max-width:1280px;width:100%;box-sizing:border-box;margin:0 auto;padding:0 32px}
+.yc-head .zab-h2{font-size:clamp(34px,4.2vw,52px)}
+.yc-arc{order:2;position:relative;overflow:hidden;width:100%;margin-top:12px}
+.yc-body{order:3;max-width:1280px;width:100%;box-sizing:border-box;margin:0 auto;padding:12px 32px 0}
+.yc-card{position:absolute;left:0;top:0;padding:0;border:0;border-radius:14px;overflow:hidden;background:#D9CFAF;cursor:pointer;will-change:transform;box-shadow:0 1px 2px rgba(16,38,26,.1),0 16px 36px -14px rgba(16,38,26,.45)}
+.yc-card img{display:block;width:100%;height:100%;max-width:none;object-fit:cover;pointer-events:none}
+.yc-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(16,38,26,.5),transparent 42%)}
+.yc-abbr{position:absolute;z-index:1;left:12px;bottom:10px;font:600 12px 'DM Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#FBF3DF}
+.yc-card:focus-visible{outline:3px solid #17402A;outline-offset:3px}
+.yc-num{margin:0 0 10px;font:500 13px 'DM Mono',monospace;letter-spacing:.14em;color:#9C7A3C}
+.yc-name{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:clamp(44px,6vw,76px);line-height:1;letter-spacing:-.02em;color:#17402A}
+.yc-act{margin:14px 0 0;max-width:34ch;font-size:19px;line-height:1.5;color:#4A5A4E}
+.yc-lbl{margin:22px 0 0;font:500 11px 'DM Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#6A7A6E}
+.yc-chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}
+.yc-chips li{padding:8px 14px;border-radius:999px;background:#17402A;color:#FBF3DF;font-size:14px;font-weight:600}
+.yc-detail{min-height:300px}
+.yc-detail.yc-swap>*{animation:yc-in .35s ease-out backwards}
+@@keyframes yc-in{from{opacity:0;transform:translateY(10px)}}
+.yc-ctl{display:flex;gap:10px;margin-top:18px}
+.yc-btn{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;border:1.5px solid #17402A;background:transparent;color:#17402A;cursor:pointer;transition:background .2s,color .2s}
+.yc-btn:hover{background:#17402A;color:#FBF3DF}
+.yc-btn[aria-disabled=true]{opacity:.35;cursor:not-allowed}
+.yc-btn[aria-disabled=true]:hover{background:transparent;color:#17402A}
+.yc-btn:focus-visible{outline:3px solid #17402A;outline-offset:3px;box-shadow:0 0 0 6px #DCEB4B}
+.yc-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* without JavaScript: the chronological list is the experience */
+.yc:not(.yc-js) .yc-arc,.yc:not(.yc-js) .yc-body{display:none}
+.yc-list{list-style:none;max-width:1280px;margin:0 auto;padding:16px 32px 80px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:28px}
+.yc-js .yc-list{display:none}
+.yc-li img{display:block;width:100%;aspect-ratio:1.65;object-fit:cover;border-radius:14px}
+.yc-li-name{margin:14px 0 4px;font:600 26px 'Bricolage Grotesque',sans-serif;color:#17402A}
+.yc-li-act{margin:0;font-size:16px;line-height:1.5;color:#4A5A4E}
+/* side by side, sticky while the wheel rolls */
+.yc-desk .yc-stage{display:block;height:var(--yc-h,760px);padding:0;overflow:hidden}
+.yc-pin .yc-stage{position:sticky;top:var(--yc-top,72px)}
+.yc-desk .yc-arc{position:absolute;inset:0;margin:0;overflow:visible}
+.yc-desk .yc-head{position:absolute;left:var(--yc-tx);right:var(--yc-r);top:6px;width:auto;margin:0;padding:0}
+.yc-desk .yc-body{position:absolute;left:var(--yc-tx);right:var(--yc-r);top:0;bottom:0;width:auto;margin:0;padding:0;display:flex;flex-direction:column;justify-content:center}
+.yc-desk .yc-body{padding-top:150px}
+@@media (max-width:640px){.yc-head,.yc-body{padding-left:20px;padding-right:20px}.yc-name{font-size:48px}.yc-act{font-size:17px}.yc-detail{min-height:270px}.yc-list{padding-left:20px;padding-right:20px}}
+@@media (prefers-reduced-motion:reduce){.yc-detail.yc-swap>*{animation:none}.yc-btn{transition:none}}
 /* 4 map */
 .zab-journey{background:#FBF3DF;padding:120px 0}
 .zab-journey .zab-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:60px;align-items:center}
@@ -197,8 +222,8 @@ html{scrollbar-width:auto}html::-webkit-scrollbar{display:block}
 .zab-board li span{font-size:15px;line-height:1.5;color:#C9D3BC}
 .zab-chalk-sign{display:block;margin-top:30px;text-align:right;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:24px;color:#E9C46A}
 @@media (max-width:960px){.zab-pages{height:640px}.zab-album.in .zab-pic{transform:translate(-50%,-50%) translate(calc(var(--x) * .6),calc(var(--y) * 5)) rotate(var(--r))}.zab-cards{grid-template-columns:1fr}.zab-board{padding:36px 26px}.zab-board ol{grid-template-columns:1fr}}
-@@media (max-width:960px){.zab-hero .zab-wrap,.zab-letter .zab-wrap,.zab-year .zab-wrap,.zab-journey .zab-wrap{grid-template-columns:1fr}.zab-trunk{justify-self:center}.zab-jars{grid-template-columns:1fr 1fr}.zab-shelf{grid-template-columns:repeat(4,1fr);row-gap:60px}.zab-burst{height:620px}.zab-wheelbox{width:min(420px,86vw)}.zab-paper{padding:30px 24px}}
-@@media (prefers-reduced-motion:reduce){.zab-ring,.zab-dot{animation:none;stroke-dashoffset:0;opacity:1}.zab-line{opacity:1;filter:none;transform:none}.zab-year,.zab-grow{height:auto}.zab-year-in,.zab-grow-in{position:relative;height:auto;padding:80px 0}}
+@@media (max-width:960px){.zab-hero .zab-wrap,.zab-letter .zab-wrap,.zab-journey .zab-wrap{grid-template-columns:1fr}.zab-trunk{justify-self:center}.zab-jars{grid-template-columns:1fr 1fr}.zab-shelf{grid-template-columns:repeat(4,1fr);row-gap:60px}.zab-burst{height:620px}.zab-paper{padding:30px 24px}}
+@@media (prefers-reduced-motion:reduce){.zab-ring,.zab-dot{animation:none;stroke-dashoffset:0;opacity:1}.zab-line{opacity:1;filter:none;transform:none}.zab-grow{height:auto}.zab-grow-in{position:relative;height:auto;padding:80px 0}}
 .zab-dot:focus-visible circle:nth-child(2){stroke:#DCEB4B;stroke-width:4}
 .zab-trunk .zab-ring{opacity:0;stroke:#DCEB4B;stroke-width:3}.zab-trunk .zab-ring.hl{opacity:.9;filter:drop-shadow(0 0 4px rgba(220,235,75,.8))}
 /* Our Story hero: Teta's kitchen table in the afternoon sun */
@@ -436,24 +461,70 @@ html{scrollbar-width:auto}html::-webkit-scrollbar{display:block}
     </div>
   </section>
 
-  <!-- 3. Year wheel -->
-  <section class="zab-year" id="zab-year" aria-label="Our year">
-    <div class="zab-year-in">
-      <div class="zab-wrap">
-        <div>
+  <!-- 4. A year through the grove -->
+  @{
+    var zyMonths = new[]
+    {
+        new { Name = "January",   Act = "We bottle the new oil together",       Needs = new[] { "Glass bottles", "Caps" },                Img = "/landing/images/stage-bottle.jpg",      Alt = "Bottles of fresh olive oil beside an olive sprig on a wooden table",  Pos = "50% 62%" },
+        new { Name = "February",  Act = "Labels, boxes and long evenings",      Needs = new[] { "Labels", "Cartons" },                    Img = "/landing/images/warehouse.jpg",          Alt = "A warehouse with shelves, cartons and bottled olive oil on pallets",   Pos = "55% 55%" },
+        new { Name = "March",     Act = "Jiddo prunes the old trees",           Needs = new[] { "Pruning services" },                     Img = "/landing/images/olive-grove.jpg",        Alt = "An olive grove with old trees on a green hillside",                    Pos = "50% 50%" },
+        new { Name = "April",     Act = "We fix what the harvest broke",        Needs = new[] { "Spare parts", "Technicians" },           Img = "/landing/images/stage-plant.jpg",        Alt = "A young olive tree growing in dark soil among older trees",           Pos = "66% 62%" },
+        new { Name = "May",       Act = "Teta tastes the new jars",             Needs = new[] { "Printing", "Design" },                   Img = "/landing/images/teta-huda.webp",         Alt = "Teta smiling as she tastes olives from a small bowl, a bottle of oil in front of her", Pos = "50% 30%" },
+        new { Name = "June",      Act = "Every batch goes to the lab",          Needs = new[] { "Lab services" },                         Img = "/landing/images/olive-oil-pour.jpg",     Alt = "Olive oil being poured into a glass bowl beside green olives",          Pos = "55% 42%" },
+        new { Name = "July",      Act = "The whole family dries zaatar",        Needs = new[] { "Wild thyme", "Sumac", "Sesame" },        Img = "/landing/images/family-1.webp",          Alt = "A family gathered together on the stone terraces of an olive grove",    Pos = "55% 55%" },
+        new { Name = "August",    Act = "Makdous season in Teta's kitchen",     Needs = new[] { "Eggplants", "Walnuts", "Jars" },         Img = "/landing/images/kitchen-table.webp",     Alt = "A sunlit wooden kitchen table",                                         Pos = "50% 50%" },
+        new { Name = "September", Act = "Nets out, ladders up",                 Needs = new[] { "Crates", "Nets", "Ladders" },            Img = "/landing/images/olive-net-poster.jpg",   Alt = "Olives and leaves scattered on a green harvest net",                    Pos = "50% 50%" },
+        new { Name = "October",   Act = "Everyone picks, even the kids",        Needs = new[] { "Fresh olives", "Transport" },            Img = "/landing/images/family-4.webp",          Alt = "A boy in blue picking olives into a basket on a harvest net",           Pos = "72% 60%" },
+        new { Name = "November",  Act = "The press runs day and night",         Needs = new[] { "Olives", "Press parts" },                Img = "/landing/images/stage-press.jpg",        Alt = "Fresh olive oil flowing from a press into a steel vat",                 Pos = "60% 36%" },
+        new { Name = "December",  Act = "Pickling, and warm bread with new oil", Needs = new[] { "Milk", "Salt", "Jars" },                Img = "/landing/images/family-8.webp",          Alt = "Hands sorting green olives into woven baskets",                         Pos = "50% 50%" },
+    };
+  }
+  <section class="yc" id="zab-year" aria-labelledby="yc-h">
+    <div class="yc-track" id="yc-track">
+      <div class="yc-stage" id="yc-stage">
+        <div class="yc-head" id="yc-head">
           <span class="zab-eye">A family year</span>
-          <h2 class="zab-h2">The olive sets<br><em>our calendar.</em></h2>
-          <p class="zab-p">Birthdays move, holidays move, the harvest never does. Scroll to turn our year and see what each month asks from us, and from the people who supply us.</p>
-          <div class="zab-buy-lbl">This month we buy</div>
-          <div class="zab-buy" id="zab-buy"></div>
+          <h2 class="zab-h2" id="yc-h">The olive sets<br><em>our calendar.</em></h2>
+          <p class="zab-p">Follow our year, from the grove to the bottle. Each month brings a different task&mdash;and different sourcing needs.</p>
         </div>
-        <div class="zab-wheelbox">
-          <span class="zab-pointer" aria-hidden="true"></span>
-          <div class="zab-wheel" id="zab-wheel"><svg viewBox="0 0 600 600" aria-hidden="true"><path class="zab-seg" data-i="0" d="M232.7 48.9 A260 260 0 0 1 367.3 48.9 L351.8 106.8 A200 200 0 0 0 248.2 106.8Z"/><path class="zab-seg" data-i="1" d="M367.3 48.9 A260 260 0 0 1 483.8 116.2 L441.4 158.6 A200 200 0 0 0 351.8 106.8Z"/><path class="zab-seg" data-i="2" d="M483.8 116.2 A260 260 0 0 1 551.1 232.7 L493.2 248.2 A200 200 0 0 0 441.4 158.6Z"/><path class="zab-seg" data-i="3" d="M551.1 232.7 A260 260 0 0 1 551.1 367.3 L493.2 351.8 A200 200 0 0 0 493.2 248.2Z"/><path class="zab-seg" data-i="4" d="M551.1 367.3 A260 260 0 0 1 483.8 483.8 L441.4 441.4 A200 200 0 0 0 493.2 351.8Z"/><path class="zab-seg" data-i="5" d="M483.8 483.8 A260 260 0 0 1 367.3 551.1 L351.8 493.2 A200 200 0 0 0 441.4 441.4Z"/><path class="zab-seg" data-i="6" d="M367.3 551.1 A260 260 0 0 1 232.7 551.1 L248.2 493.2 A200 200 0 0 0 351.8 493.2Z"/><path class="zab-seg" data-i="7" d="M232.7 551.1 A260 260 0 0 1 116.2 483.8 L158.6 441.4 A200 200 0 0 0 248.2 493.2Z"/><path class="zab-seg" data-i="8" d="M116.2 483.8 A260 260 0 0 1 48.9 367.3 L106.8 351.8 A200 200 0 0 0 158.6 441.4Z"/><path class="zab-seg" data-i="9" d="M48.9 367.3 A260 260 0 0 1 48.9 232.7 L106.8 248.2 A200 200 0 0 0 106.8 351.8Z"/><path class="zab-seg" data-i="10" d="M48.9 232.7 A260 260 0 0 1 116.2 116.2 L158.6 158.6 A200 200 0 0 0 106.8 248.2Z"/><path class="zab-seg" data-i="11" d="M116.2 116.2 A260 260 0 0 1 232.7 48.9 L248.2 106.8 A200 200 0 0 0 158.6 158.6Z"/><text class="zab-mlab" data-i="0" x="300.0" y="74.0" text-anchor="middle" transform="rotate(0 300.0 70.0)">JAN</text><text class="zab-mlab" data-i="1" x="415.0" y="104.8" text-anchor="middle" transform="rotate(30 415.0 100.8)">FEB</text><text class="zab-mlab" data-i="2" x="499.2" y="189.0" text-anchor="middle" transform="rotate(60 499.2 185.0)">MAR</text><text class="zab-mlab" data-i="3" x="530.0" y="304.0" text-anchor="middle" transform="rotate(90 530.0 300.0)">APR</text><text class="zab-mlab" data-i="4" x="499.2" y="419.0" text-anchor="middle" transform="rotate(120 499.2 415.0)">MAY</text><text class="zab-mlab" data-i="5" x="415.0" y="503.2" text-anchor="middle" transform="rotate(150 415.0 499.2)">JUN</text><text class="zab-mlab" data-i="6" x="300.0" y="534.0" text-anchor="middle" transform="rotate(180 300.0 530.0)">JUL</text><text class="zab-mlab" data-i="7" x="185.0" y="503.2" text-anchor="middle" transform="rotate(210 185.0 499.2)">AUG</text><text class="zab-mlab" data-i="8" x="100.8" y="419.0" text-anchor="middle" transform="rotate(240 100.8 415.0)">SEP</text><text class="zab-mlab" data-i="9" x="70.0" y="304.0" text-anchor="middle" transform="rotate(270 70.0 300.0)">OCT</text><text class="zab-mlab" data-i="10" x="100.8" y="189.0" text-anchor="middle" transform="rotate(300 100.8 185.0)">NOV</text><text class="zab-mlab" data-i="11" x="185.0" y="104.8" text-anchor="middle" transform="rotate(330 185.0 100.8)">DEC</text></svg></div>
-          <div class="zab-hub"><small id="zab-mnum">01 / 12</small><b id="zab-mname">January</b><span id="zab-mact">Bottling the new oil</span></div>
+        <div class="yc-arc" id="yc-arc" role="group" aria-label="Twelve months of the olive year">
+          @for (var i = 0; i < zyMonths.Length; i++)
+          {
+            var m = zyMonths[i];
+            <button type="button" class="yc-card" data-i="@i" tabindex="-1" aria-label="@m.Name, @(i + 1) of @zyMonths.Length"><img src="@m.Img" alt="@m.Alt" width="1000" height="606" loading="lazy" decoding="async" draggable="false" style="object-position:@m.Pos"><span class="yc-abbr" aria-hidden="true">@m.Name.Substring(0, 3)</span></button>
+          }
+        </div>
+        <div class="yc-body" id="yc-body">
+          <div class="yc-detail" id="yc-detail">
+            <p class="yc-num" id="yc-num">01 / @zyMonths.Length</p>
+            <h3 class="yc-name" id="yc-name">@zyMonths[0].Name</h3>
+            <p class="yc-act" id="yc-act">@zyMonths[0].Act</p>
+            <p class="yc-lbl">This month we source</p>
+            <ul class="yc-chips" id="yc-chips">
+              @foreach (var need in zyMonths[0].Needs){<li>@need</li>}
+            </ul>
+          </div>
+          <div class="yc-ctl">
+            <button type="button" class="yc-btn" id="yc-prev" aria-label="Previous month"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 6-6 6 6 6"/></svg></button>
+            <button type="button" class="yc-btn" id="yc-next" aria-label="Next month"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button>
+          </div>
         </div>
       </div>
     </div>
+    <ol class="yc-list" id="yc-list" aria-label="The olive year, month by month">
+      @for (var i = 0; i < zyMonths.Length; i++)
+      {
+        var m = zyMonths[i];
+        <li class="yc-li" data-i="@i">
+          <img src="@m.Img" alt="@m.Alt" width="1000" height="606" loading="lazy" decoding="async" style="object-position:@m.Pos">
+          <h3 class="yc-li-name">@m.Name</h3>
+          <p class="yc-li-act">@m.Act</p>
+          <p class="yc-lbl">This month we source</p>
+          <ul class="yc-li-chips yc-chips">@foreach (var need in m.Needs){<li>@need</li>}</ul>
+        </li>
+      }
+    </ol>
+    <p class="yc-live" id="yc-live" role="status" aria-live="polite"></p>
   </section>
 
   <!-- 5. Nothing wasted -->
@@ -538,6 +609,126 @@ html{scrollbar-width:auto}html::-webkit-scrollbar{display:block}
 
   @await Html.PartialAsync("_ZtFooter")
 </div>
+<script src="/lib/gsap/gsap.min.js"></script>
+<script src="/lib/gsap/ScrollTrigger.min.js"></script>
+<script>
+/* A year through the grove: arc carousel ported from the ArcCardCarousel reference (geometry, place, offsetOf,
+   scrub lag, settling), finite January-December, sticky stage instead of a looping pinned page. */
+(function(){
+var sec=document.getElementById('zab-year');
+if(!sec||!window.gsap||!window.ScrollTrigger)return;
+gsap.registerPlugin(ScrollTrigger);
+var track=document.getElementById('yc-track'),stage=document.getElementById('yc-stage'),arc=document.getElementById('yc-arc'),
+ cards=[].slice.call(arc.querySelectorAll('.yc-card')),items=[].slice.call(document.querySelectorAll('#yc-list .yc-li')),
+ detail=document.getElementById('yc-detail'),elNum=document.getElementById('yc-num'),elName=document.getElementById('yc-name'),elAct=document.getElementById('yc-act'),elChips=document.getElementById('yc-chips'),
+ prev=document.getElementById('yc-prev'),next=document.getElementById('yc-next'),live=document.getElementById('yc-live'),nav=document.getElementById('zt-nav');
+var N=cards.length,STEPS=N-1,STEP=14,PER=.3;
+var rmq=matchMedia('(prefers-reduced-motion: reduce)');
+var pos={v:0},target=0,idx=-1,ticking=false,st=null,kind='',pinned=false,geo=null,liveTimer=0,viaKey=false,lastKey='';
+sec.classList.add('yc-js');
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+
+/* ---- reference mechanics: wheel geometry, placement on the rim ---- */
+function geometry(w,h,k){
+ if(k==='desk'){
+  var u=Math.min(h,w/.47),cardW=Math.min(.3*u*1.8,Math.min(w,1280)*.44),R=cardW*(.71/.3),left=Math.max(32,(w-1280)/2+32);
+  return{cardW:cardW,cardH:cardW/1.65,R:R,hubX:left+cardW/2-R,hubY:.475*h,left:left,kind:k}
+ }
+ var cw=Math.min(w-64,380,Math.max(240,innerHeight*.75)),r=cw*2;
+ return{cardW:cw,cardH:cw/1.65,R:r,hubX:w/2-r,hubY:h/2,left:(w-cw)/2,kind:k}
+}
+function place(d,g){var deg=-d*STEP,a=deg*Math.PI/180;return{x:g.hubX+g.R*Math.cos(a),y:g.hubY+g.R*Math.sin(a),rot:deg}}
+function render(){
+ var g=geo;if(!g)return;
+ for(var i=0;i<N;i++){
+  var el=cards[i],d=i-pos.v;
+  if(Math.abs(d)>3.6){if(el.style.visibility!=='hidden')el.style.visibility='hidden';continue}
+  if(el.style.visibility==='hidden')el.style.visibility='';
+  var c=place(d,g);
+  el.style.transform='translate3d('+(c.x-g.cardW/2).toFixed(2)+'px,'+(c.y-g.cardH/2).toFixed(2)+'px,0) rotate('+c.rot.toFixed(3)+'deg)';
+  el.style.zIndex=String(Math.round((N-d)*10));
+ }
+ var now=clamp(Math.round(pos.v),0,STEPS);if(now!==idx)setIndex(now);
+}
+
+/* ---- text, state, announcements: one source (the list), one index ---- */
+function setIndex(i){
+ var first=idx<0;idx=i;
+ var li=items[i];
+ elNum.textContent=('0'+(i+1)).slice(-2)+' / '+N;
+ elName.textContent=li.querySelector('.yc-li-name').textContent;
+ elAct.textContent=li.querySelector('.yc-li-act').textContent;
+ elChips.innerHTML=li.querySelector('.yc-li-chips').innerHTML;
+ cards.forEach(function(c,j){if(j===i){c.setAttribute('aria-current','true');c.tabIndex=0}else{c.removeAttribute('aria-current');c.tabIndex=-1}});
+ setBtn(prev,i===0);setBtn(next,i===STEPS);
+ if(!first&&!rmq.matches){detail.classList.remove('yc-swap');void detail.offsetWidth;detail.classList.add('yc-swap')}
+ clearTimeout(liveTimer);if(!first)liveTimer=setTimeout(function(){live.textContent=elName.textContent+', '+(i+1)+' of '+N+': '+elAct.textContent},600);
+ if(viaKey){viaKey=false;cards[i].focus({preventScroll:true})}
+}
+function setBtn(b,off){b.setAttribute('aria-disabled',off?'true':'false')}
+
+/* ---- scrub lag toward the target; the ticker only runs while moving ---- */
+function tick(t,dt){
+ var p=pos.v,nx=rmq.matches?target:p+(target-p)*(1-Math.exp(-dt/110));
+ if(Math.abs(target-nx)<1e-3){nx=target;gsap.ticker.remove(tick);ticking=false}
+ pos.v=nx;render();
+}
+function kick(){if(!ticking){ticking=true;gsap.ticker.add(tick)}}
+
+/* ---- navigation: scrolling and controls stay in sync ---- */
+function scrollFor(i){return st.start+(i/STEPS)*(st.end-st.start)}
+function goTo(i){
+ i=clamp(i,0,STEPS);
+ if(pinned&&st){scrollTo({top:scrollFor(i),behavior:rmq.matches?'auto':'smooth'})}
+ else{target=i;kick()}
+}
+prev.addEventListener('click',function(){goTo(idx-1)});
+next.addEventListener('click',function(){goTo(idx+1)});
+cards.forEach(function(c,i){
+ c.addEventListener('click',function(){if(i!==idx)goTo(i)});
+ c.addEventListener('keydown',function(e){
+  var d=e.key==='ArrowRight'||e.key==='ArrowDown'?1:e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:0;
+  if(!d)return;e.preventDefault();var n=clamp(idx+d,0,STEPS);if(n!==idx){viaKey=true;goTo(n)}
+ });
+});
+
+/* ---- layout: real viewport and navbar measurements, rebuilt on resize/orientation ---- */
+function layout(){
+ var vw=innerWidth,vh=innerHeight,navH=nav?nav.offsetHeight:72,top=navH+8;
+ var desk=vw>=960&&vh>=640,wantPin=desk&&!rmq.matches,k=desk?'desk':'stack';
+ sec.classList.toggle('yc-desk',desk);sec.classList.toggle('yc-pin',wantPin);
+ var stageH=desk?clamp(vh-top-16,560,860):0;
+ if(desk){stage.style.setProperty('--yc-h',stageH+'px');stage.style.setProperty('--yc-top',top+'px')}
+ else{stage.style.removeProperty('--yc-h')}
+ var w=arc.clientWidth||vw,h=desk?stageH:0;
+ if(!desk){var cw=Math.min(w-64,380,Math.max(240,vh*.75)),r=cw*2;h=Math.round(cw/1.65+2*r*Math.sin(STEP*Math.PI/180)+24);arc.style.height=h+'px'}
+ else arc.style.height='';
+ geo=geometry(w,h,k);
+ cards.forEach(function(c){c.style.width=geo.cardW+'px';c.style.height=geo.cardH+'px'});
+ if(desk){var tx=geo.left+geo.cardW+Math.max(40,vw*.035);stage.style.setProperty('--yc-tx',tx+'px');stage.style.setProperty('--yc-r',Math.max(32,(vw-1280)/2+32)+'px')}
+ var dist=STEPS*PER*stageH;
+ if(wantPin)track.style.height=(stageH+dist)+'px';else track.style.height='';
+ if(st){st.kill();st=null}
+ pinned=wantPin;kind=k;
+ if(wantPin){
+  st=ScrollTrigger.create({trigger:track,start:'top top+='+top,end:'+='+dist,
+   snap:{snapTo:1/STEPS,duration:{min:.35,max:.9},delay:.15,ease:'power2.inOut'},
+   onUpdate:function(self){target=self.progress*STEPS;kick()}});
+  target=st.progress*STEPS;pos.v=target;
+ }else{target=clamp(idx<0?0:idx,0,STEPS);pos.v=target}
+ render();
+}
+var rafL=0;function relayout(){cancelAnimationFrame(rafL);rafL=requestAnimationFrame(function(){layout();ScrollTrigger.refresh()})}
+addEventListener('resize',relayout);addEventListener('orientationchange',relayout);
+if(rmq.addEventListener)rmq.addEventListener('change',relayout);
+var ro=('ResizeObserver' in window)?new ResizeObserver(relayout):null;if(ro)ro.observe(sec);
+/* load the photographs once the section is near */
+if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){if(es[0].isIntersecting){cards.forEach(function(c){c.querySelector('img').loading='eager'});io.disconnect()}},{rootMargin:'900px 0px'});io.observe(sec)}
+else cards.forEach(function(c){c.querySelector('img').loading='eager'});
+addEventListener('pagehide',function(){if(st)st.kill();gsap.ticker.remove(tick);if(ro)ro.disconnect();removeEventListener('resize',relayout);removeEventListener('orientationchange',relayout)});
+layout();
+})();
+</script>
 <script>
 (function(){
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches,vh=innerHeight;
@@ -556,11 +747,6 @@ var io2=('IntersectionObserver' in window)?new IntersectionObserver(function(es)
 if(t.id==='zab-nums'){t.querySelectorAll('.zab-jar').forEach(function(j){j.querySelector('.zab-jar-oil').style.height=(+getComputedStyle(j).getPropertyValue('--f')*100)+'%';var b=j.querySelector('b'),to=+b.dataset.to,suf=b.dataset.suf||'',t0=performance.now();(function f(n){var q=Math.min(1,(n-t0)/1800),e=1-Math.pow(1-q,3);b.textContent=Math.round(to*e).toLocaleString('en-US')+(q>=1?suf:'');if(q<1)requestAnimationFrame(f)})(t0)})}})},{threshold:.35}):null;
 ['zab-waste','zab-album'].forEach(function(id){var el=document.getElementById(id);if(io2&&!reduce)io2.observe(el);else{el.classList.add('in');el.querySelectorAll('.zab-jar').forEach(function(j){j.querySelector('.zab-jar-oil').style.height=(+getComputedStyle(j).getPropertyValue('--f')*100)+'%';var b=j.querySelector('b');b.textContent=(+b.dataset.to).toLocaleString('en-US')+(b.dataset.suf||'')})}});
 // 3. wheel
-var M=[["January", "We bottle the new oil together", ["Glass bottles", "Caps"]], ["February", "Labels, boxes and long evenings", ["Labels", "Cartons"]], ["March", "Jiddo prunes the old trees", ["Pruning services"]], ["April", "We fix what the harvest broke", ["Spare parts", "Technicians"]], ["May", "Teta tastes the new jars", ["Printing", "Design"]], ["June", "Every batch goes to the lab", ["Lab services"]], ["July", "The whole family dries zaatar", ["Wild thyme", "Sumac", "Sesame"]], ["August", "Makdous season in Teta's kitchen", ["Eggplants", "Walnuts", "Jars"]], ["September", "Nets out, ladders up", ["Crates", "Nets", "Ladders"]], ["October", "Everyone picks, even the kids", ["Fresh olives", "Transport"]], ["November", "The press runs day and night", ["Olives", "Press parts"]], ["December", "Pickling, and warm bread with new oil", ["Milk", "Salt", "Jars"]]],year=document.getElementById('zab-year'),wheel=document.getElementById('zab-wheel'),segsE=[].slice.call(document.querySelectorAll('.zab-seg')),labs=[].slice.call(document.querySelectorAll('.zab-mlab')),buy=document.getElementById('zab-buy'),mi=-1;
-segsE.forEach(function(s,i){if(i>=9&&i<=11)s.classList.add('harvest')});
-function setMonth(i){if(i===mi)return;mi=i;segsE.forEach(function(s,j){s.classList.toggle('on',j===i)});labs.forEach(function(s,j){s.classList.toggle('on',j===i)});
-document.getElementById('zab-mnum').textContent=('0'+(i+1)).slice(-2)+' / 12';document.getElementById('zab-mname').textContent=M[i][0];document.getElementById('zab-mact').innerHTML=M[i][1];
-buy.innerHTML=M[i][2].map(function(x,k){return '<span style="animation-delay:'+(k*.08)+'s">'+x+'</span>'}).join('')}
 // recipe cards
 [].forEach.call(document.querySelectorAll('.zab-card'),function(b){b.addEventListener('click',function(){b.classList.toggle('flip')})});
 // 8. tree
@@ -570,8 +756,6 @@ var tips=[[86,160],[218,128],[104,84],[200,76],[150,60],[120,120],[180,110],[150
 tips.forEach(function(t,k){for(var n=0;n<7;n++){var x=t[0]+(rnd()-.5)*48,y=t[1]+(rnd()-.5)*36,a=Math.round(rnd()*180);lv+='<ellipse class="lf" data-k="'+(k*7+n)+'" cx="'+x.toFixed(0)+'" cy="'+y.toFixed(0)+'" rx="11" ry="4.5" transform="rotate('+a+' '+x.toFixed(0)+' '+y.toFixed(0)+')"/>'}if(k%2===0)lv+='<circle class="lf ol" data-k="'+(k*7+6)+'" cx="'+(t[0]+6)+'" cy="'+(t[1]+8)+'" r="5"/>'});
 lg.innerHTML=lv;var leaves=[].slice.call(lg.children);tk.forEach(function(p){p.style.strokeDasharray=1;p.style.strokeDashoffset=1});
 function upd(){vh=innerHeight;
-// wheel
-var r=year.getBoundingClientRect(),p=reduce?0:c(-r.top/(year.offsetHeight-vh)),i=Math.min(11,Math.round(p*11));wheel.style.transform='rotate('+(-p*330).toFixed(2)+'deg)';setMonth(i);
 // tree
 var g=grow.getBoundingClientRect(),gp=reduce?1:c(-g.top/(grow.offsetHeight-vh)+.12);
 tk.forEach(function(path,k){var s=k===0?0:.18+k*.06,len=k===0?.35:.25;path.style.strokeDashoffset=(1-c((gp-s)/len)).toFixed(3)});

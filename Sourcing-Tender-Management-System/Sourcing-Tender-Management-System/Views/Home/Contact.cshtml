@@ -1,248 +1,234 @@
-@{
+﻿@{
     Layout = null;
     ViewData["Title"] = "Contact us — Zaytouna Olive Oil";
     ViewData["ZtPage"] = "contact";
+    // The existing contact flow stores the message and redirects back here with a one-line status in TempData.
+    var status = TempData["ContactStatus"] as string;
+    var ok = status != null && status.StartsWith("Thank you", StringComparison.OrdinalIgnoreCase);
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
 @await Html.PartialAsync("_ZtHead")
 <style>
-html{scrollbar-width:auto}html::-webkit-scrollbar{display:block}
-.zp-hero{position:relative;overflow:hidden;background:#17402A;color:#FBF3DF;padding:170px 32px 110px}
-.zp-hero-in{position:relative;z-index:1;max-width:1280px;margin:0 auto}
-.zp-crumbs{display:flex;gap:10px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#B9C7A8}
-.zp-crumbs a{color:#DCEB4B;text-decoration:none}
-.zp-h1{margin:18px 0 18px;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:clamp(44px,6.4vw,92px);line-height:.98;letter-spacing:-.02em}
-.zp-h1 em{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;color:#E9C46A;letter-spacing:0}
-.zp-lead{margin:0;max-width:560px;font-size:18px;line-height:1.6;color:#C9D3BC}
-.zp-drop{position:absolute;right:14%;top:0;width:3px;height:52%;background:linear-gradient(#E0A215,#F3C437);border-radius:0 0 3px 3px;transform-origin:top;animation:zp-pour 1.4s .3s cubic-bezier(.5,0,.2,1) both}
-.zp-drop::after{content:"";position:absolute;left:50%;bottom:-14px;width:16px;height:21px;margin-left:-8px;border-radius:50% 50% 50% 50%/62% 62% 38% 38%;background:radial-gradient(circle at 38% 35%,#FFF1B0,#F2BF2E 45%,#8A5506);animation:zp-bob 3s 1.7s ease-in-out infinite}
-@@keyframes zp-pour{from{transform:scaleY(0)}to{transform:none}}
-@@keyframes zp-bob{50%{transform:translateY(6px)}}
-.zp-ring{position:absolute;right:calc(14% - 160px);bottom:-160px;width:320px;height:320px;border-radius:50%;border:1px solid rgba(220,235,75,.25)}
-.zp-ring+.zp-ring{width:520px;height:520px;right:calc(14% - 260px);bottom:-260px;border-color:rgba(220,235,75,.12)}
-.zc2{max-width:1280px;margin:-60px auto 0;padding:0 32px 120px;position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:24px;align-items:start}
-.zc2-info{display:flex;flex-direction:column;gap:16px}
-.zc2-card{padding:28px;border-radius:24px;background:#F0E4C2}
-.zc2-card.dark{background:#10261A;color:#FBF3DF}
-.zc2-card h3{margin:0 0 16px;font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:600}
-.zc2-list{list-style:none;margin:0;padding:0;display:grid;gap:16px}
-.zc2-list li{display:grid;grid-template-columns:42px 1fr;gap:14px;align-items:center}
-.zc2-ico{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#FFFCF3;color:#17402A}
-.zc2-list small{display:block;font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#6A7A6E}
-.zc2-list b{font-size:15.5px}
-.zc2-hours{display:grid;gap:10px;font-size:14.5px}
-.zc2-hours div{display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px dashed rgba(23,64,42,.22)}
-.zc2-hours div:last-child{border:0;padding:0}
-.zc2-open{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;font-weight:700;color:#2F6B2A}
-.zc2-open i{width:8px;height:8px;border-radius:50%;background:#4E9A3A;box-shadow:0 0 0 4px rgba(78,154,58,.18)}
-.zc2-card.dark p{margin:0 0 18px;font-size:15px;line-height:1.55;color:#C9D3BC}
-.zc2-btns{display:flex;flex-wrap:wrap;gap:10px}
-.zc2-btns a{display:inline-flex;align-items:center;min-height:46px;padding:0 20px;border-radius:999px;font-weight:700;font-size:14.5px;text-decoration:none}
-.zc2-btns a:first-child{background:#DCEB4B;color:#17402A}.zc2-btns a+a{border:1px solid rgba(251,243,223,.4);color:#FBF3DF}
-.zc2-form{position:sticky;top:96px;background:#FFFCF3;border-radius:28px;padding:44px;box-shadow:0 40px 80px -50px rgba(16,38,26,.45);border:1px solid rgba(23,64,42,.08)}
-.zc2-form h2{margin:10px 0 6px;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:clamp(30px,3vw,40px);color:#17402A}
-.zc2-form>p{margin:0 0 18px;color:#5A6A5E;font-size:15.5px}
-.zc2-form select{appearance:none;-webkit-appearance:none;background:#FBF3DF url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2317402A' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 16px center}
-.zc2-faq{max-width:1280px;margin:0 auto;padding:0 32px 120px;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:24px}
-.zc2-faq h2{margin:10px 0 0;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:clamp(30px,3.4vw,46px);line-height:1.05;color:#17402A}
-.zc2-faq h2 em{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;color:#B9800C}
-.zc2-faq details{border-top:1px solid rgba(23,64,42,.18);padding:18px 0}
-.zc2-faq details:last-child{border-bottom:1px solid rgba(23,64,42,.18)}
-.zc2-faq summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:16px;font-weight:700;font-size:17px;color:#17402A}
-.zc2-faq summary::-webkit-details-marker{display:none}
-.zc2-faq summary::after{content:"+";font-family:'DM Mono',monospace;font-size:20px;line-height:1;color:#B9800C;transition:transform .3s}
-.zc2-faq details[open] summary::after{transform:rotate(45deg)}
-.zc2-faq details p{margin:12px 0 0;max-width:620px;font-size:15.5px;line-height:1.6;color:#4A5A4E}
-.zt-eyebrow2{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#4E6B2F}
-@@media (max-width:900px){.zp-hero{padding:140px 20px 100px}.zc2,.zc2-faq{grid-template-columns:1fr;padding-left:16px;padding-right:16px}.zc2-form{padding:28px 22px}.zp-drop,.zp-ring{display:none}}
-@@media (prefers-reduced-motion:reduce){.zp-drop,.zp-drop::after{animation:none}}
-.zp-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
-.zp-chips a,.zp-chips span{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 16px;border-radius:999px;border:1px solid rgba(251,243,223,.25);color:#FBF3DF;text-decoration:none;font-size:14.5px;transition:background .3s,border-color .3s,color .3s}
-.zp-chips a:hover{background:#DCEB4B;border-color:#DCEB4B;color:#17402A}
-.zc2-tiles{display:grid;gap:12px}
-.zc2-tile{position:relative;display:flex;align-items:center;gap:8px;padding:10px 10px 10px 12px;border-radius:22px;background:#F0E4C2;overflow:hidden;isolation:isolate}
-.zc2-tile::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,#F3C437,#E0A215);transform:translateY(101%);transition:transform .6s cubic-bezier(.2,.8,.2,1)}
-.zc2-tile:hover::before{transform:none}
-.zc2-tile-main{flex:1;min-width:0;display:flex;align-items:center;gap:14px;padding:8px;color:#17402A;text-decoration:none}
-.zc2-tile-main small{display:block;font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#6A7A6E;transition:color .3s}
-.zc2-tile:hover .zc2-tile-main small{color:#4A3A08}
-.zc2-tile-main b{display:block;font-size:18px;overflow-wrap:anywhere}
-.zc2-copy{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border-radius:999px;border:1px solid rgba(23,64,42,.2);background:#FFFCF3;color:#17402A;font:600 13px 'DM Sans',sans-serif;cursor:pointer;flex:none}
-.zc2-copy.done{background:#17402A;color:#DCEB4B;border-color:#17402A}
-.zc2-map{display:grid;grid-template-columns:150px 1fr;gap:18px;align-items:center}
-.zc2-jo{width:150px;height:auto;display:block}
-.zc2-pulse{animation:zc2-pulse 2.4s ease-out infinite;transform-origin:center}
-@@keyframes zc2-pulse{0%{transform:scale(.3);opacity:.6}100%{transform:scale(2.2);opacity:0}}
-.zc2-map-txt{display:flex;flex-direction:column;gap:4px}
-.zc2-map-txt small{font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#6A7A6E}
-.zc2-map-txt b{font-family:'Bricolage Grotesque',sans-serif;font-size:26px;color:#17402A}
-.zc2-coord{font-family:'DM Mono',monospace;font-size:12px;color:#B9800C}
-.zc2-dir{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;margin-top:10px;min-height:40px;padding:0 16px;border-radius:999px;background:#17402A;color:#FBF3DF;text-decoration:none;font-weight:700;font-size:14px}
-.zc2-dir:hover{background:#DCEB4B;color:#17402A}
-.zc2-hours-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
-.zc2-hours-top h3{margin:0}
-.zc2-status{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;background:#FFFCF3;font-size:12.5px;font-weight:700;color:#5A6A5E}
-.zc2-status i{width:8px;height:8px;border-radius:50%;background:#B9B19A}
-.zc2-status.open{color:#2F6B2A}.zc2-status.open i{background:#4E9A3A;box-shadow:0 0 0 4px rgba(78,154,58,.2);animation:zc2-blink 1.6s ease-in-out infinite}
-.zc2-status.closed{color:#9A2E1A}.zc2-status.closed i{background:#C8553A}
-@@keyframes zc2-blink{50%{box-shadow:0 0 0 7px rgba(78,154,58,0)}}
-.zc2-clock{margin:2px 0 14px;font-size:14px;color:#5A6A5E}.zc2-clock b{font-family:'DM Mono',monospace;color:#17402A}
-.zc2-week{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:14px}
-.zc2-week span{display:grid;place-items:center;height:34px;border-radius:10px;background:#FFFCF3;font-size:12px;font-weight:700;color:#17402A}
-.zc2-week span.off{background:transparent;border:1px dashed rgba(23,64,42,.25);color:#8A968C}
-.zc2-week span.today{background:#17402A;color:#DCEB4B}
-.zc2-week span.off.today{background:#8A968C;color:#FBF3DF;border-color:transparent}
-.zc2-count{display:block;margin-top:6px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px;color:#8A968C;font-weight:400}
-.zc2-send{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:10px;isolation:isolate}
-.zc2-send::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,#F3C437,#E0A215);transform:translateY(101%);transition:transform .5s cubic-bezier(.2,.8,.2,1)}
-.zc2-send:hover{color:#17402A}.zc2-send:hover::before{transform:none}
-.zc2-send svg{transition:transform .4s}.zc2-send:hover svg{transform:translate(3px,-3px)}
-@@media (max-width:560px){.zc2-map{grid-template-columns:1fr}.zc2-jo{width:120px}}
-@@media (prefers-reduced-motion:reduce){.zc2-pulse,.zc2-status.open i{animation:none}}
-.zp-hero-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.95fr);gap:56px;align-items:center}
-.zp-hero{padding-bottom:130px}
-.zp-visual{position:relative;height:440px}
-.zp-photo{position:absolute;right:0;top:0;width:78%;height:100%;border-radius:220px 220px 28px 28px;overflow:hidden;box-shadow:0 40px 80px -40px rgba(0,0,0,.7);animation:zp-rise 1s .1s cubic-bezier(.2,.8,.2,1) both}
-.zp-photo img{width:100%;height:100%;object-fit:cover;object-position:40% 50%;display:block;filter:saturate(.9)}
-.zp-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(23,64,42,0) 55%,rgba(23,64,42,.45))}
-.zp-bubble{position:absolute;right:-6px;top:40px;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px 999px 999px 6px;background:#DCEB4B;color:#17402A;font-size:13.5px;font-weight:700;box-shadow:0 16px 30px -16px rgba(0,0,0,.6);animation:zp-pop .6s 1s cubic-bezier(.3,1.6,.5,1) both}
-.zp-bubble i{width:8px;height:8px;border-radius:50%;background:#17402A;box-shadow:0 0 0 0 rgba(23,64,42,.4);animation:zp-dot 1.8s 1.6s ease-out infinite}
-.zp-env{position:absolute;left:0;bottom:-30px;width:300px;padding:22px 22px 26px;box-sizing:border-box;background:#FFFCF3;color:#17402A;border-radius:10px;box-shadow:0 30px 60px -28px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:3px;transform:rotate(-6deg);animation:zp-slide .9s .55s cubic-bezier(.2,.8,.2,1) both;overflow:hidden}
-.zp-env-air{position:absolute;left:0;right:0;bottom:0;height:7px;background:repeating-linear-gradient(-45deg,#B4411E 0 10px,#FFFCF3 10px 18px,#17402A 18px 28px,#FFFCF3 28px 36px)}
-.zp-env-stamp{position:absolute;right:16px;top:14px;width:52px}
-.zp-env-stamp svg{width:100%;display:block}
-.zp-env-mark{position:absolute;right:46px;top:8px;width:84px;transform:rotate(-14deg)}
-.zp-env-k{margin-top:62px;font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#B9800C}
-.zp-env b{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;padding-bottom:4px;border-bottom:1px dashed rgba(23,64,42,.3)}
-.zp-env span:not(.zp-env-k):not(.zp-env-air){font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:18px;padding:3px 0;border-bottom:1px dashed rgba(23,64,42,.3)}
-@@keyframes zp-rise{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
-@@keyframes zp-slide{from{opacity:0;transform:translate(-40px,30px) rotate(-14deg)}to{opacity:1;transform:rotate(-6deg)}}
-@@keyframes zp-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
-@@keyframes zp-dot{0%{box-shadow:0 0 0 0 rgba(23,64,42,.45)}100%{box-shadow:0 0 0 9px rgba(23,64,42,0)}}
-@@media (max-width:900px){.zp-hero-in{grid-template-columns:1fr;gap:40px}.zp-visual{height:340px;margin-bottom:30px}.zp-photo{width:86%}.zp-env{width:250px}}
-@@media (prefers-reduced-motion:reduce){.zp-photo,.zp-env,.zp-bubble,.zp-bubble i{animation:none}}
+/* Contact: "A letter to Zaytouna" - styles scoped to .zc */
+.zc{--zc-olive:#17402A;--zc-deep:#10261A;--zc-cream:#FBF3DF;--zc-sheet:#FFFCF3;--zc-sage:#EEF0DC;--zc-line:rgba(23,64,42,.16);--zc-gold:#E9C46A;font-family:'DM Sans',system-ui,sans-serif;color:#10261A;background:#FBF3DF;overflow-x:clip}
+.zc-wrap{max-width:1160px;margin:0 auto;padding:0 32px}
+/* the shared nav is written for light first sections; this page opens on deep olive */
+.zc .zt-nav.is-light:not(.is-solid):not(.is-open){color:#FBF3DF}
+.zc .zt-nav.is-light:not(.is-solid) .zt-pill-in{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18)}
+.zc .zt-nav.is-light:not(.is-solid) .zt-reg{background:#DCEB4B;color:#17402A}
+
+/* A. introduction */
+.zc-hero{background:var(--zc-deep);color:#FBF3DF;padding:128px 0 56px}
+.zc-hero .zc-wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:clamp(28px,5vw,64px);align-items:center}
+.zc-eyebrow{margin:0 0 16px;font:500 12px 'DM Mono',monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--zc-gold)}
+.zc-h1{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(40px,5.4vw,70px);line-height:1.04;letter-spacing:-.02em}
+.zc-h1 em{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;letter-spacing:0;color:var(--zc-gold);font-size:1.08em;line-height:1.05}
+.zc-lead{margin:20px 0 0;max-width:480px;font-size:18px;line-height:1.6;color:#D3D9C6}
+.zc-photo{margin:0;border-radius:16px;overflow:hidden;border:1px solid rgba(233,196,106,.35);box-shadow:0 22px 40px -26px rgba(0,0,0,.7);aspect-ratio:16/10;background:#17402A}
+.zc-photo img{display:block;width:100%;height:100%;object-fit:cover}
+
+/* B. letter + information */
+.zc-main{padding:clamp(36px,5vw,64px) 0 clamp(40px,5vw,72px)}
+.zc-main .zc-wrap{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:clamp(28px,5vw,64px);align-items:start}
+.zc-sheet{position:relative;background:var(--zc-sheet);border:1px solid var(--zc-line);border-radius:14px;padding:clamp(24px,3.4vw,40px);box-shadow:0 24px 40px -30px rgba(16,38,26,.45);animation:zc-rise .5s ease-out backwards}
+@@keyframes zc-rise{from{opacity:0;transform:translateY(10px)}}
+.zc-sheet-head{padding-bottom:20px;margin-bottom:22px;border-bottom:1px solid var(--zc-line);position:relative}
+.zc-sheet-head::after{content:"";position:absolute;top:2px;right:0;width:92px;height:28px;background:var(--zc-gold);opacity:.75;pointer-events:none;-webkit-mask:url(/img/olive-branch.svg) center/contain no-repeat;mask:url(/img/olive-branch.svg) center/contain no-repeat}
+.zc-to{margin:0 0 8px;font:500 12px 'DM Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#4E6B2F}
+.zc-h2{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(28px,3.2vw,38px);line-height:1.1;letter-spacing:-.01em;color:var(--zc-olive)}
+.zc-sub{margin:6px 0 0;font-size:16px;color:#5A6A5E}
+.zc-status{margin:0 0 18px;padding:12px 16px;border-radius:10px;font-size:15px;line-height:1.5;border:1px solid transparent}
+.zc-status[hidden],.zc-errsum[hidden],.zc-err[hidden]{display:none}
+.zc-status.is-ok{background:var(--zc-sage);border-color:#C9D6A0;color:#17402A;animation:zc-pop .3s ease-out}
+.zc-status.is-err,.zc-errsum{background:#FBEDE6;border-color:#E3B9A6;color:#7A2E12}
+@@keyframes zc-pop{from{opacity:0;transform:translateY(-4px)}}
+.zc-errsum{margin:0 0 18px;padding:12px 16px;border-radius:10px;border:1px solid #E3B9A6;font-size:15px}
+.zc-errsum p{margin:0 0 4px;font-weight:700}.zc-errsum ul{margin:0;padding-left:18px}.zc-errsum a{color:inherit}
+.zc-form{display:grid;gap:18px}
+.zc-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.zc-f{display:flex;flex-direction:column;gap:7px;min-width:0}
+.zc-f>label,.zc-lbl{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:15px;font-weight:700;color:var(--zc-olive)}
+.zc-req{font:500 12px 'DM Mono',monospace;letter-spacing:.06em;color:#5A6A5E;font-weight:500}
+.zc-f input,.zc-f select,.zc-f textarea{width:100%;box-sizing:border-box;min-height:48px;padding:12px 14px;font:400 16px/1.4 'DM Sans',sans-serif;color:#10261A;background:#FBF7EA;border:1px solid rgba(23,64,42,.3);border-radius:10px;transition:border-color .2s,box-shadow .2s}
+.zc-f textarea{min-height:176px;resize:vertical}
+.zc-f select{appearance:none;-webkit-appearance:none;padding-right:42px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317402A' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:20px}
+.zc-f input::placeholder,.zc-f textarea::placeholder{color:#7C8A80}
+.zc-f input:focus,.zc-f select:focus,.zc-f textarea:focus{outline:none;border-color:var(--zc-olive);box-shadow:0 0 0 4px #E2E8C4}
+.zc-f [aria-invalid=true]{border-color:#B3472A}
+.zc-err{font-size:14px;color:#9B3A1C}
+.zc-count{align-self:flex-end;font:500 12px 'DM Mono',monospace;color:#5A6A5E}
+.zc-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;margin-top:4px}
+.zc-send{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 28px;border:0;border-radius:999px;background:var(--zc-olive);color:#FBF3DF;font:700 16px 'DM Sans',sans-serif;cursor:pointer;transition:background .2s}
+.zc-send:hover{background:#10261A}
+.zc-send:focus-visible{outline:3px solid var(--zc-olive);outline-offset:3px;box-shadow:0 0 0 7px #E2E8C4}
+.zc-send[aria-disabled=true]{opacity:.75;cursor:progress}
+.zc-note{margin:0;font-size:14px;line-height:1.5;color:#5A6A5E;max-width:34ch}
+.zc-supplier{margin:24px 0 0;padding-top:18px;border-top:1px solid var(--zc-line);font-size:15px;color:#5A6A5E}
+.zc-supplier a,.zc-link{color:var(--zc-olive);font-weight:700;text-decoration-thickness:1px;text-underline-offset:4px}
+.zc-supplier a:focus-visible,.zc-link:focus-visible,.zc-faq summary:focus-visible{outline:3px solid var(--zc-olive);outline-offset:3px;border-radius:6px}
+
+/* information column: one cohesive area */
+.zc-info{padding-top:6px;position:sticky;top:96px}
+.zc-phrase{margin:0 0 22px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:clamp(26px,2.6vw,32px);line-height:1.2;color:#4E6B2F}
+.zc-rows{margin:0;padding:0;list-style:none}
+.zc-rows li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--zc-line)}
+.zc-rows li>div{min-width:0;flex:1}
+.zc-rows li:last-child{border-bottom:1px solid var(--zc-line)}
+.zc-rows svg{flex:none;margin-top:2px;color:#9C7A3C}
+.zc-rows h3{margin:0 0 3px;font:700 15px 'DM Sans',sans-serif;color:var(--zc-olive)}
+.zc-rows p{margin:0;font-size:16px;line-height:1.5;color:#10261A;overflow-wrap:anywhere}
+.zc-rows small{display:block;margin-top:4px;font-size:14px;color:#5A6A5E}
+
+/* C. FAQ */
+.zc-faqs{padding:0 0 clamp(56px,7vw,96px)}
+.zc-faqs .zc-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:clamp(24px,5vw,64px)}
+.zc-faqs h2{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(28px,3.2vw,40px);line-height:1.1;color:var(--zc-olive)}
+.zc-faqs h2 em{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;color:#4E6B2F}
+.zc-faq{border-top:1px solid var(--zc-line)}
+.zc-faq:last-child{border-bottom:1px solid var(--zc-line)}
+.zc-faq summary{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:56px;padding:12px 4px;cursor:pointer;list-style:none;font:700 17px/1.35 'DM Sans',sans-serif;color:var(--zc-olive)}
+.zc-faq summary::-webkit-details-marker{display:none}
+.zc-faq summary::after{content:"";flex:none;width:12px;height:12px;border-right:2px solid var(--zc-olive);border-bottom:2px solid var(--zc-olive);transform:rotate(45deg) translateY(-3px);transition:transform .25s}
+.zc-faq[open] summary::after{transform:rotate(-135deg) translateY(-3px)}
+.zc-faq p{margin:0;padding:0 4px 18px;max-width:64ch;font-size:16px;line-height:1.65;color:#3C4C41;animation:zc-open .25s ease-out}
+@@keyframes zc-open{from{opacity:0;transform:translateY(-4px)}}
+
+@@media (max-width:900px){
+ .zc-hero .zc-wrap,.zc-main .zc-wrap,.zc-faqs .zc-wrap{grid-template-columns:minmax(0,1fr)}
+ .zc-hero{padding:108px 0 40px}.zc-photo{aspect-ratio:21/9}.zc-info{position:static}
+}
+@@media (max-width:600px){.zc-wrap{padding:0 20px}.zc-row{grid-template-columns:minmax(0,1fr)}.zc-sheet-head::after{width:64px;height:20px}.zc-send{width:100%;justify-content:center}}
+@@media (prefers-reduced-motion:reduce){.zc-sheet,.zc-status.is-ok,.zc-faq p{animation:none}.zc-faq summary::after,.zc-f input,.zc-f select,.zc-f textarea,.zc-send{transition:none}}
 </style>
 </head>
 <body>
-<div style="font-family: 'DM Sans', system-ui, sans-serif; color: #10261A; background: #FBF3DF; overflow-x: clip">
+<div class="zc">
   @await Html.PartialAsync("_ZtNav")
 
-  <section class="zp-hero" aria-labelledby="zp-title">
-    <div class="zp-hero-in">
-      <div class="zp-copy">
-      <nav class="zp-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Contact</span></nav>
-      <h1 class="zp-h1" id="zp-title">Let&rsquo;s talk<br><em>olives &amp; orders.</em></h1>
-      <p class="zp-lead">A question about a tender, your registration or a delivery? Write to us and the right team will get back to you within one working day.</p>
-      <div class="zp-chips"><a href="mailto:fatima@zytona.com"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>fatima@zytona.com</a><a href="tel:07792574463" dir="ltr"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>0779 257 4463</a><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>Irbid, Jordan</span></div>
+  <main>
+  <section class="zc-hero" aria-labelledby="zc-title">
+    <div class="zc-wrap">
+      <div>
+        <p class="zc-eyebrow">Contact</p>
+        <h1 class="zc-h1" id="zc-title">Good things start <em>with a conversation.</em></h1>
+        <p class="zc-lead">Questions about Zaytouna or our sourcing platform? Write to our team.</p>
       </div>
-      <div class="zp-visual" aria-hidden="true">
-        <div class="zp-photo"><img src="/landing/images/team-contact.jpg" alt=""></div>
-        <span class="zp-bubble"><i></i>We reply within one working day</span>
-        <div class="zp-env">
-          <div class="zp-env-stamp"><svg viewBox="0 0 60 72"><rect x="1" y="1" width="58" height="70" rx="3" fill="#FBF3DF" stroke="#C9A060" stroke-width="1.5" stroke-dasharray="3 3"/><rect x="7" y="7" width="46" height="46" rx="2" fill="#17402A"/><path d="M30 46 V30 M30 34 Q22 30 20 22 Q27 22 30 30 M30 32 Q38 28 40 20 Q33 20 30 28" stroke="#DCEB4B" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="24" cy="21" r="5" fill="#4E6B2F"/><circle cx="36" cy="19" r="6" fill="#4E6B2F"/><circle cx="30" cy="16" r="5.5" fill="#6E8F3A"/><text x="30" y="65" text-anchor="middle" font-family="DM Mono, monospace" font-size="7" fill="#17402A">JOD 1</text></svg></div>
-          <svg class="zp-env-mark" viewBox="0 0 120 120"><defs><path id="zp-pm" d="M60 60 m-44 0 a44 44 0 1 1 88 0 a44 44 0 1 1 -88 0"/></defs><circle cx="60" cy="60" r="52" fill="none" stroke="#9A5B06" stroke-width="2" opacity=".55"/><circle cx="60" cy="60" r="36" fill="none" stroke="#9A5B06" stroke-width="1.2" opacity=".55"/><text font-family="DM Mono, monospace" font-size="9" letter-spacing="3" fill="#9A5B06" opacity=".6"><textPath href="#zp-pm">IRBID · JORDAN · ZAYTOUNA ·</textPath></text><text x="60" y="64" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" fill="#9A5B06" opacity=".6">2026</text></svg>
-          <span class="zp-env-k">To</span>
-          <b>Zaytouna Olive Oil Co.</b>
-          <span>Procurement team</span>
-          <span>Irbid, Jordan</span>
-          <span class="zp-env-air"></span>
-        </div>
-      </div>
+      <figure class="zc-photo"><img src="/landing/images/team-contact.jpg" alt="The Zaytouna team at work" width="1670" height="941"></figure>
     </div>
   </section>
 
-  <section class="zc2" aria-label="Contact details and form">
-    <aside class="zc2-info">
-      <div class="zc2-tiles">
-        <div class="zc2-tile">
-          <a class="zc2-tile-main" href="mailto:fatima@zytona.com"><span class="zc2-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><span><small>Email us</small><b>fatima@zytona.com</b></span></a>
-          <button type="button" class="zc2-copy" data-copy="fatima@zytona.com" aria-label="Copy email"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>Copy</span></button>
-        </div>
-        <div class="zc2-tile">
-          <a class="zc2-tile-main" href="tel:07792574463"><span class="zc2-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></span><span><small>Call us</small><b dir="ltr">0779 257 4463</b></span></a>
-          <button type="button" class="zc2-copy" data-copy="07792574463" aria-label="Copy phone number"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>Copy</span></button>
-        </div>
-      </div>
-      <div class="zc2-card zc2-map">
-        <svg class="zc2-jo" viewBox="0 0 220 240" aria-hidden="true">
-          <defs><pattern id="zc2-dots" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="1.6" fill="#4E6B2F" opacity=".55"/></pattern>
-          <clipPath id="zc2-jo-clip"><path d="M44 14 L118 10 L200 44 L156 74 L182 116 L114 146 L100 214 L52 226 L42 168 L34 120 L30 70 Z"/></clipPath></defs>
-          <rect width="220" height="240" fill="url(#zc2-dots)" clip-path="url(#zc2-jo-clip)"/>
-          <path d="M44 14 L118 10 L200 44 L156 74 L182 116 L114 146 L100 214 L52 226 L42 168 L34 120 L30 70 Z" fill="none" stroke="#17402A" stroke-width="1.2" stroke-dasharray="3 4" opacity=".5"/>
-          <g transform="translate(52 30)"><circle r="16" fill="#DCEB4B" opacity=".35" class="zc2-pulse"/><circle r="16" fill="#DCEB4B" opacity=".35" class="zc2-pulse" style="animation-delay:1.2s"/><path d="M0 4 C-8 -4 -9 -10 -9 -14 a9 9 0 0 1 18 0 c0 4 -1 10 -9 18Z" fill="#17402A"/><circle cy="-14" r="3.4" fill="#DCEB4B"/></g>
-          <text x="70" y="34" font-family="DM Mono, monospace" font-size="9" letter-spacing="1.5" fill="#17402A">IRBID</text>
-          <text x="104" y="128" font-family="DM Mono, monospace" font-size="8" letter-spacing="2" fill="#6A7A6E" opacity=".8">JORDAN</text>
-        </svg>
-        <div class="zc2-map-txt">
-          <small>Visit us</small>
-          <b>Irbid, Jordan</b>
-          <span class="zc2-coord">32.55&deg; N &middot; 35.85&deg; E</span>
-          <a class="zc2-dir" href="https://www.google.com/maps/search/?api=1&amp;query=Irbid%2C%20Jordan" target="_blank" rel="noopener">Get directions <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
-        </div>
-      </div>
-      <div class="zc2-card zc2-hours-card">
-        <div class="zc2-hours-top"><h3>Office hours</h3><span class="zc2-status" id="zc2-status"><i></i><span>Checking&hellip;</span></span></div>
-        <div class="zc2-clock">It&rsquo;s <b id="zc2-time">--:--</b> in Irbid right now</div>
-        <div class="zc2-week" id="zc2-week">
-          <span data-d="0">Sun</span><span data-d="1">Mon</span><span data-d="2">Tue</span><span data-d="3">Wed</span><span data-d="4">Thu</span><span data-d="5" class="off">Fri</span><span data-d="6" class="off">Sat</span>
-        </div>
-        <div class="zc2-hours"><div><span>Sunday &ndash; Thursday</span><b>8:00 &ndash; 16:00</b></div><div><span>Friday &amp; Saturday</span><b>Closed</b></div></div>
-      </div>
-      <div class="zc2-card dark">
-        <h3>Are you a supplier?</h3>
-        <p>Register once to receive tender invitations, or sign in to follow your bids and clarifications.</p>
-        <div class="zc2-btns"><a href="/Suppliers/Register">Register as a supplier</a><a href="/Auth/Login">Sign in</a></div>
-      </div>
-    </aside>
-    <div class="zc2-form" id="contact">
-      <span class="zt-eyebrow2">Send a message</span>
-      <h2>How can we help?</h2>
-      <p>Fill in the form and we&rsquo;ll reply by email.</p>
-      <form class="zt-form" method="post" action="/Home/Contact">
+  <section class="zc-main" id="contact">
+    <div class="zc-wrap">
+      <div class="zc-sheet">
+        <header class="zc-sheet-head">
+          <p class="zc-to">To the Zaytouna team</p>
+          <h2 class="zc-h2">Write to us.</h2>
+          <p class="zc-sub">Tell us how we can help.</p>
+        </header>
+
+        <div class="zc-status @(ok ? "is-ok" : "is-err")" id="zc-status" data-zc-status data-kind="@(ok ? "success" : "error")" role="status" tabindex="-1" @(status == null ? "hidden" : "")>@(ok ? "Thank you. Your message has been received." : status)</div>
+        <div class="zc-errsum" id="zc-errsum" role="alert" tabindex="-1" hidden></div>
+
+        <form class="zc-form" id="zc-form" method="post" action="/Home/Contact">
           @Html.AntiForgeryToken()
-          @if (TempData["ContactStatus"] is string zs) { <p class="zt-form-msg" role="status" style="color:#2F6B2A">@zs</p> }
-          <div class="zt-form-row">
-            <label>Full name<input type="text" name="name" autocomplete="name" required></label>
-            <label>Email<input type="email" name="email" autocomplete="email" required></label>
+          <div class="zc-row">
+            <div class="zc-f">
+              <label for="zc-name">Full name <span class="zc-req">Required</span></label>
+              <input id="zc-name" type="text" name="name" autocomplete="name" maxlength="150" required placeholder="e.g. Layla Haddad" aria-describedby="zc-err-name">
+              <span class="zc-err" id="zc-err-name" hidden></span>
+            </div>
+            <div class="zc-f">
+              <label for="zc-email">Email address <span class="zc-req">Required</span></label>
+              <input id="zc-email" type="email" name="email" autocomplete="email" maxlength="256" required placeholder="you@company.com" aria-describedby="zc-err-email">
+              <span class="zc-err" id="zc-err-email" hidden></span>
+            </div>
           </div>
-          <label>Subject
-            <select name="subject"><option value="">Choose a topic</option><option>Supplier registration</option><option>A tender or bid</option><option>Orders &amp; delivery</option><option>Partnership</option><option>Other</option></select></label>
-          <label>Message<textarea name="message" rows="5" maxlength="2000" required id="zc2-msg" placeholder="Tell us what you need&hellip;"></textarea><span class="zc2-count"><span id="zc2-count">0</span> / 2000</span></label>
-          <button type="submit" class="zt-submit zc2-send"><span>Send message</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
-          
+          <div class="zc-f">
+            <label for="zc-subject">Subject <span class="zc-req">Optional</span></label>
+            <select id="zc-subject" name="subject">
+              <option value="">Choose a topic</option>
+              <option>Supplier registration</option>
+              <option>A tender or bid</option>
+              <option>Orders &amp; delivery</option>
+              <option>Partnership</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="zc-f">
+            <label for="zc-msg">Message <span class="zc-req">Required</span></label>
+            <textarea id="zc-msg" name="message" maxlength="1800" required placeholder="Tell us what you need, and who you are writing from." aria-describedby="zc-err-message zc-count"></textarea>
+            <span class="zc-err" id="zc-err-message" hidden></span>
+            <span class="zc-count" id="zc-count" aria-live="off"><span id="zc-n">0</span> / 1800</span>
+          </div>
+          <div class="zc-actions">
+            <button type="submit" class="zc-send" id="zc-send"><span id="zc-send-t">Send message</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></button>
+            <p class="zc-note">Your message is saved for the Zaytouna team to read.</p>
+          </div>
         </form>
+        <p class="zc-supplier">Joining as a supplier? <a href="/Suppliers/Register">Register your company <span aria-hidden="true">&#8599;</span></a></p>
+      </div>
+
+      <aside class="zc-info" aria-label="Where to find us">
+        <p class="zc-phrase">Every good bottle begins with a good conversation.</p>
+        <ul class="zc-rows">
+          <li><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg><div><h3>Location</h3><p>Irbid, Jordan</p><small><a class="zc-link" href="https://www.google.com/maps/search/?api=1&amp;query=Irbid%2C%20Jordan" target="_blank" rel="noopener noreferrer">View on Google Maps <span aria-hidden="true">&#8599;</span><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"> (opens in a new tab)</span></a></small>
+              @await Html.PartialAsync("_ZtFooterLocation", null, new Microsoft.AspNetCore.Mvc.ViewFeatures.ViewDataDictionary(ViewData) { ["MapInstance"] = "contact-irbid", ["MapContext"] = "contact" })
+            </div></li>
+          <li><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div><h3>Office hours</h3><p>Sunday &ndash; Thursday, 8:00 &ndash; 16:00</p><small>Friday &amp; Saturday: closed</small></div></li>
+        </ul>
+      </aside>
     </div>
   </section>
 
-  <section class="zc2-faq" aria-label="Frequently asked questions">
-    <div><span class="zt-eyebrow2">Quick answers</span><h2>Before you<br><em>write to us.</em></h2></div>
-    <div>
-      <details><summary>How do I become a supplier?</summary><p>Click &ldquo;Register as a supplier&rdquo;, add your company details, legal documents and the categories you supply. Our team reviews your profile and you&rsquo;ll be notified once it&rsquo;s approved.</p></details>
-      <details><summary>How long does supplier approval take?</summary><p>Most registrations are reviewed within a few working days. If anything is missing, we&rsquo;ll ask you through the portal.</p></details>
-      <details><summary>Can I ask a question about an open tender?</summary><p>Yes. Sign in and send a clarification request on the tender itself, so every supplier gets the same answer on record.</p></details>
-      <details><summary>How are bids evaluated?</summary><p>Every compliant bid is scored by a four-person committee on technical and financial criteria, using weights fixed before bidding opens.</p></details>
+  <section class="zc-faqs" aria-labelledby="zc-faq-h">
+    <div class="zc-wrap">
+      <h2 id="zc-faq-h"><em>Quick answers</em> Before you write to us.</h2>
+      <div>
+        <details class="zc-faq"><summary>How do I become a supplier?</summary><p>Click &ldquo;Register as a supplier&rdquo;, add your company details, legal documents and the categories you supply. Our team reviews your profile and you&rsquo;ll be notified once it&rsquo;s approved.</p></details>
+        <details class="zc-faq"><summary>Can I ask a question about an open tender?</summary><p>Yes. Sign in and send a clarification request on the tender itself, so every supplier gets the same answer on record.</p></details>
+        <details class="zc-faq"><summary>How are bids evaluated?</summary><p>Every compliant bid is scored by a four-person committee on technical and financial criteria, using weights fixed before bidding opens.</p></details>
+      </div>
     </div>
   </section>
+  </main>
 
   @await Html.PartialAsync("_ZtFooter")
 </div>
 <script>
+/* Progressive enhancement: the plain HTML POST works without this script. */
 (function(){
-// copy buttons
-document.querySelectorAll('.zc2-copy').forEach(function(b){b.addEventListener('click',function(){var t=b.dataset.copy,lbl=b.querySelector('span');function ok(){b.classList.add('done');lbl.textContent='Copied';setTimeout(function(){b.classList.remove('done');lbl.textContent='Copy'},1600)}
-if(navigator.clipboard)navigator.clipboard.writeText(t).then(ok,ok);else{var x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();try{document.execCommand('copy')}catch(e){}x.remove();ok()}})});
-// live Irbid time + open/closed
-var st=document.getElementById('zc2-status'),tm=document.getElementById('zc2-time'),wk=document.getElementById('zc2-week');
-function tick(){var now=new Date(),p={};try{new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Amman',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(now).forEach(function(x){p[x.type]=x.value})}catch(e){return}
-var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],d=days.indexOf(p.weekday),h=+p.hour%24,m=+p.minute;tm.textContent=('0'+h).slice(-2)+':'+p.minute;
-[].forEach.call(wk.children,function(s){s.classList.toggle('today',+s.dataset.d===d)});
-var open=d>=0&&d<=4&&(h*60+m)>=480&&(h*60+m)<960,lbl=st.querySelector('span');st.className='zc2-status '+(open?'open':'closed');
-if(open)lbl.textContent='Open now';else{var nxt=(d===4&&h>=16)||d===5||d===6?'Sunday':((h*60+m)<480?'today':'tomorrow');lbl.textContent='Closed · opens '+nxt+' 8:00'}}
-tick();setInterval(tick,20000);
-// message counter
-var msg=document.getElementById('zc2-msg'),cn=document.getElementById('zc2-count');if(msg)msg.addEventListener('input',function(){cn.textContent=msg.value.length});
+var form=document.getElementById('zc-form');if(!form)return;
+var send=document.getElementById('zc-send'),sendT=document.getElementById('zc-send-t'),status=document.getElementById('zc-status'),sum=document.getElementById('zc-errsum'),msg=document.getElementById('zc-msg'),n=document.getElementById('zc-n');
+var F={name:{el:document.getElementById('zc-name'),err:document.getElementById('zc-err-name'),label:'Full name'},email:{el:document.getElementById('zc-email'),err:document.getElementById('zc-err-email'),label:'Email address'},message:{el:msg,err:document.getElementById('zc-err-message'),label:'Message'}};
+var busy=false;
+form.setAttribute('novalidate','');
+function count(){n.textContent=msg.value.length}msg.addEventListener('input',count);count();
+function clearErr(k){var f=F[k];f.err.hidden=true;f.err.textContent='';f.el.removeAttribute('aria-invalid')}
+Object.keys(F).forEach(function(k){F[k].el.addEventListener('input',function(){clearErr(k)})});
+function problems(){var p=[];
+ if(!F.name.el.value.trim())p.push(['name','Please enter your full name.']);
+ var em=F.email.el.value.trim();if(!em)p.push(['email','Please enter your email address.']);else if(!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(em))p.push(['email','Please enter a valid email address, like you@company.com.']);
+ if(!msg.value.trim())p.push(['message','Please write a message.']);return p}
+function showStatus(kind,text){status.className='zc-status '+(kind==='success'?'is-ok':'is-err');status.dataset.kind=kind;status.textContent=text;status.hidden=false;status.focus({preventScroll:false})}
+function setBusy(b){busy=b;send.setAttribute('aria-disabled',b?'true':'false');send.setAttribute('aria-busy',b?'true':'false');sendT.textContent=b?'Sending…':'Send message'}
+form.addEventListener('submit',function(e){
+ if(busy){e.preventDefault();return}
+ var p=problems();sum.hidden=true;status.hidden=true;
+ Object.keys(F).forEach(clearErr);
+ if(p.length){e.preventDefault();
+  p.forEach(function(x){var f=F[x[0]];f.err.textContent=x[1];f.err.hidden=false;f.el.setAttribute('aria-invalid','true')});
+  sum.innerHTML='<p>Please fix the following:</p><ul>'+p.map(function(x){return'<li><a href="#'+F[x[0]].el.id+'">'+F[x[0]].label+': '+x[1]+'</a></li>'}).join('')+'</ul>';sum.hidden=false;sum.focus();return}
+ if(!window.fetch||!window.DOMParser)return; /* fall back to the normal POST */
+ e.preventDefault();setBusy(true);
+ fetch(form.action,{method:'POST',body:new FormData(form),credentials:'same-origin'}).then(function(r){if(!r.ok)throw new Error('http');return r.text()}).then(function(html){
+  var d=new DOMParser().parseFromString(html,'text/html'),s=d.getElementById('zc-status');
+  if(s&&!s.hidden&&s.dataset.kind==='success'){form.reset();count();showStatus('success','Thank you. Your message has been received.')}
+  else if(s&&!s.hidden){showStatus('error',s.textContent.trim())}
+  else showStatus('error','We could not confirm that your message was received. Your text is still here, so please try again.');
+ }).catch(function(){showStatus('error','We could not reach the server, so your message was not sent. Your text is still here, so please try again.')}).then(function(){setBusy(false)});
+});
 })();
 </script>
 </body>

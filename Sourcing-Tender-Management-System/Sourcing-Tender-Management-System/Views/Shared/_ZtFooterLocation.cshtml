@@ -1,0 +1,31 @@
+﻿@{
+    var mapInstance = ViewData["MapInstance"] as string ?? "zfm";
+    var contactMap = ViewData["MapContext"] as string == "contact";
+}
+<link rel="stylesheet" href="~/css/footer-map.css" asp-append-version="true" />
+<section class="zfm @(contactMap ? "zfm-light" : "")" aria-label="Map of Irbid, Jordan">
+    @if (!contactMap)
+    {
+    <div class="zfm-heading">
+        <h3 id="@(mapInstance + "-title")">Irbid, Jordan <span lang="ar" dir="rtl">إربد، الأردن</span></h3>
+        <span class="zfm-mode">Explore our city</span>
+    </div>
+    }
+    <div class="zfm-frame" id="@(mapInstance + "-frame")" data-state="idle">
+        <iframe class="zfm-fallback" id="@(mapInstance + "-fallback")" title="Street map of Irbid, Jordan" loading="lazy"
+                src="https://www.openstreetmap.org/export/embed.html?bbox=35.797%2C32.524%2C35.902%2C32.587&amp;layer=mapnik&amp;marker=32.5556%2C35.85"></iframe>
+        <div class="zfm-canvas" id="@(mapInstance + "-canvas")" aria-label="3D terrain map of Irbid, Jordan"></div>
+        <div class="zfm-controls" id="@(mapInstance + "-controls")" hidden>
+            <button type="button" class="zfm-replay" id="@(mapInstance + "-replay")" aria-label="Replay the aerial approach to Irbid">Replay approach</button>
+            <button type="button" class="zfm-explore" id="@(mapInstance + "-explore")" aria-pressed="false">Explore map</button>
+        </div>
+    </div>
+    <div class="zfm-meta">
+        <p id="@(mapInstance + "-status")" role="status">City location · إربد</p>
+        @if (!contactMap)
+        {
+        <a href="https://www.google.com/maps/search/?api=1&amp;query=Irbid%2C%20Jordan" target="_blank" rel="noopener noreferrer">Open in Google Maps <span aria-hidden="true">↗</span></a>
+        }
+    </div>
+    <script src="~/js/footer-map.js" asp-append-version="true" defer></script>
+</section>

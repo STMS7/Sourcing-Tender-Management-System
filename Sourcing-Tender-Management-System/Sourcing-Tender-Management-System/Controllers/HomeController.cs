@@ -71,6 +71,13 @@ namespace Sourcing_Tender_Management_System.Controllers
             return Redirect(Url.Action(nameof(Contact)) + "#contact");
         }
 
+        // Public page introducing the team behind the platform.
+        [HttpGet]
+        public IActionResult PoweredBy()
+        {
+            return View(PoweredByViewModel.Create());
+        }
+
         public IActionResult Privacy()
         {
             return View();

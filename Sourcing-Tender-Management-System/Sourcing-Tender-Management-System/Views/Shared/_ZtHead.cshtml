@@ -298,17 +298,25 @@ body::after{opacity:.045!important}
 @@keyframes zt-in{to{opacity:1;transform:none;filter:none}}
 .zt-kb{animation:zt-kb 18s ease-out both}
 @@keyframes zt-kb{from{transform:scale(1.12)}to{transform:scale(1)}}
-.zt-hero-frame{position:absolute;inset:22px;border:1px solid rgba(251,243,223,.18);border-radius:4px;pointer-events:none;z-index:1}
 #top::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(8,20,13,.55) 100%)}
 .zt-hero-in{z-index:2}
 .zt-hero-rule{display:block;width:56px;height:1px;background:rgba(220,235,75,.8);margin:6px 0 2px}
 .zt-hero-h1{font-family:'Cormorant Garamond',Georgia,serif!important;font-weight:500!important;font-size:clamp(30px,3.4vw,48px)!important;line-height:1.12!important;letter-spacing:0!important;max-width:760px!important}
-.zt-hero-foot{position:absolute;left:56px;right:56px;bottom:44px;z-index:2;display:flex;align-items:flex-end;justify-content:space-between;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:rgba(251,243,223,.7)}
-.zt-scroll{display:flex;flex-direction:column;align-items:center;gap:10px;color:inherit;text-decoration:none}
-.zt-scroll i{display:block;width:1px;height:46px;background:rgba(251,243,223,.25);position:relative;overflow:hidden}
-.zt-scroll i::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:#FBF3DF;animation:zt-drip 2.2s cubic-bezier(.6,0,.4,1) infinite}
-@@keyframes zt-drip{to{top:100%}}
-@@media (max-width:760px){.zt-hero-foot span{display:none}.zt-hero-foot{justify-content:center;bottom:28px}.zt-hero-frame{inset:12px}}
+.zt-hero-ar{margin:0;font-family:'Aref Ruqaa',serif;font-weight:700;font-size:clamp(88px,17vw,220px);line-height:1.35;letter-spacing:0;color:#FBF3DF;text-shadow:0 8px 40px rgba(0,0,0,.35);max-width:100%;padding:0 .1em;unicode-bidi:isolate}
+.zt-scroll-cue{display:inline-flex;flex-direction:column;align-items:center;gap:8px;margin-top:clamp(28px,7vh,72px);padding:8px 14px;border-radius:12px;color:#FBF3DF;text-decoration:none;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;text-shadow:0 1px 10px rgba(0,0,0,.55)}
+.zt-scroll-cue svg{animation:zt-bob 2.6s ease-in-out infinite}
+.zt-scroll-cue:hover{color:#DCEB4B}
+.zt-scroll-cue:focus-visible,.zt-brand:focus-visible,.zt-actions .zt-login:focus-visible{outline:2px solid #DCEB4B;outline-offset:4px}
+@@keyframes zt-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+/* nav: Login and logo hover/focus keep contrast over the dark hero */
+.zt-actions .zt-login{transition:background .25s,color .25s}
+.zt-actions .zt-login:hover,.zt-actions .zt-login:focus-visible{background:#FBF3DF;color:#17402A}
+.zt-nav.is-solid .zt-actions .zt-login:hover,.zt-nav.is-solid .zt-actions .zt-login:focus-visible{background:#17402A;color:#FBF3DF}
+.zt-brand{border-radius:10px}
+.zt-nav:not(.is-solid):not(.is-open) .zt-brand:is(:hover,:focus-visible){color:#FBF3DF}
+.zt-nav:not(.is-solid):not(.is-open) .zt-brand:is(:hover,:focus-visible) .zt-logo{filter:drop-shadow(0 2px 10px rgba(0,0,0,.45))}
+.zt-nav:not(.is-solid):not(.is-open) .zt-brand:is(:hover,:focus-visible) .zt-logo-txt{opacity:1}
+@@media (prefers-reduced-motion:reduce){.zt-scroll-cue svg{animation:none}}
 .zs{background:#10261A;color:#FBF3DF;border-top:1px solid rgba(251,243,223,.08)}
 .zs-in{max-width:1280px;margin:0 auto;padding:56px 32px 40px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:48px;align-items:center}
 .zs-head{display:flex;flex-direction:column;gap:14px}

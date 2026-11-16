@@ -1,18 +1,21 @@
-@model Sourcing_Tender_Management_System.Models.LoginViewModel
+﻿@model Sourcing_Tender_Management_System.Models.LoginViewModel
 @{ Layout = "_AuthLayout"; ViewData["Title"] = "Sign in"; }
 <div class="auth-shell">
 <section class="auth-workspace" aria-labelledby="login-title">
-<header class="auth-header"><a class="auth-brand" asp-controller="Home" asp-action="Index" aria-label="Zaytouna home"><img src="~/landing/logo/zaytouna-emblem.svg" width="42" height="52" alt="" /><span>Zaytouna<small>Olive oil co.</small></span></a><a class="auth-back" asp-controller="Home" asp-action="Index"><span aria-hidden="true">↗</span> Back to home</a></header>
+<header class="auth-header"><a class="auth-brand" asp-controller="Home" asp-action="Index" aria-label="Zaytouna home"><img src="~/landing/logo/zaytouna-emblem.svg" width="42" height="52" alt="" /><span>Zaytouna<small>Olive oil co.</small></span></a><a class="auth-back" asp-controller="Home" asp-action="Index"><span aria-hidden="true"><svg class="auth-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M19 12H5m6-6-6 6 6 6"/></svg></span> Back to home</a></header>
 <div class="auth-form-area"><p class="auth-eyebrow">Your partner workspace</p><h1 id="login-title">Good to see <br />you again.</h1><p class="auth-intro">Sign in to your sourcing and tender workspace.</p>
 <form asp-controller="Auth" asp-action="Login" method="post" class="auth-form">
 <div asp-validation-summary="All" class="auth-validation" role="alert"></div><input asp-for="ReturnUrl" type="hidden" />
 <div class="auth-field"><label asp-for="Email">Email address</label><input asp-for="Email" class="form-control" autocomplete="username" placeholder="name@company.com" required /><span asp-validation-for="Email" class="auth-field-error"></span></div>
 <div class="auth-field"><label asp-for="Password">Password</label><div class="auth-password"><input asp-for="Password" class="form-control" autocomplete="current-password" placeholder="Enter your password" required /><button type="button" class="auth-reveal" data-password-toggle aria-controls="Password" aria-pressed="false" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div><span asp-validation-for="Password" class="auth-field-error"></span></div>
 <div class="auth-remember"><input asp-for="RememberMe" class="form-check-input" /><label asp-for="RememberMe">Keep me signed in</label></div>
-<button type="submit" class="auth-submit">Sign in <span aria-hidden="true">↗</span></button>
+<button type="submit" class="auth-submit">Sign in <span aria-hidden="true"><svg class="auth-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></button>
 </form>
-<div class="auth-alternatives"><div class="auth-divider"><span>Or sign in with</span></div><div class="auth-methods"><button type="button" data-auth-biometric="btnPasskeyLogin">Fingerprint</button><button type="button" data-auth-biometric="btnFaceLogin">Face recognition</button></div><button type="button" class="auth-device-help" data-auth-options>Fingerprint or face sign-in</button></div>
-<p class="auth-register">Joining us as a supplier? <a asp-controller="Suppliers" asp-action="Register">Register your company <span aria-hidden="true">↗</span></a></p>
+<div class="auth-alternatives"><div class="auth-divider"><span>Or sign in with</span></div><div class="auth-methods">
+<button type="button" data-auth-biometric="btnPasskeyLogin"><span class="auth-method-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 11a2 2 0 0 0-2 2c0 3-.4 5.8-1.5 8M14 13c0 3-.4 5.8-1.5 8M7 18c.3-1.6.5-3.3.5-5a4.5 4.5 0 0 1 9 0c0 2.7-.2 5.3-1 8M5 14v-1a7 7 0 0 1 14 0c0 1.4 0 2.7-.2 4M4 9a9 9 0 0 1 16 0M8 4a9 9 0 0 1 8 0M4 18l-.5 2"/></svg></span><span>Fingerprint</span></button>
+<button type="button" data-auth-biometric="btnFaceLogin"><span class="auth-method-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3M8 9v1M16 9v1M12 9v4h-1M8.5 16a5 5 0 0 0 7 0"/></svg></span><span>Face recognition</span></button>
+</div><button type="button" class="auth-device-help" data-auth-options>Fingerprint or face sign-in</button></div>
+<p class="auth-register">Joining us as a supplier? <a asp-controller="Suppliers" asp-action="Register">Register your company <span aria-hidden="true"><svg class="auth-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></span></a></p>
 </div>
 <footer class="auth-footer"><span>© @DateTime.UtcNow.Year Zaytouna Olive Oil Co.</span></footer>
 </section>

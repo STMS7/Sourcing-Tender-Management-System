@@ -33,7 +33,10 @@
 .auth-remember .form-check-input:focus { border-color:#4E6B2F; box-shadow:0 0 0 3px #4E6B2F20; }
 .auth-submit { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:49px; border:1px solid var(--auth-olive); padding:12px 18px; border-radius:8px; background:var(--auth-olive); color:var(--auth-panel); font:600 13px 'DM Sans',sans-serif; transition:background 150ms; }
 .auth-submit:hover { background:var(--auth-deep); }
-.auth-submit > span { font-size:22px; font-weight:400; }
+.auth-submit > span { display:inline-flex; align-items:center; }
+.auth-arrow { width:18px; height:18px; flex-shrink:0; vertical-align:middle; pointer-events:none; }
+.auth-submit .auth-arrow { width:21px; height:21px; }
+.auth-register .auth-arrow { width:14px; height:14px; margin-left:3px; }
 .auth-validation.validation-summary-valid, .auth-field-error.field-validation-valid { display:none; }
 .auth-validation.validation-summary-errors { border:1px solid #D7A98D; background:#FFF0E6; color:#B4411E; padding:12px 15px; border-radius:8px; margin-bottom:20px; font-size:12px; }
 .auth-validation ul { margin:0; padding-left:16px; }
@@ -90,7 +93,10 @@
 .auth-divider { display:flex; align-items:center; gap:14px; color:var(--auth-muted); font:10px 'DM Mono',monospace; margin-bottom:15px; }
 .auth-divider::before,.auth-divider::after { content:''; height:1px; flex:1; background:var(--auth-line); }
 .auth-methods { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.auth-methods button { min-height:42px; color:var(--auth-olive); background:var(--auth-panel); border:1px solid #A8B297; border-radius:8px; font:500 12px 'DM Sans',sans-serif; padding:10px; transition:background 150ms; }
+.auth-methods button { display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; color:var(--auth-olive); background:var(--auth-panel); border:1px solid #A8B297; border-radius:8px; font:500 12px 'DM Sans',sans-serif; padding:8px 10px; transition:background 150ms; }
+.auth-method-icon { display:grid; place-items:center; width:30px; height:30px; flex:0 0 30px; border-radius:8px; background:#EEF0DC; color:#17402A; pointer-events:none; }
+.auth-method-icon svg { display:block; width:22px; height:22px; }
+.auth-methods button:focus-visible { outline:2px solid #17402A; outline-offset:3px; }
 .auth-methods button:hover { background:#EEF0DC; }
 .auth-register { margin-top:16px; padding-top:16px; }
 .auth-options-dialog { width:min(480px,calc(100% - 32px)); max-height:calc(100dvh - 32px); overflow:auto; overscroll-behavior:contain; padding:26px; border:1px solid var(--auth-line); border-radius:18px; color:#3A4A3E; background:var(--auth-cream); }
@@ -124,8 +130,10 @@
 .auth-shell { grid-template-columns:56fr 44fr; }
 .auth-story { order:-1; }
 @media (max-width:1100px) { .auth-shell { grid-template-columns:1fr 1.1fr; } }
-/* A warm ivory studio instead of a dark backdrop: one soft light, and the tree as the only object. */
-.auth-story { background:radial-gradient(120% 85% at 44% 38%,#FFFCF3 0%,#F6EDD6 58%,#EDE2C6 100%); color:var(--auth-olive); border-right:1px solid var(--auth-line); }
+/* One continuous cream surface: the olive scene dissolves into the sign-in workspace. */
+.auth-story { background:var(--auth-cream); color:var(--auth-olive); border:0; }
+.auth-story::after { content:''; position:absolute; inset:0; z-index:0; pointer-events:none; background:linear-gradient(90deg,transparent 58%,#FBF3DF55 76%,var(--auth-cream) 100%); }
+.auth-story-copy { z-index:1; }
 .auth-story-label { color:#4E6B2F; }
 .auth-story h2 em { color:#4E6B2F; }
 .auth-story :is(.auth-story-image,.auth-story-shade) { display:none; }
