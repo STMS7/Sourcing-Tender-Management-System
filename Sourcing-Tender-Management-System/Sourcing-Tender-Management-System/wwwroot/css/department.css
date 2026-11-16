@@ -219,3 +219,10 @@
 .dp-page .tc-bids td:first-child { width: 55%; }
 .dp-page .dp-timeline li.is-done::before { background: var(--sm-leaf); }
 .dp-page .dp-timeline li.is-now::before { border-color: var(--sm-gold); background: #F6ECCF; }
+/* Top Committee details: background sections folded into one "More details" card. */
+.dp-page details.tc-more > summary { cursor: pointer; list-style: none; }
+.dp-page details.tc-more > summary::-webkit-details-marker { display: none; }
+.dp-page details.tc-more > summary::after { content: "▾"; margin-left: .5rem; color: var(--sm-leaf); transition: transform .2s; }
+.dp-page details.tc-more[open] > summary::after { transform: rotate(180deg); }
+.dp-page .tc-more-body { padding: 1rem 1rem .25rem; }
+.dp-page .tc-more-body > section.manager-card { box-shadow: none; border: 1px solid var(--sm-sand); }

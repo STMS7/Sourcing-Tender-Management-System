@@ -82,7 +82,7 @@
                                 @foreach (var document in documents)
                                 {
                                     <div class="border rounded-3 p-3 my-2" data-document-card="@document.Id">
-                                        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><a asp-action="DownloadSupplierDocument" asp-route-id="@document.Id" target="_blank" rel="noopener">@document.DocumentType: @document.FileName</a><span class="badge text-bg-light border" data-document-status>@document.VerificationStatus</span></div>
+                                        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><a asp-action="DownloadSupplierDocument" asp-route-id="@document.Id" download="@document.FileName" title="Download PDF">@document.DocumentType: @document.FileName</a><span class="badge text-bg-light border" data-document-status>@document.VerificationStatus</span></div>
                                         <form asp-action="ReviewSupplierDocument" method="post" class="d-flex flex-wrap gap-2" data-supplier-ajax-form data-supplier-action="verify">
                                             @Html.AntiForgeryToken()<input type="hidden" name="id" value="@document.Id" /><input type="hidden" name="page" value="@currentPage" /><input type="hidden" name="search" value="@ViewBag.Search" />
                                             <input name="notes" value="@document.VerificationNotes" maxlength="1000" class="form-control flex-grow-1" style="min-width:220px" placeholder="Review notes" />

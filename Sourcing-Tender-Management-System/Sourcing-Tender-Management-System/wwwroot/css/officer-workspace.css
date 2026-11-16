@@ -239,3 +239,27 @@ a.ow-kpi:hover { transform: translateY(-2px); color: var(--ow-ink); box-shadow: 
 .ow-conv > :not(.ow-avatar) { grid-column: 2; min-width: 0; }
 
 @media (max-width: 1399.98px) { .ow-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Dashboard tiles: same look as the admin dashboard tiles (css/admin-palette.css). */
+.ow .ow-tiles { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 1.75rem; }
+.ow .ow-tiles .zt-tile {
+  min-height: 150px; text-decoration: none; color: #3D4A2A;
+  border: 1px solid rgba(255, 255, 255, .8); border-radius: 6px 34px 6px 34px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 0 0 1px rgba(61, 74, 42, .07), 0 22px 40px -26px rgba(46, 57, 32, .5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+}
+.ow .ow-tiles > :nth-child(5n+1) .zt-tile { background: linear-gradient(150deg, rgba(201, 168, 76, .78), rgba(201, 168, 76, .45)); }
+.ow .ow-tiles > :nth-child(5n+2) .zt-tile { background: linear-gradient(150deg, rgba(228, 220, 200, .92), rgba(228, 220, 200, .6)); }
+.ow .ow-tiles > :nth-child(5n+3) .zt-tile { background: linear-gradient(150deg, rgba(232, 235, 217, .92), rgba(232, 235, 217, .6)); }
+.ow .ow-tiles > :nth-child(5n+4) .zt-tile { background: linear-gradient(150deg, rgba(255, 253, 247, .85), rgba(255, 253, 247, .55)); }
+.ow .ow-tiles > :nth-child(5n+5) .zt-tile { background: linear-gradient(150deg, rgba(61, 74, 42, .98), rgba(61, 74, 42, .92)); color: #F5F0E1; }
+.ow .ow-tiles .zt-tile::after { background: rgba(107, 123, 58, .16); }
+.ow .ow-tiles > :nth-child(5n+5) .zt-tile::after { background: rgba(201, 168, 76, .22); }
+.ow .ow-tiles .zt-tile-label, .ow .ow-tiles .zt-tile-value, .ow .ow-tiles .zt-tile-note { color: inherit; }
+.ow .ow-tiles .zt-tile:hover { color: inherit; transform: translateY(-3px); box-shadow: 6px 6px 0 #3D4A2A; }
+.ow .ow-tiles > :nth-child(5n+5) .zt-tile:hover { color: #F5F0E1; }
+.ow .ow-tiles .zt-tile.is-alert { box-shadow: inset 0 0 0 3px #3D4A2A; }
+/* Admin tiles use plain DM Sans labels and numbers; beat the heritage mono labels here. */
+.zt-app main.zt-heritage .ow .ow-tiles .zt-tile-label { font-family: 'DM Sans', system-ui, sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.zt-app main.zt-heritage .ow .ow-tiles .zt-tile-value { font-family: 'DM Sans', system-ui, sans-serif; font-weight: 700; letter-spacing: -.03em; }
+.zt-app main.zt-heritage .ow .ow-tiles .zt-tile-note { font-weight: 600; }

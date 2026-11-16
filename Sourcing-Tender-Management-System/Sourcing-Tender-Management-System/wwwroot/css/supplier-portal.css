@@ -111,3 +111,4 @@ main.sp-acc .alert-success{background:#E2ECCB;border-color:#D2DFB4;color:#3F5A1E
 .sp-nav a:focus-visible,.sp-nav button:focus-visible{outline:3px solid #C9A84C;outline-offset:2px}
 .sp-badge{min-width:22px;height:22px;padding:0 7px;display:inline-grid;place-items:center;border-radius:999px;background:#C9A84C;color:#2E3920;font:700 12px 'DM Sans',system-ui,sans-serif;line-height:1}
 .sp-side-foot{border-top:1px solid rgba(251,243,223,.12)}
+.sp-side{scrollbar-width:none;-ms-overflow-style:none}.sp-side::-webkit-scrollbar{display:none}

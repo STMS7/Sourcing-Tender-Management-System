@@ -1,6 +1,7 @@
-@* Frame of the profile pages ("Manage your account"). Overrides the default Identity UI frame so the
+﻿@* Frame of the profile pages ("Manage your account"). Overrides the default Identity UI frame so the
    built-in pages (Profile, Email, Password, 2FA, Personal data) and Biometrics share the workspace look.
-   Suppliers keep the plain frame inside their own portal theme. *@
+   Every role, suppliers included, sees the same design. *@
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 @using Microsoft.AspNetCore.Identity
 @using Sourcing_Tender_Management_System.Models
 @inject UserManager<ApplicationUser> UserManager
@@ -35,14 +36,10 @@
 }
 @if (supplier)
 {
-    <h1>Manage your account</h1>
-    <div class="row mt-3">
-        <div class="col-md-3"><partial name="_ManageNav" /></div>
-        <div class="col-md-9">@RenderBody()</div>
-    </div>
+    @* Suppliers get the same profile design inside their portal; load the shared workspace styles there. *@
+    <partial name="~/Views/Suppliers/_WorkspaceLook.cshtml" />
 }
-else
-{
+<div class="@(supplier ? "zt-app sp-ws" : null)">
 <div class="manager-page ec-page dp-page pf-page">
     <div class="dp-head">
         <div class="manager-page-heading">
@@ -75,7 +72,7 @@ else
                 @foreach (var item in menu)
                 {
                     var on = IsActive(item.Page);
-                    <a asp-page="./@item.Page" class="@(on ? "is-active" : null)" aria-current="@(on ? "page" : null)">
+                    <a asp-area="Identity" asp-page="/Account/Manage/@item.Page" class="@(on ? "is-active" : null)" aria-current="@(on ? "page" : null)">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@item.Icon"></path></svg>
                         <span>@item.Label</span>
                     </a>
@@ -90,7 +87,7 @@ else
         </div>
     </div>
 </div>
-}
+</div>
 @section Scripts {
     @RenderSection("Scripts", required: false)
 }

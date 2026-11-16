@@ -28,11 +28,25 @@
 <partial name="_Nav" model="@("")" />
 @await Component.InvokeAsync("TenderJourney", new { tenderId = Model.TenderId, yourTurn = Model.MyVote == CommitteeDecision.Pending ? true : Model.MyVote != null ? false : (bool?)null, anchor = "vote" })
 
-<section class="manager-search-panel mb-4" aria-label="Search this tender">
-    <partial name="_WorkspaceSearch" model="@(new WorkspaceSearchViewModel { Id = "top-details-search", ResultsId = "top-details-search-results", Label = "Search bids, votes, items and criteria", Placeholder = "Supplier, member, item or criterion" })" />
-</section>
 <div class="row g-4">
 <div class="col-xl-8">
+
+    @* ---------- At a glance: the few facts a committee member needs ---------- *@
+    @{
+        var recommendedBid = Model.Bids.FirstOrDefault(b => b.IsRecommended);
+        var awardedBid = Model.Bids.FirstOrDefault(b => b.IsAwarded);
+        var approvedVotes = Model.CommitteeVotes.Count(v => v.Decision == CommitteeDecision.Approved);
+        var rejectedVotes = Model.CommitteeVotes.Count(v => v.Decision == CommitteeDecision.Rejected);
+        var returnedVotes = Model.CommitteeVotes.Count(v => v.Decision == CommitteeDecision.ReturnedForRevision);
+        var castVotes = approvedVotes + rejectedVotes + returnedVotes;
+        var lowestBid = Model.Bids.OrderBy(b => b.TotalAmount).FirstOrDefault();
+    }
+    <ul class="zt-bento" aria-label="Decision at a glance">
+        <li><div class="zt-tile"><span class="zt-tile-label">@(awardedBid != null ? "Awarded to" : "Recommended")</span><span class="zt-tile-value" style="font-size:1.2rem;line-height:1.2;white-space:normal;overflow-wrap:anywhere">@((awardedBid ?? recommendedBid)?.SupplierName ?? "—")</span><span class="zt-tile-note">@((awardedBid ?? recommendedBid) is { } chosen ? $"{chosen.TotalAmount:N2} {chosen.Currency}" : "No supplier")</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Votes</span><span class="zt-tile-value">@castVotes / @Model.CommitteeVotes.Count</span><span class="zt-tile-note">@approvedVotes approve · @rejectedVotes reject · @returnedVotes return</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Bids compared</span><span class="zt-tile-value">@Model.Bids.Count</span><span class="zt-tile-note">@(lowestBid is null ? "—" : $"Lowest {lowestBid.TotalAmount:N2} {lowestBid.Currency}")</span></div></li>
+        <li><div class="zt-tile"><span class="zt-tile-label">Estimated value</span><span class="zt-tile-value" style="font-size:1.35rem">@Model.EstimatedValue.ToString("N2")</span><span class="zt-tile-note">@Model.CategoryName</span></div></li>
+    </ul>
 
     @* ---------- Vote ---------- *@
     @if (Model.Report.IsAwaitingDecision && Model.MyVote == CommitteeDecision.Pending)
@@ -82,26 +96,6 @@
     {
         <div class="alert alert-secondary">You are not a voting member on this decision (read-only).</div>
     }
-
-    @* ---------- Report ---------- *@
-    <section class="card manager-card mb-4">
-        <div class="card-header dp-split"><h2 class="h5 mb-0">Evaluation report</h2><span class="badge">Round @Model.Report.Round</span></div>
-        @if (!string.IsNullOrWhiteSpace(Model.Report.Summary)) { <p class="dp-desc">@Model.Report.Summary</p> }
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <caption class="visually-hidden">Report details</caption>
-                <tbody>
-                    @if (!string.IsNullOrWhiteSpace(Model.Report.RecommendationReason))
-                    {
-                        <tr data-search-item><th scope="row" class="w-25">Reason for recommendation</th><td class="preserve-lines">@Model.Report.RecommendationReason</td></tr>
-                    }
-                    <tr><th scope="row" class="w-25">Prepared by</th><td>@Model.Report.PreparedBy</td></tr>
-                    <tr><th scope="row">Submitted</th><td>@(Model.Report.SubmittedAt?.ToString("dd MMM yyyy") ?? "—")</td></tr>
-                    <tr><th scope="row">Weights</th><td>Technical @Model.TechnicalWeight.ToString("0.##")% · Financial @Model.FinancialWeight.ToString("0.##")%</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
 
     @* ---------- Bids ---------- *@
     <section class="card manager-card mb-4">
@@ -166,6 +160,30 @@
                         <td class="text-nowrap">@(v.DecidedAt?.ToString("dd MMM yyyy") ?? "—")</td>
                     </tr>
                 }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* Background the committee rarely needs: kept one click away. *@
+    <details class="card manager-card mb-4 tc-more">
+        <summary class="card-header dp-split"><h2 class="h5 mb-0">More details</h2><span class="dp-meta mt-0">Report, earlier approvals, request and criteria</span></summary>
+        <div class="tc-more-body">
+    @* ---------- Report ---------- *@
+    <section class="card manager-card mb-4">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Evaluation report</h2><span class="badge">Round @Model.Report.Round</span></div>
+        @if (!string.IsNullOrWhiteSpace(Model.Report.Summary)) { <p class="dp-desc">@Model.Report.Summary</p> }
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <caption class="visually-hidden">Report details</caption>
+                <tbody>
+                    @if (!string.IsNullOrWhiteSpace(Model.Report.RecommendationReason))
+                    {
+                        <tr data-search-item><th scope="row" class="w-25">Reason for recommendation</th><td class="preserve-lines">@Model.Report.RecommendationReason</td></tr>
+                    }
+                    <tr><th scope="row" class="w-25">Prepared by</th><td>@Model.Report.PreparedBy</td></tr>
+                    <tr><th scope="row">Submitted</th><td>@(Model.Report.SubmittedAt?.ToString("dd MMM yyyy") ?? "—")</td></tr>
+                    <tr><th scope="row">Weights</th><td>Technical @Model.TechnicalWeight.ToString("0.##")% · Financial @Model.FinancialWeight.ToString("0.##")%</td></tr>
                 </tbody>
             </table>
         </div>
@@ -255,6 +273,8 @@
         </div>
         }
     </section>
+        </div>
+    </details>
 </div>
 
 <div class="col-xl-4">
@@ -275,18 +295,6 @@
             @if (!string.IsNullOrWhiteSpace(Model.Description)) { <p class="dp-desc pt-3">@Model.Description</p> }
         </section>
 
-        <section class="card manager-card mb-4" aria-label="Committee voting progress">
-            <div class="card-header dp-split"><h2 class="h5 mb-0">Voting progress</h2><span class="badge">@voted / @Model.CommitteeVotes.Count</span></div>
-            <ul class="dp-feed">
-            @foreach (var seat in Model.CommitteeVotes)
-            {
-                <li class="@(seat.Decision == CommitteeDecision.Pending ? "is-unread" : null)">
-                    <span class="dp-feed-title">@seat.MemberName</span>
-                    <span class="dp-meta mt-0">@(string.IsNullOrWhiteSpace(seat.Position) ? "Member" : seat.Position) · @(seat.Decision == CommitteeDecision.Pending ? "Waiting" : seat.Decision == CommitteeDecision.ReturnedForRevision ? "Asked for details" : seat.Decision.ToString())</span>
-                </li>
-            }
-            </ul>
-        </section>
 
     </div>
 </div>

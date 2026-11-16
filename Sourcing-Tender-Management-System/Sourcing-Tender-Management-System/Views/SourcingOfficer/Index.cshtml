@@ -1,4 +1,4 @@
-@model SourcingDashboardViewModel
+﻿@model SourcingDashboardViewModel
 @inject Microsoft.AspNetCore.Identity.UserManager<Sourcing_Tender_Management_System.Models.ApplicationUser> UserManager
 @{
     ViewData["Title"] = "Sourcing officer";
@@ -24,12 +24,13 @@
         </div>
     </header>
 
-    <ul class="ow-kpis" aria-label="Sourcing summary">
-        <li><a class="ow-kpi is-gold" asp-action="Requests"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconInbox + svgClose)</span><span class="ow-kpi-value">@Model.IncomingRequests</span><span class="ow-kpi-label">Requests awaiting review</span><span class="ow-kpi-note">Waiting for your review</span></a></li>
-        <li><a class="ow-kpi" asp-action="Requests" asp-route-status="Approved"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconCheck + svgClose)</span><span class="ow-kpi-value">@Model.ApprovedRequests</span><span class="ow-kpi-label">Approved requests</span><span class="ow-kpi-note">Ready to become tenders</span></a></li>
-        <li><a class="ow-kpi" asp-action="Tenders" asp-route-status="Draft"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconDoc + svgClose)</span><span class="ow-kpi-value">@Model.DraftTenders</span><span class="ow-kpi-label">Draft tenders</span><span class="ow-kpi-note">Still being prepared</span></a></li>
-        <li><a class="ow-kpi" asp-action="Tenders" asp-route-status="Published"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconSend + svgClose)</span><span class="ow-kpi-value">@Model.PublishedTenders</span><span class="ow-kpi-label">Published tenders</span><span class="ow-kpi-note">Open for supplier offers</span></a></li>
-        <li><a class="ow-kpi is-dark" asp-action="Tenders" asp-route-status="Closed"><span class="ow-kpi-icon">@Html.Raw(svgOpen + IconScale + svgClose)</span><span class="ow-kpi-value">@Model.PendingCompliance</span><span class="ow-kpi-label">Offers awaiting compliance</span><span class="ow-kpi-note">Closed tenders to review</span></a></li>
+    @* Same tiles as the admin dashboard (zt-bento), coloured gold, sand, sage, cream and dark olive. *@
+    <ul class="zt-bento ow-tiles" aria-label="Sourcing summary">
+        <li><a class="zt-tile @(Model.IncomingRequests > 0 ? "is-alert" : null)" asp-action="Requests"><span class="zt-tile-label">Requests awaiting review</span><span class="zt-tile-value">@Model.IncomingRequests</span><span class="zt-tile-note">Waiting for your review</span></a></li>
+        <li><a class="zt-tile" asp-action="Requests" asp-route-status="Approved"><span class="zt-tile-label">Approved requests</span><span class="zt-tile-value">@Model.ApprovedRequests</span><span class="zt-tile-note">Ready to become tenders</span></a></li>
+        <li><a class="zt-tile" asp-action="Tenders" asp-route-status="Draft"><span class="zt-tile-label">Draft tenders</span><span class="zt-tile-value">@Model.DraftTenders</span><span class="zt-tile-note">Still being prepared</span></a></li>
+        <li><a class="zt-tile" asp-action="Tenders" asp-route-status="Published"><span class="zt-tile-label">Published tenders</span><span class="zt-tile-value">@Model.PublishedTenders</span><span class="zt-tile-note">Open for supplier offers</span></a></li>
+        <li><a class="zt-tile" asp-action="Tenders" asp-route-status="Closed"><span class="zt-tile-label">Offers awaiting compliance</span><span class="zt-tile-value">@Model.PendingCompliance</span><span class="zt-tile-note">Closed tenders to review</span></a></li>
     </ul>
 
     <h2 class="ow-section-title">Quick actions</h2>

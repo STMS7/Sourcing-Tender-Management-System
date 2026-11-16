@@ -228,14 +228,22 @@ public class AdminCatalogController(ApplicationDbContext db, RoleManager<Identit
     }
 
     [HttpGet]
-    public async Task<IActionResult> DownloadSupplierDocument(int id)
+    public async Task<IActionResult> DownloadSupplierDocument(int id, [FromServices] Services.SupplierFileStore files)
     {
         var document = await db.SupplierDocuments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (document is null) return NotFound();
-        var root = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "PrivateUploads", "Suppliers")) + Path.DirectorySeparatorChar;
-        var path = Path.GetFullPath(Path.Combine(environment.ContentRootPath, document.FilePath));
-        if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(path)) return NotFound();
-        return PhysicalFile(path, document.ContentType ?? "application/octet-stream", document.FileName);
+        // Registration uploads live in the supplier file store (App_Data/SupplierFiles, stored by name);
+        // older records may still point under PrivateUploads/Suppliers.
+        var path = files.Resolve(document.FilePath);
+        if (path is null)
+        {
+            var root = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "PrivateUploads", "Suppliers")) + Path.DirectorySeparatorChar;
+            var legacy = Path.GetFullPath(Path.Combine(environment.ContentRootPath, document.FilePath));
+            if (!legacy.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(legacy)) return NotFound();
+            path = legacy;
+        }
+        // Attachment download (file name set), so pressing the link saves the PDF.
+        return PhysicalFile(path, "application/pdf", document.FileName);
     }
 
     [HttpPost, ValidateAntiForgeryToken]

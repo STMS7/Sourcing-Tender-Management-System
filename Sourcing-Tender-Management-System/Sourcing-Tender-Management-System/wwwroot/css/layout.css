@@ -74,3 +74,7 @@
 /* Sidebar "needs action" count (Views/Shared/_Layout.cshtml) */
 .zt-nav a .zt-nav-count { margin-left: auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-grid; place-items: center;
   font-size: 12px; font-weight: 700; line-height: 1; color: #2E3920; background: #C9A84C; }
+/* Sidebar: keep it scrollable on short screens but never show a scroll bar (admin has the longest menu). */
+.zt-sidebar { scrollbar-width: none; -ms-overflow-style: none; }
+.zt-sidebar::-webkit-scrollbar { display: none; }
+@media (min-width: 992px) { .zt-sidebar { gap: 18px; } .zt-sidebar .zt-nav a, .zt-sidebar .zt-nav button { min-height: 42px; } }
