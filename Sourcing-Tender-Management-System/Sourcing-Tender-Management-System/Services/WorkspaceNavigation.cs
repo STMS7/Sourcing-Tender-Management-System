@@ -14,8 +14,8 @@ public static class WorkspaceNavigation
         if (assigned.Contains("TopCommittee")) return "~/TopCommittee";
         if (assigned.Contains("SourcingManager")) return "~/SourcingManager";
         if (assigned.Overlaps(["SourcingOfficer", "ProcurementOfficer"])) return "~/SourcingOfficer";
-        if (assigned.Overlaps(["TechnicalRepresentative", "FinancialRepresentative"])) return "~/EvaluationCommittee";
-        if (assigned.Overlaps(["DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment"])) return "~/Department/Dashboard";
+        if (assigned.Overlaps(["TechnicalRepresentative", "FinancialRepresentative", "DepartmentRepresentative"])) return "~/EvaluationCommittee";
+        if (assigned.Overlaps(["DepartmentRequester", "RequestingDepartment"])) return "~/Department/Dashboard";
         if (assigned.Contains("Supplier")) return "~/Suppliers";
         // An authenticated account without a workspace role can still manage its account.
         return "~/Identity/Account/Manage";

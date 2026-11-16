@@ -5,7 +5,7 @@
 <form asp-action="Requests" method="get" class="zt-search-toolbar mb-3" role="search"
       data-live-search data-results="request-results" data-search-status="request-search-status">
     <label for="search" class="form-label">Request title or number</label>
-    <div class="zt-search-line"><div class="zt-search-shell"><input type="search" name="search" id="search" class="form-control zt-search-input" value="@ViewBag.Search" placeholder="Results update as you type" data-search-input /><partial name="_SearchVoiceTools" /></div><button class="btn btn-primary" type="submit">Search</button><a asp-action="Requests" data-search-reset class="btn btn-outline-secondary">Clear</a></div>
+    <div class="zt-search-line"><div class="zt-search-shell"><input type="search" name="search" id="search" class="form-control zt-search-input" value="@ViewBag.Search" placeholder="Results update as you type" data-search-input /><partial name="_SearchVoiceTools" /></div><button class="btn btn-primary zt-search-submit" type="submit">Search</button><a asp-action="Requests" data-search-reset class="btn btn-outline-secondary zt-search-clear">Clear</a></div>
     <div class="mt-3" style="max-width:360px"><label for="request-status" class="form-label">Request status</label><select id="request-status" name="status" class="form-select">
         <option value="">Active requests</option>
         @foreach (var status in new[] { ProcurementRequestStatus.Submitted, ProcurementRequestStatus.UnderReview, ProcurementRequestStatus.Returned, ProcurementRequestStatus.Approved, ProcurementRequestStatus.Rejected, ProcurementRequestStatus.ConvertedToTender }) {

@@ -15,11 +15,11 @@ foreach (var (role, destination) in new[] {
     ("Admin", "~/Admin"), ("TopCommittee", "~/TopCommittee"), ("SourcingManager", "~/SourcingManager"),
     ("SourcingOfficer", "~/SourcingOfficer"), ("ProcurementOfficer", "~/SourcingOfficer"),
     ("TechnicalRepresentative", "~/EvaluationCommittee"), ("FinancialRepresentative", "~/EvaluationCommittee"),
-    ("DepartmentRequester", "~/Department/Dashboard"), ("DepartmentRepresentative", "~/Department/Dashboard"),
+    ("DepartmentRequester", "~/Department/Dashboard"), ("DepartmentRepresentative", "~/EvaluationCommittee"),
     ("RequestingDepartment", "~/Department/Dashboard"), ("Supplier", "~/Suppliers") })
     Equal(destination, WorkspaceNavigation.DashboardPath([role]), role);
 Equal("~/Admin", WorkspaceNavigation.DashboardPath(["Supplier", "SourcingOfficer", "Admin"]), "Multi-role precedence");
-Equal("~/Department/Dashboard", WorkspaceNavigation.DashboardPath(["DepartmentRepresentative", "EvaluationCommittee"]), "Department membership");
+Equal("~/EvaluationCommittee", WorkspaceNavigation.DashboardPath(["DepartmentRepresentative", "EvaluationCommittee"]), "Department representative membership");
 Equal("~/Identity/Account/Manage", WorkspaceNavigation.DashboardPath([]), "No workspace role");
 Equal("~/Identity/Account/Manage", WorkspaceNavigation.DashboardPath(["UnknownRole"]), "Unknown role");
 

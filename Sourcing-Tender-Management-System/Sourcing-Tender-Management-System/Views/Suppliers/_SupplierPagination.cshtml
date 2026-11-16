@@ -1,0 +1,21 @@
+@model string
+@{
+    var current = (int)(ViewBag.CurrentPage ?? 1);
+    var total = (int)(ViewBag.TotalPages ?? 1);
+    var count = (int)(ViewBag.TotalCount ?? 0);
+    var search = ViewBag.Search as string;
+}
+@if (total > 1)
+{
+    <nav class="sp-pagination-wrap" aria-label="Results pages">
+        <span>Page @current of @total · @count result(s)</span>
+        <ul class="pagination mb-0">
+            <li class="page-item @(current == 1 ? "disabled" : null)"><a class="page-link" asp-action="@Model" asp-route-search="@search" asp-route-page="@(current - 1)">Previous</a></li>
+            @for (var number = 1; number <= total; number++)
+            {
+                <li class="page-item @(number == current ? "active" : null)"><a class="page-link" asp-action="@Model" asp-route-search="@search" asp-route-page="@number">@number</a></li>
+            }
+            <li class="page-item @(current == total ? "disabled" : null)"><a class="page-link" asp-action="@Model" asp-route-search="@search" asp-route-page="@(current + 1)">Next</a></li>
+        </ul>
+    </nav>
+}

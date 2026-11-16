@@ -9,7 +9,7 @@
 <form method="get" asp-action="History" class="zt-search-toolbar mb-3" role="search"
       data-live-search data-search-response="document" data-results="top-history-results" data-search-status="top-history-status">
     <label for="top-history-search" class="form-label">Tender number or title</label>
-    <div class="zt-search-line"><div class="zt-search-shell"><input id="top-history-search" type="search" name="search" value="@Model.Search" class="form-control zt-search-input" placeholder="Search by tender number or title" dir="auto" data-search-input /><partial name="_SearchVoiceTools" /></div><button class="btn btn-primary" type="submit">Search</button><button class="btn btn-outline-secondary" type="button" data-search-reset>Clear</button></div>
+    <div class="zt-search-line"><div class="zt-search-shell"><input id="top-history-search" type="search" name="search" value="@Model.Search" class="form-control zt-search-input" placeholder="Search by tender number or title" dir="auto" data-search-input /><partial name="_SearchVoiceTools" /></div><button class="btn btn-primary zt-search-submit" type="submit">Search</button><button class="btn btn-outline-secondary zt-search-clear" type="button" data-search-reset>Clear</button></div>
 </form>
 <p id="top-history-status" role="status" class="small text-secondary"></p>
 <div id="top-history-results" aria-busy="false">

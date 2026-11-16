@@ -80,7 +80,7 @@
         links.Add(("Messages", Url.Action("Messages", "SourcingOfficer")!, IconChat, controller == "SourcingOfficer" && currentAction is "Messages" or "Clarifications" or "AskClarification"));
         links.Add(("Reports", Url.Action("Index", "Reports")!, IconDoc, controller == "Reports"));
     }
-    if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative", "RequestingDepartment"))
+    if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative"))
         links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee"));
     var tools = new List<(string Label, string Href, string Icon, bool Active)>();
     if (signedIn && !isOfficer && !isAdmin)
@@ -99,7 +99,7 @@
         links.Add(("Statistics", Url.Action("Statistics", "TopCommittee")!, IconScale, controller == "TopCommittee" && currentAction == "Statistics"));
         links.Add(("Reports", Url.Action("Index", "Reports")!, IconDoc, controller == "Reports"));
     }
-    if (InRole("DepartmentRequester", "DepartmentRepresentative", "RequestingDepartment"))
+    if (InRole("DepartmentRequester", "RequestingDepartment"))
     {
         links.Add(("Department", Url.Action("Dashboard", "Department")!, IconBuilding, controller == "Department" && currentAction == "Dashboard"));
         links.Add(("My requests", Url.Action("Index", "Department")!, IconList, controller == "Department" && currentAction is "Index" or "Details" or "Edit" or "Delete"));
@@ -137,6 +137,7 @@
     }
     <link rel="stylesheet" href="~/css/frame.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/search.css" asp-append-version="true" />
 </head>
 <body class="zt-app @(isAdminArea ? "zt-admin" : null)@(isProfilePage ? " zt-page-profile" : null)@(isMessagesPage ? " zt-page-messages" : null)">
 <div class="zt-shell">

@@ -8,7 +8,7 @@ using Sourcing_Tender_Management_System.Models;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
-[Authorize(Roles = "DepartmentRequester,DepartmentRepresentative,RequestingDepartment")]
+[Authorize(Roles = "DepartmentRequester,RequestingDepartment")]
 [AutoValidateAntiforgeryToken]
 public class DepartmentController : Controller
 {
@@ -93,18 +93,26 @@ public class DepartmentController : Controller
         request.EstimatedBudget = form.Items.Sum(i => i.Quantity * i.EstimatedUnitPrice);
     }
 
-    public IActionResult Index(string? status, string? search)
+    public IActionResult Index(string? status, string? search, int page = 1)
     {
+        const int pageSize = 7;
         var user = CurrentEmployee();
         if (user == null) return Forbid();
         var requests = Mine(user);
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<ProcurementRequestStatus>(status, true, out var state))
             requests = requests.Where(r => r.Status == state);
+        search = search?.Trim();
         if (!string.IsNullOrWhiteSpace(search))
             requests = requests.Where(r => r.Title.Contains(search) || r.RequestNumber.Contains(search));
+        var total = requests.Count();
+        var pages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Clamp(page, 1, pages);
         ViewBag.Status = status;
         ViewBag.Search = search;
-        return View(requests.OrderByDescending(r => r.RequestedAt).ToList());
+        ViewBag.TotalCount = total;
+        ViewBag.CurrentPage = page;
+        ViewBag.TotalPages = pages;
+        return View(requests.OrderByDescending(r => r.RequestedAt).Skip((page - 1) * pageSize).Take(pageSize).ToList());
     }
 
     public IActionResult Dashboard()
@@ -121,8 +129,8 @@ public class DepartmentController : Controller
         ViewBag.Approved = requests.Count(r => r.Status == ProcurementRequestStatus.Approved);
         ViewBag.Converted = requests.Count(r => r.Status == ProcurementRequestStatus.ConvertedToTender);
         ViewBag.Notifications = _db.Notifications.Where(n => n.UserId == user.Id)
-            .OrderByDescending(n => n.CreatedAt).Take(10).ToList();
-        return View(requests.OrderByDescending(r => r.RequestedAt).Take(10).ToList());
+            .OrderByDescending(n => n.CreatedAt).Take(3).ToList();
+        return View(requests.OrderByDescending(r => r.RequestedAt).Take(3).ToList());
     }
 
     public IActionResult Details(int id)
