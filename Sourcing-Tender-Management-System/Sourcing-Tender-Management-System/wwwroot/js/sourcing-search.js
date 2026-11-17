@@ -14,13 +14,14 @@
             insecure: ' Voice search requires HTTPS or localhost; type to search.',
             failed: 'Results could not update. Check your connection or sign in again, then retry Search or Filter.',
             voiceFailed: 'Voice search could not start. Try again or type your search.',
+            downloading: 'Downloading the on-device speech pack once… then speak.',
             noMatch: 'No matching records. Clear the search to show all records.',
             errors: {
                 'not-allowed': 'Microphone permission was denied. Allow microphone access in browser settings, or type your search.',
                 'service-not-allowed': 'The speech service is unavailable. Type your search.',
                 'audio-capture': 'No microphone is available. Connect a microphone or type your search.',
                 'no-speech': 'No speech was detected. Try again or type your search.',
-                network: 'The speech service could not connect. Check your connection or type your search.',
+                network: 'The browser speech service could not connect. Use Chrome or Edge with internet access (not Brave or Opera, and no VPN blocking Google/Microsoft), or type your search.',
                 'language-not-supported': 'This voice language is not supported by your browser. Choose another language or type your search.'
             }
         },
@@ -32,13 +33,14 @@
             insecure: ' البحث الصوتي يحتاج HTTPS أو localhost؛ يمكنك البحث بالكتابة.',
             failed: 'تعذر تحديث النتائج. تحقق من الاتصال أو تسجيل الدخول، ثم أعد البحث.',
             voiceFailed: 'تعذر بدء البحث الصوتي. حاول مجددًا أو ابحث بالكتابة.',
+            downloading: 'جارٍ تنزيل حزمة الصوت على الجهاز لمرة واحدة… ثم تحدث.',
             noMatch: 'لا توجد سجلات مطابقة. امسح البحث لعرض جميع السجلات.',
             errors: {
                 'not-allowed': 'تم رفض إذن الميكروفون. اسمح باستخدامه من إعدادات المتصفح، أو ابحث بالكتابة.',
                 'service-not-allowed': 'خدمة التعرف على الصوت غير متاحة. يمكنك البحث بالكتابة.',
                 'audio-capture': 'لا يوجد ميكروفون متاح. وصّل ميكروفونًا أو ابحث بالكتابة.',
                 'no-speech': 'لم يتم التقاط كلام. حاول مجددًا أو ابحث بالكتابة.',
-                network: 'تعذر الاتصال بخدمة الصوت. تحقق من الاتصال أو ابحث بالكتابة.',
+                network: 'تعذر الاتصال بخدمة الصوت في المتصفح. استخدم Chrome أو Edge مع اتصال بالإنترنت، أو ابحث بالكتابة.',
                 'language-not-supported': 'المتصفح لا يدعم لغة الصوت المختارة. اختر لغة أخرى أو ابحث بالكتابة.'
             }
         }
@@ -61,7 +63,8 @@
         form.hidden = false;
         input.dir = 'auto';
         input.setAttribute('aria-controls', results.id);
-        const local = form.hasAttribute('data-local-search');
+        // Razor always renders data-* attributes (a null value becomes ""), so a server search is told apart by its response mode.
+        const local = form.hasAttribute('data-local-search') && form.dataset.searchResponse !== 'document';
         const selector = form.dataset.rowSelector || '[data-task]';
         const empty = document.getElementById(form.dataset.emptyState);
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -202,14 +205,31 @@
         });
         syncLanguagePicker();
         setButtonText(copy().start);
+        // When the browser's online speech service is unreachable ('network'), retry once with on-device
+        // recognition (newer Chrome/Edge), downloading the language pack if the browser offers it.
+        const tryOnDevice = async () => {
+            const options = { langs: [language.value], processLocally: true };
+            let state = 'unavailable';
+            try { state = await Recognition.available(options); } catch { /* Not supported. */ }
+            if (state === 'downloadable' || state === 'downloading') {
+                announce(copy().downloading);
+                try { state = await Recognition.install(options) ? 'available' : 'unavailable'; } catch { state = 'unavailable'; }
+            }
+            if (state === 'available') begin(true);
+            else announce(copy().errors.network);
+        };
         button.addEventListener('click', () => {
             if (voice) { cancelVoice(); feedback(lastMessage || copy().ready); return; }
             activeVoice?.();
+            begin(false);
+        });
+        function begin(onDevice) {
             let session;
             try { session = new Recognition(); } catch { feedback(copy().voiceFailed); return; }
             voice = session; activeVoice = cancelVoice;
-            let failed = false;
+            let failed = false, retryOnDevice = false;
             session.lang = language.value;
+            if (onDevice) session.processLocally = true;
             session.interimResults = true; session.continuous = false;
             setButtonText(copy().stop);
             button.setAttribute('aria-pressed', 'true'); language.disabled = true;
@@ -222,7 +242,9 @@
             };
             session.onerror = event => {
                 if (voice !== session || event.error === 'aborted') return;
-                failed = true; announce(copy().errors[event.error] || copy().voiceFailed);
+                failed = true;
+                if (event.error === 'network' && !onDevice && typeof Recognition.available === 'function') { retryOnDevice = true; return; }
+                announce(copy().errors[event.error] || copy().voiceFailed);
             };
             session.onend = () => {
                 if (voice !== session) return;
@@ -231,11 +253,12 @@
                 setButtonText(copy().start);
                 button.setAttribute('aria-pressed', 'false'); language.disabled = false;
                 if (languageToggle) languageToggle.disabled = false;
+                if (retryOnDevice) { tryOnDevice(); return; }
                 if (!failed) announce(lastMessage || copy().ready);
             };
             try { session.start(); }
             catch { cancelVoice(); feedback(copy().voiceFailed); }
-        });
+        }
         window.addEventListener('pagehide', () => {
             clearTimeout(timer); pending?.abort(); revision++; cancelVoice();
             results.setAttribute('aria-busy', 'false');
