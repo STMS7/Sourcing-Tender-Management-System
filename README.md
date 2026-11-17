@@ -1,5 +1,8 @@
 # Zaytouna Sourcing & Tender Management System
 
+LiveServer: [here](
+https://abdallahmdalalg-001-site1.itempurl.com/)
+
 A web platform that runs the whole procurement cycle for an organisation: from a department's purchase request, through tender preparation, supplier bidding, compliance and committee evaluation, to the final Top Committee decision and the result sent to the winning supplier.
 
 Built with **ASP.NET Core MVC (.NET 10)**, **Entity Framework Core** and **SQL Server**.
