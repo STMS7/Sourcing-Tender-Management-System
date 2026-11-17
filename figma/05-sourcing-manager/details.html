@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tender details</title><style>
+:root{--olive:#17402A;--deep:#0B2416;--cream:#FBF3DF;--lime:#DCEB4B;--yellow:#FFE38A;--sage:#C9D3BC;--mist:#EEF0DC;--muted:#4A5A4E;--danger:#9A2E1C;--ok:#2F6B2F;--warn:#A66A00}
+*{box-sizing:border-box;margin:0}
+body{font:400 14px/1.5 'DM Sans',Arial,sans-serif;color:var(--olive);background:var(--cream);width:1440px;min-height:900px}
+.shell{display:flex;min-height:900px}
+.side{width:248px;background:var(--olive);color:var(--cream);padding:24px 16px;flex:none}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;margin:0 8px 28px}
+.logo i{width:34px;height:34px;border-radius:50%;background:var(--lime);display:block}
+.logo small{display:block;font-weight:400;font-size:11px;opacity:.7}
+.side a{display:block;padding:10px 12px;border-radius:12px;color:var(--cream);margin-bottom:4px;opacity:.85}
+.side a.on{background:var(--lime);color:var(--olive);font-weight:700;opacity:1}
+.main{flex:1;padding:28px 36px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.top h1{font-size:28px;font-weight:700}.top p{color:var(--muted)}
+.who{display:flex;gap:12px;align-items:center}.av{width:38px;height:38px;border-radius:50%;background:var(--sage);display:grid;place-items:center;font-weight:700}
+.search{background:#fff;border-radius:20px;padding:9px 18px;color:var(--muted);width:260px}
+.grid{display:grid;gap:18px}.c4{grid-template-columns:repeat(4,1fr)}.c3{grid-template-columns:repeat(3,1fr)}.c2{grid-template-columns:2fr 1fr}.e2{grid-template-columns:1fr 1fr}
+.card{background:#fff;border-radius:26px;padding:22px 24px;margin-bottom:18px}
+.card h3{font-size:16px;margin-bottom:12px}
+.kpi b{display:block;font-size:34px;line-height:1.1}.kpi span{color:var(--muted)}
+.kpi.hi{background:var(--lime)}.kpi.dk{background:var(--olive);color:var(--cream)}.kpi.dk span{color:var(--sage)}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--sage)}
+td{padding:12px 10px;border-bottom:1px solid var(--mist)}
+.pill{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:var(--mist)}
+.p-ok{background:#EEF4C2;color:var(--ok)}.p-warn{background:var(--yellow);color:#4A3203}.p-bad{background:#F7DCD3;color:var(--danger)}.p-info{background:var(--sage)}
+.btn{display:inline-block;padding:10px 22px;border-radius:24px;background:var(--olive);color:var(--cream);font-weight:700;margin-right:8px}
+.btn.alt{background:var(--lime);color:var(--olive)}.btn.ghost{background:transparent;border:1.5px solid var(--olive);color:var(--olive)}.btn.bad{background:var(--danger)}
+.field{margin-bottom:14px}.field label{display:block;font-weight:700;font-size:12px;margin-bottom:4px}
+.field div{background:var(--cream);border:1px solid var(--sage);border-radius:14px;padding:10px 14px;color:var(--muted)}
+.steps{display:flex;gap:8px;margin-bottom:18px}.steps span{flex:1;background:var(--mist);border-radius:14px;padding:10px;text-align:center;font-size:12px}.steps .d{background:var(--olive);color:var(--cream)}.steps .n{background:var(--lime);font-weight:700}
+.chart{display:flex;align-items:flex-end;gap:14px;height:160px}.chart i{flex:1;background:var(--olive);border-radius:8px 8px 0 0}.chart i:nth-child(even){background:var(--lime)}
+.pub{background:var(--cream)}.nav{display:flex;justify-content:space-between;align-items:center;padding:20px 64px}.nav .logo{margin:0}.nav nav a{margin-left:28px;font-weight:600}
+.hero{padding:70px 64px;display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:center}
+.hero h1{font-size:64px;line-height:1.05;margin-bottom:18px}.hero .img{height:420px;border-radius:40px;background:linear-gradient(135deg,var(--olive),#4E6B2F)}
+.sec{padding:40px 64px}.sec h2{font-size:34px;margin-bottom:20px}
+.foot{background:var(--olive);color:var(--cream);padding:36px 64px;margin-top:40px}
+.center{display:grid;place-items:center;min-height:900px;background:var(--olive)}
+.auth{background:var(--cream);border-radius:32px;width:480px;padding:40px}.auth h1{font-size:28px;margin-bottom:4px}
+.tl{border-left:3px solid var(--sage);padding-left:18px}.tl div{margin-bottom:14px;position:relative}.tl div:before{content:'';position:absolute;left:-26px;top:5px;width:11px;height:11px;border-radius:50%;background:var(--olive)}
+.msg{background:var(--mist);border-radius:18px;padding:12px 16px;margin-bottom:10px;max-width:70%}.msg.me{background:var(--lime);margin-left:auto}
+.avatar-cap{font-size:12px;color:var(--muted)}
+.sw{display:flex;gap:12px}.sw div{width:120px;height:90px;border-radius:18px;padding:10px;font-size:12px}
+</style></head><body><div class="shell"><aside class="side"><div class="logo"><i></i><div>Zaytouna<small>Sourcing Manager</small></div></div><a class="">Overview</a><a class="">Pending approvals</a><a class="on">Tenders</a><a class="">Reports</a><a class="">Messages</a></aside><main class="main"><div class="top"><div><h1>Tender details</h1><p>T-210 · Laptops</p></div><div class="who"><span class="search">Search…</span><span class="av">AB</span></div></div><div class="steps"><span class="d">Request</span><span class="d">Tender</span><span class="d">Offers</span><span class="n">Evaluation</span><span class="">Committee</span><span class="">Award</span></div><div class="grid c2"><div><div class="card "><h3>Summary</h3><div class="field"><label>Officer</label><div>Sara A.</div></div><div class="field"><label>Budget</label><div>SAR 80,000</div></div><div class="field"><label>Best offer</label><div>SAR 78,000</div></div></div></div><div><div class="card "><h3>Decision</h3><span class="btn ">Approve</span><span class="btn bad">Reject</span></div></div></div></main></div></body></html>

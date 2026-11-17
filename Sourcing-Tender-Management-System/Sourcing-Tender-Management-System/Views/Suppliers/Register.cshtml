@@ -25,7 +25,8 @@ a{color:var(--olive);text-underline-offset:3px}
 .pf-skip:focus{top:12px}
 .pf-wrap{display:grid;grid-template-columns:minmax(0,.38fr) minmax(0,.62fr);gap:clamp(20px,3vw,40px);max-width:1280px;margin:0 auto;padding:clamp(16px,3vw,32px);align-items:start}
 /* ---- left column: brand, progress, summary ---- */
-.pf-side{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto;background:var(--deep);color:var(--cream);border-radius:20px;padding:28px 26px 22px;box-shadow:0 24px 50px -34px rgba(16,38,26,.8)}
+.pf-side{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;scrollbar-width:none;background:var(--deep);color:var(--cream);border-radius:20px;padding:28px 26px 22px;box-shadow:0 24px 50px -34px rgba(16,38,26,.8)}
+.pf-side::-webkit-scrollbar{display:none}
 .pf-brand{display:flex;align-items:center;gap:12px;color:var(--cream);text-decoration:none}
 .pf-brand img{width:46px;height:46px}
 .pf-wm{display:block;font:600 26px/1 'Cormorant Garamond',Georgia,serif;letter-spacing:.02em}
