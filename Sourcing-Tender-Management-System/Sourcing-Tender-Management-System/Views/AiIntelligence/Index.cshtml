@@ -1,0 +1,69 @@
+﻿@{
+    ViewData["Title"] = "AI Intelligence";
+}
+
+<h2>AI Intelligence</h2>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="card p-3"><small>Total tenders</small><h3 id="kpiTotal">-</h3></div></div>
+    <div class="col-md-4"><div class="card p-3"><small>Awarded</small><h3 id="kpiAwarded">-</h3></div></div>
+    <div class="col-md-4"><div class="card p-3"><small>Open</small><h3 id="kpiOpen">-</h3></div></div>
+</div>
+
+<div class="card p-3 mb-4" style="max-width:700px">
+    <h5>Tenders by status</h5>
+    <canvas id="statusChart"></canvas>
+</div>
+
+<div class="card p-3 mb-4" style="max-width:700px">
+    <h5>Tender report</h5>
+    <select id="tenderPicker" class="form-select mb-3"></select>
+    <canvas id="bidChart"></canvas>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script >
+        fetch('/AiIntelligence/TenderStats')
+          .then(r => r.json())
+          .then(d => {
+            document.getElementById('kpiTotal').textContent = d.total;
+            document.getElementById('kpiAwarded').textContent = d.awarded;
+            document.getElementById('kpiOpen').textContent = d.open;
+          });
+
+              fetch('/AiIntelligence/TendersByStatus')
+        .then(r => r.json())
+        .then(rows => {
+          new Chart(document.getElementById('statusChart'), {
+            type: 'bar',
+            data: {
+              labels: rows.map(r => r.status),
+              datasets: [{ label: 'Tenders', data: rows.map(r => r.count) }]
+            },
+            options: { plugins: { legend: { display: false } },
+                       scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+          });
+        });
+
+         let bidChart;
+        const picker = document.getElementById('tenderPicker');
+
+        fetch('/AiIntelligence/TenderOptions').then(r => r.json()).then(opts => {
+          picker.innerHTML = opts.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
+          if (opts.length) loadBids(opts[0].id);
+        });
+        picker.addEventListener('change', () => loadBids(picker.value));
+
+        function loadBids(id) {
+          fetch('/AiIntelligence/TenderBids?tenderId=' + id).then(r => r.json()).then(rows => {
+            bidChart?.destroy();
+            bidChart = new Chart(document.getElementById('bidChart'), {
+              type: 'bar',
+              data: { labels: rows.map(r => r.supplier),
+                      datasets: [{ label: 'Bid amount', data: rows.map(r => r.amount) }] }
+            });
+          });
+        }
+    </script>
+}
