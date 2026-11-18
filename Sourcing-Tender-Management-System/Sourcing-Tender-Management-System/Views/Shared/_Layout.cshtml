@@ -114,6 +114,10 @@
         links.Add(("Create request", Url.Action("Create", "Department")!, IconDoc, controller == "Department" && currentAction == "Create"));
         links.Add(("Clarifications", Url.Action("Index", "CycleChat")!, IconChat, controller == "CycleChat"));
     }
+        if (InRole(Sourcing_Tender_Management_System.Services.Reports.ReportAccess.AllRoles))
+    {
+        links.Add(("AI Intelligence", Url.Action("Index", "AiIntelligence")!, IconStar, controller == "AiIntelligence"));
+    }
 }
 @{
     // "Needs you" counts on sidebar links, so each role sees where work is waiting without opening every page.

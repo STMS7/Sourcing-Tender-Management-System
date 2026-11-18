@@ -1,0 +1,15 @@
+﻿@model List<Sourcing_Tender_Management_System.Models.Supplier>
+@{
+
+}
+
+
+@foreach (var supplier in Model)
+{
+    <div class="supplier-card">
+        <h3>@supplier.CompanyName</h3>
+        <p>Email: @supplier.Email</p>
+        <p>Phone: @supplier.PhoneNumber</p>
+        <p>Address: @supplier.Address</p>
+    </div>
+}

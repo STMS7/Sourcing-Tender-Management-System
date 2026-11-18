@@ -49,6 +49,11 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         ViewBag.DevelopmentBypass = DevelopmentBypass;
         return View(new SupplierRegisterViewModel());
     }
+    public IActionResult allsuppliers()
+    {
+        List<Supplier> suppliers = db.Suppliers.ToList();
+        return View(suppliers);
+    } 
 
     [AllowAnonymous, HttpPost, RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<IActionResult> Register(SupplierRegisterViewModel model)
