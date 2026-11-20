@@ -2,68 +2,266 @@
     ViewData["Title"] = "AI Intelligence";
 }
 
-<h2>AI Intelligence</h2>
+<h1 class="h3 mb-1">AI Intelligence</h1>
+<p class="text-muted">Built from live system data. Pick a tender for its own report, or upload a file to preview it.</p>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-4"><div class="card p-3"><small>Total tenders</small><h3 id="kpiTotal">-</h3></div></div>
-    <div class="col-md-4"><div class="card p-3"><small>Awarded</small><h3 id="kpiAwarded">-</h3></div></div>
-    <div class="col-md-4"><div class="card p-3"><small>Open</small><h3 id="kpiOpen">-</h3></div></div>
+<div class="row g-3 mb-3">
+    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
+        <div class="text-muted">Total tenders</div><div class="h2 mb-0" id="kpiTotal">-</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
+        <div class="text-muted">Awarded</div><div class="h2 mb-0" id="kpiAwarded">-</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
+        <div class="text-muted">Open</div><div class="h2 mb-0" id="kpiOpen">-</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
+        <div class="text-muted">Days from creation to winner notice</div><div class="h2 mb-0" id="kpiDuration">-</div></div></div></div>
 </div>
 
-<div class="card p-3 mb-4" style="max-width:700px">
-    <h5>Tenders by status</h5>
-    <canvas id="statusChart"></canvas>
+<div class="row g-3 mb-3">
+    <div class="col-xl-5">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h5">Tenders by status</h2>
+            <div style="position:relative;height:280px"><canvas id="statusChart"></canvas></div>
+            <p id="statusEmpty" class="text-muted mb-0" hidden>No tenders to show yet.</p>
+        </div></div>
+    </div>
+    <div class="col-xl-7">
+        <div class="card h-100"><div class="card-body">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <h2 class="h5 mb-0 me-auto">Tender report</h2>
+                <a id="exportBtn" class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Excel</a>
+                <a id="pdfBtn" class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">PDF</a>
+            </div>
+            <label class="visually-hidden" for="tenderPicker">Tender</label>
+            <select id="tenderPicker" class="form-select mb-3"></select>
+            <div style="position:relative;height:280px"><canvas id="bidChart"></canvas></div>
+            <p id="bidEmpty" class="text-muted mb-0" hidden>No submitted bids for this tender.</p>
+        </div></div>
+    </div>
 </div>
 
-<div class="card p-3 mb-4" style="max-width:700px">
-    <h5>Tender report</h5>
-    <select id="tenderPicker" class="form-select mb-3"></select>
-    <canvas id="bidChart"></canvas>
-</div>
+<style>
+    .ai-log { height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px; }
+    .ai-msg { max-width: 85%; padding: 10px 14px; border-radius: 16px; }
+    .ai-msg.user { align-self: flex-end; background: var(--zt-ink); color: var(--zt-card); }
+    .ai-msg.bot { align-self: flex-start; background: var(--zt-sage-soft); }
+    .ai-cards { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .ai-cards div { background: var(--zt-card); border: 1px solid var(--zt-line); border-radius: 12px; padding: 6px 12px; }
+</style>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="h5">Ask the data</h2>
+    <p class="text-muted">Answers come from live system data. The AI only comments and never decides or acts.</p>
+    <div id="chatLog" class="ai-log" aria-live="polite"></div>
+    <form id="chatForm" class="d-flex gap-2 mt-3">
+        @Html.AntiForgeryToken()
+        <input id="chatInput" name="question" class="form-control" maxlength="500" autocomplete="off"
+               placeholder="e.g. Show prices for the eggss tender" aria-label="Question" required />
+        <button id="chatSend" class="btn btn-primary" type="submit">Ask</button>
+    </form>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="h5">Preview a file</h2>
+    <p class="text-muted">Excel (.xlsx) or PDF, up to 5 MB. The file is read in memory and not stored.</p>
+    <form id="uploadForm" class="d-flex flex-wrap gap-2">
+        @Html.AntiForgeryToken()
+        <input id="uploadFile" type="file" name="file" accept=".xlsx,.pdf" class="form-control" style="flex:1 1 260px" aria-label="Excel or PDF file" required />
+        <button class="btn btn-primary" type="submit">Preview</button>
+    </form>
+    <div id="uploadResult" class="mt-3" aria-live="polite"></div>
+</div></div>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script >
-        fetch('/AiIntelligence/TenderStats')
-          .then(r => r.json())
-          .then(d => {
-            document.getElementById('kpiTotal').textContent = d.total;
-            document.getElementById('kpiAwarded').textContent = d.awarded;
-            document.getElementById('kpiOpen').textContent = d.open;
-          });
+    <script>
+        const ink = getComputedStyle(document.querySelector('.zt-app') ?? document.body).getPropertyValue('--zt-ink').trim() || '#17402A';
+        const byId = id => document.getElementById(id);
+        const getJson = url => fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
-              fetch('/AiIntelligence/TendersByStatus')
-        .then(r => r.json())
-        .then(rows => {
-          new Chart(document.getElementById('statusChart'), {
-            type: 'bar',
-            data: {
-              labels: rows.map(r => r.status),
-              datasets: [{ label: 'Tenders', data: rows.map(r => r.count) }]
-            },
-            options: { plugins: { legend: { display: false } },
-                       scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
-          });
+        function bar(canvas, labels, values, label) {
+            return new Chart(typeof canvas === 'string' ? byId(canvas) : canvas, {
+                type: 'bar',
+                data: { labels, datasets: [{ label, data: values, backgroundColor: ink, borderRadius: 6 }] },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+
+        getJson('/AiIntelligence/TenderStats').then(d => {
+            byId('kpiTotal').textContent = d.total;
+            byId('kpiAwarded').textContent = d.awarded;
+            byId('kpiOpen').textContent = d.open;
+        });
+        getJson('/AiIntelligence/DurationKpi').then(d => byId('kpiDuration').textContent = d.averageDays);
+
+        getJson('/AiIntelligence/TendersByStatus').then(rows => {
+            byId('statusEmpty').hidden = rows.length > 0;
+            if (rows.length) bar('statusChart', rows.map(r => r.status), rows.map(r => r.count), 'Tenders');
         });
 
-         let bidChart;
-        const picker = document.getElementById('tenderPicker');
+        let bidChart;
+        const picker = byId('tenderPicker');
 
-        fetch('/AiIntelligence/TenderOptions').then(r => r.json()).then(opts => {
-          picker.innerHTML = opts.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
-          if (opts.length) loadBids(opts[0].id);
+        function setDownload(btn, url) {
+            btn.href = url;
+            btn.classList.remove('disabled');
+            btn.removeAttribute('aria-disabled');
+        }
+
+        function loadBids(id) {
+            setDownload(byId('exportBtn'), '/AiIntelligence/ExportBids?tenderId=' + id);
+            setDownload(byId('pdfBtn'), '/AiIntelligence/ExportBidsPdf?tenderId=' + id);
+            getJson('/AiIntelligence/TenderBids?tenderId=' + id).then(rows => {
+                bidChart?.destroy();
+                byId('bidEmpty').hidden = rows.length > 0;
+                bidChart = rows.length ? bar('bidChart', rows.map(r => r.supplier), rows.map(r => r.amount), 'Bid amount') : null;
+            });
+        }
+
+        getJson('/AiIntelligence/TenderOptions').then(opts => {
+            // new Option sets text, not HTML, so a tender title can never inject markup.
+            picker.replaceChildren(...opts.map(o => new Option(o.label, o.id)));
+            if (opts.length) loadBids(opts[0].id);
         });
         picker.addEventListener('change', () => loadBids(picker.value));
 
-        function loadBids(id) {
-          fetch('/AiIntelligence/TenderBids?tenderId=' + id).then(r => r.json()).then(rows => {
-            bidChart?.destroy();
-            bidChart = new Chart(document.getElementById('bidChart'), {
-              type: 'bar',
-              data: { labels: rows.map(r => r.supplier),
-                      datasets: [{ label: 'Bid amount', data: rows.map(r => r.amount) }] }
+        function showTable(d) {
+            const wrap = document.createElement('div');
+            wrap.className = 'table-responsive';
+            const table = document.createElement('table');
+            table.className = 'table table-sm';
+            [d.headers, ...d.rows].forEach((row, i) => {
+                const tr = table.insertRow();
+                row.forEach(v => { const c = tr.insertCell(); c.textContent = v; if (i === 0) c.className = 'fw-bold'; });
             });
-          });
+            wrap.append(table);
+            const note = document.createElement('p');
+            note.className = 'text-muted mb-0';
+            note.textContent = `Showing ${d.rows.length} of ${d.totalRows} rows`;
+            return [wrap, note];
         }
+
+        function showText(d) {
+            const note = document.createElement('p');
+            note.className = 'text-muted';
+            note.textContent = `${d.pages} pages, ${d.characters} characters`;
+            const pre = document.createElement('pre');
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.textContent = d.preview;
+            return [note, pre];
+        }
+
+        byId('uploadForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const out = byId('uploadResult');
+            const isPdf = byId('uploadFile').files[0]?.name.toLowerCase().endsWith('.pdf');
+            const res = await fetch(isPdf ? '/AiIntelligence/UploadPdf' : '/AiIntelligence/UploadExcel',
+                { method: 'POST', body: new FormData(e.target) });
+            if (!res.ok) {
+                const msg = document.createElement('p');
+                msg.className = 'text-danger mb-0';
+                msg.setAttribute('role', 'alert');
+                msg.textContent = await res.text();
+                out.replaceChildren(msg);
+                return;
+            }
+            const d = await res.json();
+            out.replaceChildren(...(isPdf ? showText(d) : showTable(d)));
+        });
+
+        const log = byId('chatLog');
+        let chatContext = '';
+
+        function bubble(kind) {
+            const m = document.createElement('div');
+            m.className = 'ai-msg ' + kind;
+            log.append(m);
+            log.scrollTop = log.scrollHeight;
+            return m;
+        }
+
+        function el(tag, text, cls) {
+            const e = document.createElement(tag);
+            e.textContent = text;
+            if (cls) e.className = cls;
+            return e;
+        }
+
+        function renderReply(m, r) {
+            const parts = [el('strong', r.title)];
+            if (r.summary) parts.push(el('p', r.summary, 'mb-1 mt-1'));
+            if (r.text) parts.push(el('p', r.text, 'mb-0'));
+            if (r.cards) {
+                const box = el('div', '', 'ai-cards');
+                r.cards.forEach(c => box.append(el('div', `${c.label}: ${c.value}`)));
+                parts.push(box);
+            }
+            if (r.type === 'table') parts.push(...showTable({ headers: r.headers, rows: r.rows, totalRows: r.rows.length }));
+            if (r.link) {
+                const open = el('a', 'Open full report', 'btn btn-outline-secondary btn-sm mt-2');
+                open.href = r.link;
+                parts.push(open);
+            }
+            if (r.notes?.length) {
+                const ul = el('ul', '', 'mt-2 mb-0 ps-3');
+                r.notes.forEach(n => ul.append(el('li', n)));
+                parts.push(ul);
+            }
+            if (r.tenderId) {
+                // Same secured export endpoints as the report card: one data method, many outputs.
+                const dl = el('div', '', 'd-flex gap-2 mt-2');
+                [['Excel', 'ExportBids'], ['PDF', 'ExportBidsPdf']].forEach(([label, action]) => {
+                    const a = el('a', label, 'btn btn-outline-secondary btn-sm');
+                    a.href = `/AiIntelligence/${action}?tenderId=${r.tenderId}`;
+                    dl.append(a);
+                });
+                parts.push(dl);
+            }
+            let canvas;
+            if (r.type === 'chart') {
+                m.style.width = '85%';
+                const box = el('div', '');
+                box.style.cssText = 'position:relative;height:220px';
+                canvas = document.createElement('canvas');
+                box.append(canvas);
+                parts.push(box);
+            }
+            m.replaceChildren(...parts);
+            if (canvas) bar(canvas, r.labels, r.values, r.title);   // draw only after it is in the page
+        }
+
+        bubble('bot').textContent = 'Ask me about tender totals, tenders by status, the bids of one tender, or how long it takes to notify winners.';
+
+        byId('chatForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const input = byId('chatInput'), send = byId('chatSend');
+            const q = input.value.trim();
+            if (!q) return;
+            const fd = new FormData(e.target);          // read before clearing the box
+            fd.set('context', chatContext);
+            bubble('user').textContent = q;
+            input.value = '';
+            send.disabled = true;
+            const m = bubble('bot');
+            m.textContent = 'Thinking...';
+            try {
+                const res = await fetch('/AiIntelligence/Ask', { method: 'POST', body: fd });
+                if (res.ok) {
+                    const reply = await res.json();
+                    chatContext = reply.context ?? chatContext;   // lets "and the lowest one?" refer back
+                    renderReply(m, reply);
+                }
+                else { m.textContent = (await res.text()) || 'Something went wrong. Please try again.'; m.classList.add('text-danger'); }
+            } catch {
+                m.textContent = 'Could not reach the server.';
+                m.classList.add('text-danger');
+            }
+            send.disabled = false;
+            input.focus();
+            log.scrollTop = log.scrollHeight;
+        });
     </script>
 }

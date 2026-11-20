@@ -59,7 +59,9 @@ namespace Sourcing_Tender_Management_System
             builder.Services.Configure<GoogleMapsOptions>(builder.Configuration.GetSection("GoogleMaps"));
             builder.Services.AddSingleton<StaffNetworkPolicy>();
 
+            // Register AI services
             builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.AiIntelligence.AiDataService>();
+            builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.AiIntelligence.AiChatService>();
 
             var app = builder.Build();
 

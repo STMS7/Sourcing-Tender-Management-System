@@ -132,7 +132,7 @@
                 t.Status != Sourcing_Tender_Management_System.Models.TenderStatus.Cancelled &&
                 // An awarded tender still needs the officer until the result is announced.
                 (t.Status != Sourcing_Tender_Management_System.Models.TenderStatus.Awarded ||
-                 !Db.WorkflowTransitions.Any(w => w.TenderId == t.Id && w.Reason == Sourcing_Tender_Management_System.Services.TenderResultFlow.ResultAnnounced)))
+                 !Db.WorkflowTransitions.Any(w => w.TenderId == t.Id && (w.Reason == Sourcing_Tender_Management_System.Services.TenderResultFlow.ResultAnnounced || w.Reason == Sourcing_Tender_Management_System.Services.TenderResultFlow.ResultSentAutomatically))))
                 .Select(t => t.Id).ToListAsync())
                 if (await Sourcing_Tender_Management_System.Services.TenderJourney.ComputeAsync(Db, tenderId) is { } journey &&
                     journey.ActorRoles.Contains("SourcingOfficer")) officerTenders++;
@@ -266,6 +266,10 @@
                 <span></span>
             }
             <div class="zt-topbar-actions">
+                @if (signedIn)
+                {
+                    <partial name="_TopTools" />
+                }
                 @if (signedIn && !isOfficer && !isAdmin)
                 {
                     <a class="zt-round" asp-controller="Messages" asp-action="Index" aria-label="Messages" title="Messages">
@@ -290,6 +294,7 @@
         </div>
     </div>
 </div>
+    <partial name="_AiChatWidget" />
     <script src="~/biometric/biometric-nudge.js" asp-append-version="true" defer></script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

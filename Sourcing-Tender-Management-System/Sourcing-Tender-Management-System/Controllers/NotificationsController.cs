@@ -25,6 +25,26 @@ public class NotificationsController(ApplicationDbContext db, UserManager<Applic
         return View(ViewPath, await ForUserAsync(db, users.GetUserId(User)!));
     }
 
+    /// <summary>The bell in the top bar: unread count and the latest few notifications of the signed-in user.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Recent()
+    {
+        var userId = users.GetUserId(User)!;
+        var unread = await db.Notifications.CountAsync(n => n.UserId == userId && !n.IsRead);
+        var rows = await db.Notifications.AsNoTracking().Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt).ThenByDescending(n => n.Id).Take(6)
+            .Select(n => new { n.Id, n.Title, n.Message, n.CreatedAt, n.IsRead, n.Link }).ToListAsync();
+        var items = rows.Select(n => new
+        {
+            n.Id, n.Title,
+            Message = n.Message.Length > 120 ? n.Message[..120] + "..." : n.Message,
+            When = DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc).ToString("o"),
+            n.IsRead,
+            Link = !string.IsNullOrWhiteSpace(n.Link) && Url.IsLocalUrl(n.Link) ? n.Link : null
+        });
+        return Json(new { unread, items });
+    }
+
     /// <summary>Marks one notification read; with open=true it then goes to the notification's own page.</summary>
     [HttpPost]
     public async Task<IActionResult> Read(long id, bool open = false)

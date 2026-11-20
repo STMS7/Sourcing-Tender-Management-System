@@ -56,43 +56,16 @@ public partial class SourcingOfficerController
         var report = await LatestReport(id);
         if (report == null) return NotFound();
         if (await StepOf(db, report) != Step.AtOfficerToAnnounce) return Conflict("There is no forwarded Top Committee decision to announce.");
+        // Only reachable for decisions made before the result was sent automatically (see TenderResultFlow).
         var tender = report.Tender;
         var awarded = report.Status == RecommendationStatus.CommitteeApproved;
-        var winnerId = awarded ? tender.AwardedBidId ?? report.RecommendedBidId : null;
-        var bids = await SubmittedOffers(db.Bids).Where(b => b.TenderId == tender.Id).Include(b => b.Supplier).ToListAsync();
-        var supplierIds = bids.Select(b => b.SupplierId).ToList();
-        var accounts = await db.Users.Where(u => u.IsActive && u.SupplierId != null && supplierIds.Contains(u.SupplierId.Value))
-            .Select(u => new { u.Id, SupplierId = u.SupplierId!.Value }).ToListAsync();
-
-        foreach (var bid in bids)
-        {
-            var won = bid.Id == winnerId;
-            if (awarded && !won && bid.Status is not (BidStatus.Disqualified or BidStatus.Rejected)) bid.Status = BidStatus.Rejected;
-            var (title, message, type) = !awarded
-                ? ($"Tender {tender.TenderNumber} cancelled",
-                   $"The tender \"{tender.Title}\" was cancelled after the final decision. No offer was awarded. Thank you for your offer {bid.BidNumber}.",
-                   NotificationType.Warning)
-                : won
-                    ? ($"You won tender {tender.TenderNumber}",
-                       $"Congratulations. Your offer {bid.BidNumber} was selected as the winner of \"{tender.Title}\". The sourcing team will contact you about the next steps.",
-                       NotificationType.Success)
-                    : ($"Tender {tender.TenderNumber} result",
-                       $"Thank you for your offer {bid.BidNumber}. Another offer was selected for \"{tender.Title}\".",
-                       NotificationType.Information);
-            foreach (var account in accounts.Where(a => a.SupplierId == bid.SupplierId))
-                db.Notifications.Add(new Notification { UserId = account.Id, Title = title, Message = message, Type = type,
-                    Link = $"/Suppliers/OfferDetails/{bid.Id}" });
-        }
-
-        var stage = awarded ? WorkflowStage.Awarded : WorkflowStage.Closed;
-        db.WorkflowTransitions.Add(Transition(report, tender, OfficerId, stage, stage,
-            awarded ? WorkflowAction.Awarded : WorkflowAction.Rejected, ResultAnnounced));
+        var told = await AnnounceToSuppliersAsync(db, report, OfficerId, ResultAnnounced);
         Audit("AnnounceTenderResult", nameof(Tender), tender.Id.ToString());
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
         TempData["Success"] = awarded
-            ? $"Result sent: the winner and {bids.Count - 1} other bidder(s) were notified."
-            : $"Cancellation sent to {bids.Count} bidder(s).";
+            ? $"Result sent: the winner and {told - 1} other bidder(s) were notified."
+            : $"Cancellation sent to {told} bidder(s).";
         return RedirectToAction(nameof(Details), new { id });
     }
 

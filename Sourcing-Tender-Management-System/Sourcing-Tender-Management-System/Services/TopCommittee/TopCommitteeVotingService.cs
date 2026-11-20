@@ -183,27 +183,54 @@ public class TopCommitteeVotingService(ApplicationDbContext db) : ITopCommitteeV
             CreatedAt = now
         });
 
-        // The decision goes back to the sourcing manager first, who forwards it to the sourcing officer.
-        // Fall back to the tender's creator only when no manager approval is on record.
+        // An approval or a rejection ends the cycle here: the suppliers are told right away, in this same
+        // transaction (so a failure rolls the decision back too). Only a "return for details" still travels
+        // manager -> officer -> evaluation committee, because a person has to route it.
+        var finalDecision = outcome is CommitteeOutcome.Approved or CommitteeOutcome.Rejected;
+        if (finalDecision)
+            await TenderResultFlow.AnnounceToSuppliersAsync(db, report, lastVoterUserId, TenderResultFlow.ResultSentAutomatically);
+
         var approverIds = await db.Approvals
             .Where(a => a.TenderId == tender.Id && a.EvaluationReportId == report.Id)
             .Select(a => a.ApproverUserId)
             .ToListAsync();
-        var recipients = (approverIds.Count > 0 ? approverIds : [tender.CreatedByUserId])
-            .Where(id => !string.IsNullOrEmpty(id))
-            .Distinct();
+        var managers = (approverIds.Count > 0 ? approverIds : [tender.CreatedByUserId]).Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList();
 
-        foreach (var recipient in recipients)
+        if (!finalDecision)
         {
-            db.Notifications.Add(new Notification
+            foreach (var manager in managers)
+                db.Notifications.Add(new Notification
+                {
+                    UserId = manager, Title = title, Type = notificationType, CreatedAt = now, Link = "/SourcingManager",
+                    Message = message + " Forward the decision to the sourcing officer."
+                });
+        }
+        else
+        {
+            // Everyone who worked on this tender is told the outcome, naming the winner. For information only.
+            string outcomeText;
+            if (outcome == CommitteeOutcome.Approved)
             {
-                UserId = recipient,
-                Title = title,
-                Message = message + " Forward the decision to the sourcing officer.",
-                Type = notificationType,
-                Link = "/SourcingManager",
-                CreatedAt = now
-            });
+                var winnerBid = tender.Bids.First(b => b.Id == tender.AwardedBidId);
+                var supplierName = await db.Suppliers.Where(s => s.Id == winnerBid.SupplierId).Select(s => s.CompanyName).FirstAsync();
+                title = $"{tender.TenderNumber} awarded to {supplierName}";
+                outcomeText = $"Winner: {supplierName} (offer {winnerBid.BidNumber}, {winnerBid.TotalAmount:N2} {winnerBid.Currency}).";
+            }
+            else outcomeText = "There is no winner: the tender is cancelled.";
+            if (title.Length > 200) title = title[..200];
+            var text = $"{message} {outcomeText} The suppliers were notified automatically. No further action is needed.";
+            if (text.Length > 2000) text = text[..2000];
+
+            // Each person gets a link to a page their role can open (a department representative cannot open the Reports page).
+            var links = new Dictionary<string, string>();
+            foreach (var manager in managers) links.TryAdd(manager, $"/Reports/Tender/{tender.Id}");
+            foreach (var officer in await TenderResultFlow.OfficersOf(db, tender)) links.TryAdd(officer, $"/SourcingOfficer/Details/{tender.Id}");
+            foreach (var member in await db.TenderCommitteeMembers
+                         .Where(m => m.TenderId == tender.Id && m.CommitteeType == CommitteeType.Evaluation)
+                         .Select(m => m.UserId).ToListAsync())
+                links.TryAdd(member, "/EvaluationCommittee/Tenders");
+            foreach (var (userId, link) in links)
+                db.Notifications.Add(new Notification { UserId = userId, Title = title, Message = text, Type = notificationType, Link = link, CreatedAt = now });
         }
 
         Audit(lastVoterUserId, "CommitteeDecision", nameof(Tender), tender.Id.ToString(), ipAddress, now,

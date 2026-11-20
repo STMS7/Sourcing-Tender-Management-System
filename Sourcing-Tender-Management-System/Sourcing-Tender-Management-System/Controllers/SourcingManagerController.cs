@@ -33,7 +33,7 @@ public class SourcingManagerController(ApplicationDbContext db) : Controller
                 .Where(x => (x.Status == RecommendationStatus.CommitteeApproved || x.Status == RecommendationStatus.CommitteeRejected ||
                         (x.Status == RecommendationStatus.ReturnedForReview && x.Votes.Any(v => v.CommitteeType == CommitteeType.Top))) &&
                     !db.WorkflowTransitions.Any(w => w.TenderId == x.TenderId && w.Round == x.Round &&
-                        w.Reason == TenderResultFlow.TopDecisionForwarded))
+                        (w.Reason == TenderResultFlow.TopDecisionForwarded || w.Reason == TenderResultFlow.ResultSentAutomatically)))
                 .OrderBy(x => x.CreatedAt)
                 .ToListAsync()
         };

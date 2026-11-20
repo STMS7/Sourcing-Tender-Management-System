@@ -50,6 +50,10 @@ public static class ReportAccess
         return isDepartmentStaff && !hasWiderRole;
     }
 
+    /// <summary>Contracts, purchase orders and deliveries have no report page yet: management and sourcing roles only.</summary>
+    public static bool CanSeeContracts(IEnumerable<string> roles) =>
+        roles.Any(r => Management.Contains(r) || Sourcing.Contains(r));
+
     /// <summary>The audit trail is for administrators only.</summary>
     public static bool CanSeeAuditTrail(IEnumerable<string> roles) => roles.Contains(Admin);
 }
