@@ -6,6 +6,7 @@ using Sourcing_Tender_Management_System.Data.Seed;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Services;
 using Sourcing_Tender_Management_System.Services.AiAssistant;
+using Sourcing_Tender_Management_System.Services.Analytics;
 using Sourcing_Tender_Management_System.Services.TopCommittee;
 
 namespace Sourcing_Tender_Management_System
@@ -53,6 +54,7 @@ namespace Sourcing_Tender_Management_System
             builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.SupplierFileStore>();
             builder.Services.AddControllersWithViews();
             builder.Services.AddTopCommittee();
+            builder.Services.AddAnalytics();
             builder.Services.AddBiometrics(builder.Configuration);
             builder.Services.AddBidAnalysisAssistant(builder.Configuration);
             builder.Services.Configure<StaffNetworkOptions>(builder.Configuration.GetSection("StaffNetwork"));

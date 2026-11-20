@@ -31,6 +31,8 @@
 
   <ItemGroup>
     <ContainerPort Include="8081" />
+    <EmbeddedResource Include="Services\Analytics\Assets\DejaVuSans.ttf" />
+    <None Update="Services\Analytics\Assets\FONT-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

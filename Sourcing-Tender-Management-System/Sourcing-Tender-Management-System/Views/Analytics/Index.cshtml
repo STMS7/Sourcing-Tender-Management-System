@@ -1,0 +1,121 @@
+@using System.Globalization
+@using Sourcing_Tender_Management_System.Services.Analytics
+@using Sourcing_Tender_Management_System.Services.Reports
+@model AnalyticsPage
+@{
+    ViewData["Title"] = Model.Document.Title;
+    var f = Model.Filter;
+    string DateValue(DateTime? date) => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+    string PageLink(int number) => AnalyticsService.Link(Model.Kind, f, f.Status, f.SupplierId, number);
+    string TabName(AnalyticsReport kind) => kind switch {
+        AnalyticsReport.Overview => "Overview", AnalyticsReport.Suppliers => "Supplier relationships",
+        AnalyticsReport.Approvals => "Approvals", AnalyticsReport.Decisions => "Committee decisions", _ => "Audit trail" };
+}
+<link rel="stylesheet" href="~/css/analytics.css" asp-append-version="true" />
+<div class="an-workspace">
+    <header class="an-heading">
+        <div><p class="an-eyebrow">ZAYTOUNA / ANALYTICS</p><h1>@Model.Document.Title</h1><p class="an-intro">A clearer view of procurement, backed by your records.</p></div>
+        <div class="an-live"><span aria-hidden="true"></span> Live database<span class="an-generated">@Model.Document.GeneratedAt.ToString("dd MMM yyyy · HH:mm") UTC</span></div>
+    </header>
+    <nav class="an-tabs" aria-label="Analytics reports">
+        @foreach (var kind in Enum.GetValues<AnalyticsReport>())
+        {
+            if (!AnalyticsService.CanOpen(kind, User.IsInRole("Admin"), User.IsInRole("TopCommittee"))) { continue; }
+            <a href="@AnalyticsService.Link(kind, new AnalyticsFilter { From = f.From, To = f.To })" class="@(kind == Model.Kind ? "is-active" : "")" aria-current="@(kind == Model.Kind ? "page" : null)">@TabName(kind)</a>
+        }
+    </nav>
+    <form method="get" action="/Analytics" class="an-filters" id="analytics-filters">
+        <input type="hidden" name="kind" value="@Model.Kind" />
+        @if (f.SupplierId.HasValue) { <input type="hidden" name="SupplierId" value="@f.SupplierId" /> }
+        <div><label for="an-from">From date (UTC)</label><input id="an-from" name="From" type="date" value="@DateValue(f.From)" max="9999-12-30" /></div>
+        <div><label for="an-to">To date (UTC)</label><input id="an-to" name="To" type="date" value="@DateValue(f.To)" max="9999-12-30" /></div>
+        <div class="an-search"><label for="an-search">Search @TabName(Model.Kind).ToLowerInvariant()</label><input id="an-search" name="Search" type="search" value="@f.Search" maxlength="100" placeholder="Name, number or keyword…" /></div>
+        @if (Model.Statuses.Count > 0)
+        {
+            <div><label for="an-status">Status</label><select id="an-status" name="Status"><option value="">All statuses</option>
+                @foreach (var status in Model.Statuses) { <option value="@status" selected="@(status == f.Status)">@System.Text.RegularExpressions.Regex.Replace(status, "([a-z])([A-Z])", "$1 $2")</option> }
+            </select></div>
+        }
+        <div class="an-filter-actions"><button type="submit" class="an-button">Apply filters</button><a href="@AnalyticsService.Link(Model.Kind, new())" class="an-reset">Reset</a></div>
+        <div class="an-export"><span>Export all filtered rows</span><button class="an-button an-button-light" type="submit" formaction="/Analytics/Export" name="format" value="xlsx">Excel ↗</button><button class="an-button an-button-light" type="submit" formaction="/Analytics/Export" name="format" value="pdf">PDF ↗</button></div>
+    </form>
+    <p class="an-scope">@Model.Document.Description</p>
+    <section class="an-kpis" aria-label="Key performance indicators">
+        @foreach (var kpi in Model.Kpis)
+        {
+            <a href="@kpi.Href" class="an-kpi"><span class="an-kpi-label">@kpi.Label <span aria-hidden="true">↗</span></span><strong>@kpi.Value</strong><span class="an-kpi-note">@kpi.Note</span></a>
+        }
+    </section>
+    @if (Model.Risk is { } risk)
+    {
+        <section class="an-risk an-risk-@risk.CssClass" aria-labelledby="an-risk-title">
+            <div class="an-risk-number"><strong>@(risk.Score?.ToString() ?? "—")</strong><span>/ 100</span><span class="an-badge">@risk.Level</span></div>
+            <div class="an-risk-body"><p class="an-eyebrow">HISTORICAL RISK INDICATOR</p><h2 id="an-risk-title">@Model.SupplierName</h2>
+                <p>@risk.EvidenceCount observations in the selected period. This indicator describes recorded outcomes; it does not predict default or decide supplier eligibility.</p>
+                @if (risk.Score == null) { <p>No final compliance reviews or completed/terminated contracts are available. A risk score cannot be calculated.</p> }
+                @foreach (var factor in risk.Factors) { <p class="an-factor"><strong>@factor.Label</strong><span>@factor.Adverse adverse / @factor.Observed observed · @factor.Weight.ToString("0.#")% effective weight</span></p> }
+                <details><summary>How this score is calculated</summary><p>Non-compliant bids / final reviewed bids × 60%, plus terminated contracts / completed or terminated contracts × 40%, scaled to 100. Missing factors are omitted and the remaining weight is normalized. Low: below 30; moderate: 30–59; high: 60–100. Small samples can produce extreme scores.</p></details>
+            </div>
+        </section>
+    }
+    @foreach (var chart in Model.Charts)
+    {
+        var max = chart.Points.Count == 0 ? 0 : chart.Points.Max(p => p.Value);
+        var total = chart.Points.Sum(p => p.Value);
+        <section class="an-panel an-chart" aria-label="@chart.Title">
+            <div class="an-panel-heading"><div><p class="an-eyebrow">PATTERNS & DISTRIBUTION</p><h2>@chart.Title</h2></div><button type="button" class="an-chart-toggle" data-an-toggle aria-pressed="false">Show share</button></div>
+            @if (chart.Points.Count == 0) { <p class="an-empty">No chart data for these filters. Try a wider date range or reset the search.</p> }
+            <div class="an-bars">
+                @foreach (var point in chart.Points)
+                {
+                    var width = max == 0 ? 0 : point.Value / max * 100;
+                    var share = total == 0 ? 0 : point.Value / total * 100;
+                    <a class="an-bar" href="@point.Href" title="Inspect @point.Label: @point.Value">
+                        <span class="an-bar-label">@point.Label</span><span class="an-track" aria-hidden="true"><span style="width:@(width.ToString("0.##", CultureInfo.InvariantCulture))%"></span></span>
+                        <strong data-an-count="@point.Value.ToString("N0", CultureInfo.InvariantCulture)" data-an-share="@share.ToString("0.#", CultureInfo.InvariantCulture)%">@point.Value.ToString("N0", CultureInfo.InvariantCulture)</strong><span aria-hidden="true">↗</span>
+                    </a>
+                }
+            </div>
+            <p class="an-chart-note">Select a bar to open its records. Shares describe the displayed bars@(Model.Kind == AnalyticsReport.Suppliers ? " (up to 10 suppliers)" : "").</p>
+        </section>
+    }
+    @for (var tableIndex = 0; tableIndex < Model.Document.Tables.Count; tableIndex++)
+    {
+        var table = Model.Document.Tables[tableIndex];
+        var skip = table.Rows.Count <= AnalyticsPage.PageSize ? 0 : (Model.CurrentPage - 1) * AnalyticsPage.PageSize;
+        var visible = table.Rows.Skip(skip).Take(AnalyticsPage.PageSize).ToList();
+        <section class="an-panel" id="@(tableIndex == 0 ? "analytics-table" : "analytics-secondary-" + tableIndex)">
+            @if (table.Title == "Recorded awards") { <span id="analytics-secondary"></span> }
+            <div class="an-panel-heading"><h2>@table.Title</h2><span class="an-table-count">@table.Rows.Count.ToString("N0") records</span></div>
+            @if (table.Note != null) { <p class="an-table-note">@table.Note</p> }
+            @if (table.Rows.Count == 0) { <div class="an-empty"><strong>No matching records</strong><p>Adjust the date range or search, or reset the filters.</p></div> }
+            else if (visible.Count == 0) { <p class="an-empty">No records from this table on this page. <a href="@PageLink(1)">Return to page 1</a>.</p> }
+            else
+            {
+                <div class="an-table-scroll" tabindex="0" role="region" aria-label="@table.Title — scroll for all columns">
+                    <table class="an-table"><thead><tr>@foreach (var column in table.Columns) { <th scope="col">@column</th> }</tr></thead><tbody>
+                    @for (var rowIndex = 0; rowIndex < visible.Count; rowIndex++)
+                    {
+                        var row = visible[rowIndex];
+                        <tr>@for (var c = 0; c < table.Columns.Count; c++) {
+                            <td>@if (tableIndex == 0 && c == 0 && Model.SupplierRowIds.TryGetValue(skip + rowIndex, out var id)) {
+                                <a class="an-supplier-link" href="@AnalyticsService.Link(AnalyticsReport.Suppliers, f, supplierId: id)">@ReportExporter.Format(row[c]) <span aria-hidden="true">↗</span></a>
+                            } else { @(row[c] == null ? "—" : ReportExporter.Format(row[c])) }</td>
+                        }</tr>
+                    }
+                    </tbody></table>
+                </div>
+                <p class="an-table-note an-row-range">Showing @(@skip + 1)–@(skip + visible.Count) of @table.Rows.Count. Downloads include all filtered records.</p>
+            }
+        </section>
+    }
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="an-pagination" aria-label="Report pagination">
+            @if (Model.CurrentPage > 1) { <a class="an-button an-button-light" href="@PageLink(Model.CurrentPage - 1)">← Previous</a> }
+            <span>Page @Model.CurrentPage of @Model.TotalPages</span>
+            @if (Model.CurrentPage < Model.TotalPages) { <a class="an-button an-button-light" href="@PageLink(Model.CurrentPage + 1)">Next →</a> }
+        </nav>
+    }
+</div>
+@section Scripts { <script src="~/js/analytics.js" asp-append-version="true" defer></script> }

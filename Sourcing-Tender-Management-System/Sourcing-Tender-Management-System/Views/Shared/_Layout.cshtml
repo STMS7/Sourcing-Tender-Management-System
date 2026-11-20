@@ -83,6 +83,8 @@
     if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative"))
         links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee"));
     var tools = new List<(string Label, string Href, string Icon, bool Active)>();
+    if (InRole("Admin", "TopCommittee"))
+        links.Add(("Analytics", Url.Action("Index", "Analytics")!, IconScale, controller == "Analytics"));
     if (signedIn && !isOfficer && !isAdmin)
         tools.Add(("Messages", Url.Action("Index", "Messages")!, IconChat, controller == "Messages"));
     if (InRole("Admin"))

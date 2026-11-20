@@ -6,6 +6,7 @@
 <div class="py-4">
     <h1>Admin Dashboard</h1>
     <p>Welcome, @User.Identity?.Name. Your Admin role is active.</p>
+    <a class="btn btn-outline-success mb-3" asp-controller="Analytics" asp-action="Index">Open procurement analytics →</a>
     @if (TempData["Message"] is string message)
     {
         <div class="alert alert-success" role="status">@message</div>
