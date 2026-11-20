@@ -1,0 +1,41 @@
+@using System.Security.Claims
+@using Sourcing_Tender_Management_System.Services.Reports
+@{
+    // Staff only: logged in, a role that may use the AI (never a Supplier), and not the AI page itself (it has its own chat).
+    var controllerName = ViewContext.RouteData.Values["controller"]?.ToString();
+    var showAiWidget = User.Identity?.IsAuthenticated == true
+                       && ReportAccess.AllRoles.Any(User.IsInRole)
+                       && controllerName != "AiIntelligence";
+}
+@if (showAiWidget)
+{
+    <link rel="stylesheet" href="~/css/ai-widget.css" asp-append-version="true" />
+    <div id="aiw" class="aiw"
+         data-user="@User.FindFirstValue(ClaimTypes.NameIdentifier)"
+         data-ask-url="@Url.Action("Ask", "AiIntelligence")"
+         data-excel-url="@Url.Action("ExportBids", "AiIntelligence")"
+         data-pdf-url="@Url.Action("ExportBidsPdf", "AiIntelligence")">
+        <section id="aiw-panel" class="aiw-panel" role="dialog" aria-label="AI assistant" inert>
+            <header class="aiw-head">
+                <div>
+                    <div class="aiw-title">Ask the data</div>
+                    <div class="aiw-sub">Live system data. Advice only, never decisions.</div>
+                </div>
+                <button type="button" class="aiw-clear">New chat</button>
+            </header>
+            <div class="aiw-log" role="log" aria-live="polite"></div>
+            <form class="aiw-form" autocomplete="off">
+                @Html.AntiForgeryToken()
+                <input name="question" maxlength="500" placeholder="Ask about tenders, bids, suppliers..." aria-label="Your question" required />
+                <button class="aiw-send" type="submit" aria-label="Send question">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                </button>
+            </form>
+        </section>
+        <button type="button" class="aiw-fab" aria-expanded="false" aria-controls="aiw-panel" aria-label="Open AI assistant">
+            <svg class="aiw-i-chat" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5z" /><path d="M12 6.5v5M9.5 9h5" /></svg>
+            <svg class="aiw-i-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+    </div>
+    <script src="~/js/ai-widget.js" asp-append-version="true" defer></script>
+}

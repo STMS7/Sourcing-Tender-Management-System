@@ -1,7 +1,6 @@
 @model Bid
 @{
     ViewData["Title"] = "My Offer Report";
-    var subtotal = Model.Items.Sum(x => x.TotalPrice);
     var compliance = Model.ComplianceStatus switch
     {
         ComplianceDecision.Compliant => "Compliant",
@@ -117,26 +116,6 @@
             </div>
         </section>
 
-        <section class="or-section">
-            <h2>Financial summary (@Model.Currency)</h2>
-            <table class="table align-middle or-totals">
-                <caption class="visually-hidden">Financial summary</caption>
-                <tbody>
-                    <tr><th scope="row">Items subtotal</th><td class="text-end money">@subtotal.ToString("N2")</td></tr>
-                    <tr><th scope="row">Tax</th><td class="text-end money">@Model.TaxAmount.ToString("N2")</td></tr>
-                    <tr><th scope="row">Fees</th><td class="text-end money">@Model.FeesAmount.ToString("N2")</td></tr>
-                    <tr><th scope="row">Shipping</th><td class="text-end money">@Model.ShippingAmount.ToString("N2")</td></tr>
-                    <tr><th scope="row">Installation</th><td class="text-end money">@Model.InstallationAmount.ToString("N2")</td></tr>
-                    <tr><th scope="row">Maintenance</th><td class="text-end money">@Model.MaintenanceAmount.ToString("N2")</td></tr>
-                    <tr class="or-grand"><th scope="row">Total</th><td class="text-end money">@Model.TotalAmount.ToString("N2") @Model.Currency</td></tr>
-                </tbody>
-            </table>
-        </section>
-
-        <section class="or-section">
-            <h2>Technical summary</h2>
-            <p class="or-text">@(string.IsNullOrWhiteSpace(Model.TechnicalSummary) ? "—" : Model.TechnicalSummary)</p>
-        </section>
         <section class="or-section">
             <h2>Payment terms</h2>
             <p class="or-text">@(string.IsNullOrWhiteSpace(Model.PaymentTerms) ? "—" : Model.PaymentTerms)</p>

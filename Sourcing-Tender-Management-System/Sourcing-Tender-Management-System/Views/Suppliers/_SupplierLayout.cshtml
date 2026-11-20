@@ -77,10 +77,7 @@
                 <span class="sp-crumb">@(companyName ?? "Supplier portal")</span>
             </div>
             <div class="sp-top-r">
-                <a class="sp-iconbtn" asp-area="" asp-controller="Suppliers" asp-action="Notifications" aria-label="Notifications (@unread unread)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-                    @if (unread > 0) { <span class="dot"></span> }
-                </a>
+                <partial name="_TopTools" />
                 <a class="sp-avatar" asp-area="Identity" asp-page="/Account/Manage/Index" title="@displayName">@initial</a>
             </div>
         </header>

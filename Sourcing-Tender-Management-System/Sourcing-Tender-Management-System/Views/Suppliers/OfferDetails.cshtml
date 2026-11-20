@@ -3,7 +3,6 @@
     ViewData["Title"] = "Offer Details";
     var canWithdraw = Model.Status == BidStatus.Submitted && Model.Tender.Status == TenderStatus.Published
         && Model.Tender.SubmissionDeadline > DateTime.UtcNow && (Model.Tender.PublishedAt is null || Model.Tender.PublishedAt <= DateTime.UtcNow);
-    var subtotal = Model.Items.Sum(x => x.TotalPrice);
     var (compCss, compText) = Model.ComplianceStatus switch
     {
         ComplianceDecision.Compliant => ("is-approved", "Compliant"),
@@ -80,24 +79,6 @@
             </section>
 
             <section class="card manager-card mb-4">
-                <div class="card-header"><h2 class="h5 mb-0">Financial summary (@Model.Currency)</h2></div>
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                        <caption class="visually-hidden">Financial summary</caption>
-                        <tbody>
-                            <tr><th scope="row">Items subtotal</th><td class="text-end money">@subtotal.ToString("N2")</td></tr>
-                            <tr><th scope="row">Tax</th><td class="text-end money">@Model.TaxAmount.ToString("N2")</td></tr>
-                            <tr><th scope="row">Fees</th><td class="text-end money">@Model.FeesAmount.ToString("N2")</td></tr>
-                            <tr><th scope="row">Shipping</th><td class="text-end money">@Model.ShippingAmount.ToString("N2")</td></tr>
-                            <tr><th scope="row">Installation</th><td class="text-end money">@Model.InstallationAmount.ToString("N2")</td></tr>
-                            <tr><th scope="row">Maintenance</th><td class="text-end money">@Model.MaintenanceAmount.ToString("N2")</td></tr>
-                            <tr class="dp-total"><th scope="row">Total</th><td class="text-end money">@Model.TotalAmount.ToString("N2") @Model.Currency</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section class="card manager-card mb-4">
                 <div class="card-header dp-split"><h2 class="h5 mb-0">Offer documents</h2><span class="badge">@Model.Documents.Count</span></div>
                 @if (Model.Documents.Count == 0) { <p class="empty-state">No documents attached.</p> }
                 else
@@ -137,11 +118,6 @@
                     {
                         <div class="alert alert-warning m-3"><strong>Review note:</strong> @Model.DisqualificationReason</div>
                     }
-                </section>
-
-                <section class="card manager-card mb-4">
-                    <div class="card-header"><h2 class="h5 mb-0">Technical summary</h2></div>
-                    <p class="dp-desc pt-3">@(string.IsNullOrWhiteSpace(Model.TechnicalSummary) ? "—" : Model.TechnicalSummary)</p>
                 </section>
 
                 <section class="card manager-card mb-4">

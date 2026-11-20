@@ -375,28 +375,38 @@ try
         reportId = (await db.EvaluationReports.OrderByDescending(r => r.Round).FirstAsync(r => r.TenderId == tenderId)).Id;
     await Officer(c => c.ForwardReportToManager(tenderId));
     Check(await ManagerDecide(reportId, "approve", "") is RedirectToActionResult, "Manager approves round 3");
-    await TopVote("top1", reportId, CommitteeDecision.Approved);
-    await TopVote("top2", reportId, CommitteeDecision.Approved);
+    // Supplier accounts first, so the automatic result messages have someone to reach.
     string winnerUser = "supplier-b", loserUser = "supplier-a";
     await using (var db = new ApplicationDbContext(options))
     {
-        var t = await db.Tenders.FindAsync(tenderId);
-        Check(t!.Status == TenderStatus.Awarded && t.AwardedBidId == bidB, "Top Committee approval awards the committee's chosen bid");
-        Check((await db.EvaluationReports.FindAsync(reportId))!.Status == RecommendationStatus.CommitteeApproved, "Approval is recorded on the report");
-        // Supplier accounts so the result messages have someone to reach.
         foreach (var (user, bidId) in new[] { (winnerUser, bidB), (loserUser, bidA) })
             db.Users.Add(new ApplicationUser { Id = user, FullName = user, UserName = user, NormalizedUserName = user.ToUpperInvariant(),
                 IsActive = true, SupplierId = (await db.Bids.FindAsync(bidId))!.SupplierId });
         await db.SaveChangesAsync();
     }
-    Check(await Officer(c => c.AnnounceResult(tenderId)) is ConflictObjectResult, "Officer cannot announce before the manager forwards");
-    await ManagerForward(reportId);
+    await TopVote("top1", reportId, CommitteeDecision.Approved);
+    await TopVote("top2", reportId, CommitteeDecision.Approved);
+    await using (var db = new ApplicationDbContext(options))
+    {
+        var t = await db.Tenders.FindAsync(tenderId);
+        Check(t!.Status == TenderStatus.Awarded && t.AwardedBidId == bidB, "Top Committee approval awards the committee's chosen bid");
+        Check((await db.EvaluationReports.FindAsync(reportId))!.Status == RecommendationStatus.CommitteeApproved, "Approval is recorded on the report");
+        Check(await db.WorkflowTransitions.AnyAsync(w => w.TenderId == tenderId && w.Reason == TenderResultFlow.ResultSentAutomatically),
+            "The automatic announcement is recorded on the tender's history");
+        Check(await db.Notifications.AnyAsync(n => n.UserId == "manager" && n.Title.Contains("awarded") && n.Message.Contains("notified automatically")),
+            "The manager is told for information, without a forward step");
+        Check(await db.Notifications.AnyAsync(n => n.UserId == "officer" && n.Message.Contains("Winner:") && n.Link == "/SourcingOfficer/Details/" + tenderId),
+            "The sourcing officer is told who won");
+        Check(await db.Notifications.AnyAsync(n => n.UserId == "technical" && n.Message.Contains("Winner:") && n.Link == "/EvaluationCommittee/Tenders"),
+            "An evaluation committee member is told who won");
+    }
+    Check(await ManagerDashboard() is { TopDecisionsToForward.Count: 0 }, "Nothing is left for the manager to forward after an approval");
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is ConflictObjectResult, "The officer has nothing to announce: the system already did");
     Check(await Officer(c => c.SendBackToCommittee(tenderId)) is ConflictObjectResult, "An approval cannot be sent back to the committee");
-    Check(await Officer(c => c.AnnounceResult(tenderId)) is RedirectToActionResult, "Officer sends the result to the suppliers");
     await using (var db = new ApplicationDbContext(options))
     {
         Check(await db.Notifications.AnyAsync(n => n.UserId == winnerUser && n.Title.Contains("You won") && n.Link == "/Suppliers/OfferDetails/" + bidB),
-            "Winning supplier gets the winning message");
+            "Winning supplier is notified as soon as the Top Committee decides");
         Check(await db.Notifications.AnyAsync(n => n.UserId == loserUser && n.Message.Contains("Another offer was selected")),
             "Other bidder gets a not-selected message");
         Check(!await db.Notifications.AnyAsync(n => n.UserId == loserUser && n.Title.Contains("You won")), "Only the winner gets the winning message");
@@ -407,24 +417,44 @@ try
     Check(await OfficerDetails(tenderId) is ViewResult officerDone &&
         officerDone.ViewData["ResultStep"] is TenderResultFlow.Step.Done, "Officer page shows the round as finished");
 
-    // ---- 7. Top Committee REJECTS: suppliers are told the tender is cancelled ----
+    // ---- 7. Round 4: the Top Committee REJECTS by vote: every bidder is told at once the tender is cancelled ----
     await using (var db = new ApplicationDbContext(options))
     {
-        // A further round whose Top Committee vote rejected it (the voting itself is covered above).
         var t = (await db.Tenders.FindAsync(tenderId))!;
-        t.Status = TenderStatus.Cancelled;
-        var rejected = new EvaluationReport { TenderId = tenderId, Round = 4, PreparedByUserId = "manager", Summary = "Round 4",
+        t.Status = TenderStatus.AwaitingCommitteeDecision;
+        var pending = new EvaluationReport { TenderId = tenderId, Round = 4, PreparedByUserId = "manager", Summary = "Round 4",
+            RecommendedBidId = bidA, Status = RecommendationStatus.PendingCommitteeDecision, SubmittedAt = DateTime.UtcNow,
+            Votes = [new CommitteeVote { CommitteeType = CommitteeType.Top, MemberUserId = "top1", Decision = CommitteeDecision.Pending },
+                     new CommitteeVote { CommitteeType = CommitteeType.Top, MemberUserId = "top2", Decision = CommitteeDecision.Pending }] };
+        db.EvaluationReports.Add(pending);
+        await db.SaveChangesAsync();
+        reportId = pending.Id;
+    }
+    await TopVote("top1", reportId, CommitteeDecision.Rejected);
+    await TopVote("top2", reportId, CommitteeDecision.Rejected);
+    await using (var db = new ApplicationDbContext(options))
+    {
+        Check((await db.Tenders.FindAsync(tenderId))!.Status == TenderStatus.Cancelled, "A Top Committee rejection cancels the tender");
+        Check(await db.Notifications.CountAsync(n => (n.UserId == winnerUser || n.UserId == loserUser) && n.Title.Contains("cancelled")) == 2,
+            "Every bidder is told the tender was cancelled with no award, right after the vote");
+    }
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is ConflictObjectResult, "A rejection needs no officer announcement either");
+
+    // ---- 8. A decision made before the result was sent automatically can still be announced by hand ----
+    await using (var db = new ApplicationDbContext(options))
+    {
+        var older = new EvaluationReport { TenderId = tenderId, Round = 5, PreparedByUserId = "manager", Summary = "Round 5",
             RecommendedBidId = bidA, Status = RecommendationStatus.CommitteeRejected, SubmittedAt = DateTime.UtcNow,
             Votes = [new CommitteeVote { CommitteeType = CommitteeType.Top, MemberUserId = "top1", Decision = CommitteeDecision.Rejected }] };
-        db.EvaluationReports.Add(rejected);
+        db.EvaluationReports.Add(older);
         await db.SaveChangesAsync();
-        reportId = rejected.Id;
+        reportId = older.Id;
     }
     await ManagerForward(reportId);
-    Check(await Officer(c => c.AnnounceResult(tenderId)) is RedirectToActionResult, "Officer announces a rejected outcome");
+    Check(await Officer(c => c.AnnounceResult(tenderId)) is RedirectToActionResult, "An older decision can still be announced by the officer");
     await using (var db = new ApplicationDbContext(options))
-        Check(await db.Notifications.CountAsync(n => (n.UserId == winnerUser || n.UserId == loserUser) && n.Title.Contains("cancelled")) == 2,
-            "Every bidder is told the tender was cancelled with no award");
+        Check(await db.Notifications.CountAsync(n => (n.UserId == winnerUser || n.UserId == loserUser) && n.Title.Contains("cancelled")) == 4,
+            "The manual path still tells every bidder");
 
     Console.WriteLine($"All {checks} checks passed.");
 }
