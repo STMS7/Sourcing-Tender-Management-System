@@ -244,6 +244,8 @@
                 </table></div>
             </section>
 
+            @await Component.InvokeAsync("OfferExtras", new { bidId = bid.Id, mode = "staff" })
+
             @if (closed)
             {
                 <form asp-action="Compliance" method="post" class="oc2-decision">

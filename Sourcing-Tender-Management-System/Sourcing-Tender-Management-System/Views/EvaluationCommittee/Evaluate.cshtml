@@ -164,6 +164,7 @@
 }
 </tbody></table></div>
 @if (bid.Documents.Count > 0) { <p><strong>Documents:</strong> @string.Join(", ", bid.Documents.Select(d => d.FileName))</p> }
+@await Component.InvokeAsync("OfferExtras", new { bidId = bid.Id, mode = "staff" })
 </div></details>
 @if (open && !Model.IsReviewer && Model.AgreedWeights != null && Model.AgreedBidId == null && bid.Id != Model.MyChoiceBidId) {
 <form asp-action="ChooseBid" method="post"><input type="hidden" name="tenderId" value="@tender.Id" /><input type="hidden" name="bidId" value="@bid.Id" /><button type="submit" class="btn btn-primary" aria-label="Choose bid from @bid.Supplier.CompanyName">Choose this bid</button></form>

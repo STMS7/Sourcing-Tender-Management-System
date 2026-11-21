@@ -1,0 +1,29 @@
+/* Samples and guarantees panel on an offer. Uses the Zaytouna tokens; page styles stay out of the shared files. */
+.oex { --oex-ink: #17402A; --oex-olive: #4E6B2F; --oex-sand: #F0E4C2; --oex-muted: #5E6E62; margin-top: 4px; }
+.oex-form { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; margin-bottom: 18px; }
+.oex-field { flex: 1 1 200px; min-width: 0; }
+.oex-grow { flex: 2 1 260px; }
+.oex-wide { flex: 1 1 100%; }
+.oex-submit { flex: 0 0 auto; min-height: 42px; }
+.oex-guarantee-form { padding-bottom: 8px; border-bottom: 1px dashed var(--oex-sand); }
+.oex-gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.oex-gallery li { border: 1px solid var(--oex-sand); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+.oex-gallery img { display: block; width: 100%; height: 150px; object-fit: cover; background: var(--oex-sand); }
+.oex-cap { padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: .88rem; }
+.oex-guarantees { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.oex-guarantee { display: flex; gap: 18px; flex-wrap: wrap; padding: 14px; border: 1px solid var(--oex-sand); border-radius: 12px; background: #fff; }
+.oex-qr { width: 132px; height: 132px; flex: none; border: 1px solid var(--oex-sand); border-radius: 8px; padding: 4px; background: #fff; }
+.oex-g-body { flex: 1 1 260px; min-width: 0; }
+.oex-kind { display: inline-block; margin-inline-start: 6px; padding: 1px 9px; border-radius: 999px; background: var(--oex-sand); color: var(--oex-ink); font-size: .78rem; font-weight: 600; }
+.oex-dl { margin: 6px 0 10px; display: grid; gap: 2px; }
+.oex-dl > div { display: grid; grid-template-columns: 110px 1fr; gap: 10px; font-size: .92rem; }
+.oex-dl dt { color: var(--oex-muted); font-weight: 400; }
+.oex-dl dd { margin: 0; }
+.oex-state { margin-inline-start: 6px; padding: 1px 9px; border-radius: 999px; font-size: .78rem; font-weight: 700; }
+.oex-state.is-valid { background: #E4F2E6; color: #1F6B3A; }
+.oex-state.is-expired { background: #F8DDD8; color: #8E2C20; }
+.oex-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 575.98px) {
+  .oex-qr { width: 112px; height: 112px; }
+  .oex-dl > div { grid-template-columns: 1fr; gap: 0; }
+}

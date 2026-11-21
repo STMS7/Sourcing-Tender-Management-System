@@ -1,0 +1,83 @@
+@model Sourcing_Tender_Management_System.Models.OfferExtras.GuaranteeCheckViewModel
+@{
+    Layout = null;
+    var g = Model.Found;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Guarantee verification</title>
+    <link rel="stylesheet" href="~/css/guarantee-verify.css" asp-append-version="true" />
+</head>
+<body class="gv">
+    <header class="gv-top">
+        <div class="gv-brand">
+            <span class="gv-mark" aria-hidden="true">e</span>
+            <div>
+                <p class="gv-name">e-Guarantee Verification Gateway</p>
+                <p class="gv-sub">Issuing bank portal (simulation for the Sourcing &amp; Tender Management System)</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="gv-main">
+        <section class="gv-card" aria-labelledby="gv-title">
+            <h1 id="gv-title">Check a guarantee</h1>
+            <p class="gv-lead">Enter the guarantee number and the verification code printed on the guarantee sheet, or scan its QR code.</p>
+            <form method="get" asp-controller="GuaranteeVerification" asp-action="Index" class="gv-form" novalidate>
+                <div class="gv-field">
+                    <label for="gv-number">Guarantee number</label>
+                    <input id="gv-number" name="number" type="text" value="@Model.Number" maxlength="40" autocomplete="off" required />
+                </div>
+                <div class="gv-field">
+                    <label for="gv-code">Verification code</label>
+                    <input id="gv-code" name="code" type="text" value="@Model.Code" maxlength="20" autocomplete="off" placeholder="XXXX-XXXX-XXXX" required />
+                </div>
+                <button type="submit" class="gv-btn">Verify guarantee</button>
+            </form>
+        </section>
+
+        @if (Model.Searched)
+        {
+            @if (Model.Throttled)
+            {
+                <section class="gv-result is-warn" role="alert">
+                    <p class="gv-badge">Too many attempts</p>
+                    <p>Please wait a few minutes before trying again.</p>
+                </section>
+            }
+            else if (g is null)
+            {
+                <section class="gv-result is-bad" role="status">
+                    <p class="gv-badge">Not verified</p>
+                    <p>No guarantee matches this number and code. Check both and try again.</p>
+                </section>
+            }
+            else
+            {
+                <section class="gv-result @(Model.Expired ? "is-warn" : "is-ok")" role="status" aria-live="polite">
+                    <p class="gv-badge">@(Model.Expired ? "Expired" : "Valid")</p>
+                    <p class="gv-verdict">
+                        @if (Model.Expired) { <text>This guarantee was genuine but its validity ended on @g.ExpiresOn.ToString("dd MMM yyyy").</text> }
+                        else { <text>This guarantee is genuine and valid for another @Model.DaysLeft @(Model.DaysLeft == 1 ? "day" : "days").</text> }
+                    </p>
+                    <dl class="gv-dl">
+                        <div><dt>Guarantee number</dt><dd>@g.GuaranteeNumber</dd></div>
+                        <div><dt>Type</dt><dd>@g.KindLabel, @g.Purpose</dd></div>
+                        <div><dt>@(g.Kind == "Bank" ? "Issuing bank" : "Issued by")</dt><dd>@g.IssuerName</dd></div>
+                        <div><dt>Amount</dt><dd>@g.Amount.ToString("N2") @g.Currency</dd></div>
+                        <div><dt>Issued on</dt><dd>@g.IssuedOn.ToString("dd MMM yyyy")</dd></div>
+                        <div><dt>Valid until</dt><dd>@g.ExpiresOn.ToString("dd MMM yyyy") (@g.DurationMonths months)</dd></div>
+                        <div><dt>Applicant</dt><dd>@Model.SupplierName</dd></div>
+                        <div><dt>Beneficiary tender</dt><dd>@Model.TenderNumber</dd></div>
+                    </dl>
+                </section>
+            }
+        }
+    </main>
+    <footer class="gv-foot">This page only checks guarantees registered in the Sourcing &amp; Tender Management System. It is a simulation and is not a real bank service.</footer>
+</body>
+</html>

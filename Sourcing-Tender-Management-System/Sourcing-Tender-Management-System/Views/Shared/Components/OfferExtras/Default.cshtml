@@ -1,0 +1,157 @@
+@model Sourcing_Tender_Management_System.Models.OfferExtras.OfferExtrasPanel
+@using Sourcing_Tender_Management_System.Models.OfferExtras
+@{
+    var today = DateTime.UtcNow.Date;
+    var notice = Model.SupplierView ? TempData["OfferExtrasNotice"] as string : null;
+    var error = Model.SupplierView ? TempData["OfferExtrasError"] as string : null;
+    var sectionId = Model.SupplierView ? "offer-extras" : "offer-extras-" + Model.BidId;
+    var currency = string.IsNullOrWhiteSpace(Model.Currency) ? "" : Model.Currency;
+}
+<link rel="stylesheet" href="~/css/offer-extras.css" asp-append-version="true" />
+<section id="@sectionId" class="oex" aria-label="Product samples and guarantees">
+    @if (!string.IsNullOrEmpty(notice)) { <div class="alert alert-success" role="status">@notice</div> }
+    @if (!string.IsNullOrEmpty(error)) { <div class="alert alert-danger" role="alert">@error</div> }
+
+    <div class="card manager-card mb-4">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Product samples</h2><span class="badge">@Model.Samples.Count</span></div>
+        <div class="card-body">
+            @if (Model.CanEdit)
+            {
+                <form asp-controller="OfferExtras" asp-action="AddSample" method="post" enctype="multipart/form-data" class="oex-form">
+                    <input type="hidden" name="bidId" value="@Model.BidId" />
+                    <div class="oex-field oex-grow">
+                        <label for="oex-pictures-@Model.BidId" class="form-label">Pictures of the product or sample</label>
+                        <input id="oex-pictures-@Model.BidId" class="form-control" type="file" name="pictures" accept="image/jpeg,image/png,image/webp" multiple required aria-describedby="oex-pictures-hint-@Model.BidId" />
+                        <div id="oex-pictures-hint-@Model.BidId" class="form-text">Up to @Model.MaxSamples pictures in total. JPG, PNG or WebP, 3 MB each.</div>
+                    </div>
+                    <div class="oex-field oex-grow">
+                        <label for="oex-caption-@Model.BidId" class="form-label">Caption <span class="text-muted">(optional)</span></label>
+                        <input id="oex-caption-@Model.BidId" class="form-control" type="text" name="caption" maxlength="200" />
+                    </div>
+                    <button type="submit" class="btn btn-primary oex-submit">Add pictures</button>
+                </form>
+            }
+            @if (Model.Samples.Count == 0)
+            {
+                <p class="empty-state mb-0">@(Model.SupplierView ? "No sample pictures added yet." : "The supplier did not attach sample pictures.")</p>
+            }
+            else
+            {
+                <ul class="oex-gallery" aria-label="Sample pictures">
+                    @foreach (var sample in Model.Samples)
+                    {
+                        <li>
+                            <a href="@Url.Action("Sample", "OfferExtras", new { id = sample.Id })" target="_blank" rel="noopener" aria-label="Open @(sample.Caption ?? sample.OriginalName) in a new tab">
+                                <img src="@Url.Action("Sample", "OfferExtras", new { id = sample.Id })" alt="@(sample.Caption ?? sample.OriginalName)" loading="lazy" width="320" height="240" />
+                            </a>
+                            <div class="oex-cap">
+                                <span class="text-break">@(sample.Caption ?? sample.OriginalName)</span>
+                                @if (Model.CanEdit)
+                                {
+                                    <form asp-controller="OfferExtras" asp-action="DeleteSample" method="post" onsubmit="return confirm('Remove this picture?');">
+                                        <input type="hidden" name="id" value="@sample.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                    </form>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+
+    <div class="card manager-card mb-4">
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Bank guarantees and legal warranties</h2><span class="badge">@Model.Guarantees.Count</span></div>
+        <div class="card-body">
+            @if (Model.CanEdit)
+            {
+                <form asp-controller="OfferExtras" asp-action="AddGuarantee" method="post" enctype="multipart/form-data" class="oex-form oex-guarantee-form">
+                    <input type="hidden" name="BidId" value="@Model.BidId" />
+                    <div class="oex-field">
+                        <label for="oex-purpose-@Model.BidId" class="form-label">Type and purpose</label>
+                        <select id="oex-purpose-@Model.BidId" name="Purpose" class="form-select" required>
+                            <option value="">Choose...</option>
+                            <optgroup label="Bank guarantee">
+                                @foreach (var p in OfferExtrasRules.BankPurposes) { <option value="@p">@p</option> }
+                            </optgroup>
+                            <optgroup label="Legal warranty">
+                                @foreach (var p in OfferExtrasRules.LegalPurposes) { <option value="@p">@p</option> }
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="oex-field">
+                        <label for="oex-number-@Model.BidId" class="form-label">Guarantee number</label>
+                        <input id="oex-number-@Model.BidId" class="form-control" type="text" name="GuaranteeNumber" required minlength="4" maxlength="40" pattern="[A-Za-z0-9][A-Za-z0-9\-/\.]{3,39}" autocomplete="off" />
+                    </div>
+                    <div class="oex-field">
+                        <label for="oex-issuer-@Model.BidId" class="form-label">Issuing bank or party</label>
+                        <input id="oex-issuer-@Model.BidId" class="form-control" type="text" name="IssuerName" required minlength="3" maxlength="150" />
+                    </div>
+                    <div class="oex-field">
+                        <label for="oex-amount-@Model.BidId" class="form-label">Amount@(currency.Length > 0 ? " (" + currency + ")" : "")</label>
+                        <input id="oex-amount-@Model.BidId" class="form-control" type="number" name="Amount" required min="0.01" max="9999999999.99" step="0.01" inputmode="decimal" />
+                    </div>
+                    <div class="oex-field">
+                        <label for="oex-months-@Model.BidId" class="form-label">Duration (months)</label>
+                        <input id="oex-months-@Model.BidId" class="form-control" type="number" name="DurationMonths" required min="1" max="120" step="1" inputmode="numeric" />
+                    </div>
+                    <div class="oex-field">
+                        <label for="oex-issued-@Model.BidId" class="form-label">Issue date</label>
+                        <input id="oex-issued-@Model.BidId" class="form-control" type="date" name="IssuedOn" required min="@today.AddYears(-1).ToString("yyyy-MM-dd")" max="@today.ToString("yyyy-MM-dd")" />
+                    </div>
+                    <div class="oex-field oex-wide">
+                        <label for="oex-document-@Model.BidId" class="form-label">Guarantee document (PDF, up to 5 MB)</label>
+                        <input id="oex-document-@Model.BidId" class="form-control" type="file" name="Document" accept="application/pdf,.pdf" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary oex-submit">Add guarantee</button>
+                </form>
+                <p class="form-text">A QR code is created for each guarantee. Scanning it opens the verification page. You can add up to @Model.MaxGuarantees guarantees.</p>
+            }
+
+            @if (Model.Guarantees.Count == 0)
+            {
+                <p class="empty-state mb-0">@(Model.SupplierView ? "No guarantee added yet." : "The supplier did not attach a guarantee.")</p>
+            }
+            else
+            {
+                <ul class="oex-guarantees" aria-label="Guarantees">
+                    @foreach (var g in Model.Guarantees)
+                    {
+                        var expired = g.IsExpired(today);
+                        var verifyUrl = Url.Action("Index", "GuaranteeVerification", new { number = g.GuaranteeNumber, code = g.VerifyCode });
+                        <li class="oex-guarantee">
+                            <img class="oex-qr" src="@Url.Action("Qr", "GuaranteeVerification", new { number = g.GuaranteeNumber, code = g.VerifyCode })" width="132" height="132" alt="QR code to verify guarantee @g.GuaranteeNumber" loading="lazy" />
+                            <div class="oex-g-body">
+                                <h3 class="h6 mb-1">@g.Purpose <span class="oex-kind">@g.KindLabel</span></h3>
+                                <dl class="oex-dl">
+                                    <div><dt>Number</dt><dd class="text-break">@g.GuaranteeNumber</dd></div>
+                                    <div><dt>@(g.Kind == OfferExtrasRules.Bank ? "Bank" : "Issued by")</dt><dd class="text-break">@g.IssuerName</dd></div>
+                                    <div><dt>Amount</dt><dd>@g.Amount.ToString("N2") @g.Currency</dd></div>
+                                    <div><dt>Duration</dt><dd>@g.DurationMonths months</dd></div>
+                                    <div><dt>Valid until</dt><dd>@g.ExpiresOn.ToString("dd MMM yyyy") <span class="oex-state @(expired ? "is-expired" : "is-valid")">@(expired ? "Expired" : "Valid")</span></dd></div>
+                                    @if (!Model.SupplierView || g.VerifyCount > 0)
+                                    {
+                                        <div><dt>Checked online</dt><dd>@g.VerifyCount @(g.VerifyCount == 1 ? "time" : "times")</dd></div>
+                                    }
+                                </dl>
+                                <div class="oex-actions">
+                                    <a class="btn btn-sm btn-outline-primary" href="@verifyUrl" target="_blank" rel="noopener">Verify online</a>
+                                    <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("GuaranteeDocument", "OfferExtras", new { id = g.Id })" target="_blank" rel="noopener">Document (PDF)</a>
+                                    <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Sheet", "OfferExtras", new { id = g.Id })">Sheet with QR (PDF)</a>
+                                    @if (Model.CanEdit)
+                                    {
+                                        <form asp-controller="OfferExtras" asp-action="DeleteGuarantee" method="post" class="d-inline" onsubmit="return confirm('Remove this guarantee?');">
+                                            <input type="hidden" name="id" value="@g.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</section>
