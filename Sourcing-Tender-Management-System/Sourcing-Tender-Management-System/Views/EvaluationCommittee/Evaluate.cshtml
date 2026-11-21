@@ -27,7 +27,10 @@
         <h1 class="manager-title mb-1">@tender.Title</h1>
         <div class="manager-intro">You are the <strong>@CommitteeWeighting.RoleLabel(Model.MyRole)</strong> on this tender.</div>
     </div>
-    <span class="badge fs-6">@System.Text.RegularExpressions.Regex.Replace(tender.Status.ToString(), "(?<=[a-z])(?=[A-Z])", " ")</span>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="badge fs-6">@System.Text.RegularExpressions.Regex.Replace(tender.Status.ToString(), "(?<=[a-z])(?=[A-Z])", " ")</span>
+        <partial name="_RecordQrCode" model='new RecordQrCodeViewModel(tender.Id, "TenderRole", tender.TenderNumber, TenderQrAudience.EvaluationCommittee)' />
+    </div>
 </div>
 @{
     // The member's own progress decides "Your turn"; the role alone would still say so after they acted.

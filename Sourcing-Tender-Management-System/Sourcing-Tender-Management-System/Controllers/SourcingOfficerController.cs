@@ -21,7 +21,8 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
     private IQueryable<ProcurementRequest> ReviewableRequests() => SourcingCommunicationPolicy.ReviewableRequestsFor(db, OfficerId);
     private IQueryable<ProcurementRequest> VisibleRequests() => SourcingCommunicationPolicy.VisibleRequestsFor(db, OfficerId);
     private bool CanReadOffers(Tender tender) =>
-        tender.Status is not (TenderStatus.Draft or TenderStatus.Published or TenderStatus.Cancelled) &&
+        tender.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation or
+            TenderStatus.AwaitingManagerReview or TenderStatus.AwaitingCommitteeDecision &&
         tender.SubmissionDeadline <= DateTime.UtcNow &&
         (tender.OpeningDate == null || tender.OpeningDate <= DateTime.UtcNow);
     private IQueryable<ProcurementRequest> CommunicationRequests() => SourcingCommunicationPolicy.RequestsForCommunication(db, OfficerId);
@@ -330,6 +331,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
     public async Task<IActionResult> Details(int id)
     {
         var tender = await MyTenders().AsNoTracking().Include(t => t.Items).Include(t => t.Category)
+            .Include(t => t.AwardedBid).ThenInclude(b => b!.Supplier)
             .Include(t => t.EvaluationCriteria).Include(t => t.DocumentRequirements)
             .Include(t => t.Invitations).ThenInclude(i => i.Supplier).ThenInclude(s => s.SupplierCategories)
             .Include(t => t.CommitteeMembers).ThenInclude(m => m.User)
@@ -360,9 +362,76 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
         return View(tender);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> UpdateSubmissionDeadline(
+        int id, DateTime? submissionDeadline, int clientUtcOffsetMinutes = 0)
+    {
+        var tender = await MyTenders().FirstOrDefaultAsync(t => t.Id == id);
+        if (tender == null) return NotFound();
+        if (tender.Status is not (TenderStatus.Draft or TenderStatus.Published))
+            return Conflict("The submission deadline can only be changed before bidding is closed.");
+
+        if (submissionDeadline == null)
+            ModelState.AddModelError(nameof(submissionDeadline), "Choose a submission deadline.");
+        else
+        {
+            var deadlineUtc = NormalizeClientDate(submissionDeadline.Value, clientUtcOffsetMinutes);
+            if (deadlineUtc <= DateTime.UtcNow)
+                ModelState.AddModelError(nameof(submissionDeadline), "Choose a future submission deadline using your device time.");
+            if (tender.OpeningDate is DateTime opening && deadlineUtc > opening)
+                ModelState.AddModelError(nameof(submissionDeadline), "The submission deadline cannot be after bid opening. Update bid opening first.");
+
+            if (ModelState.IsValid)
+            {
+                var previous = tender.SubmissionDeadline;
+                tender.SubmissionDeadline = deadlineUtc;
+                Log(tender, "UpdateSubmissionDeadline", WorkflowStage.Sourcing, WorkflowStage.Sourcing,
+                    $"Submission deadline changed from {previous:O} UTC to {deadlineUtc:O} UTC.");
+                await db.SaveChangesAsync();
+                TempData["Success"] = "Submission deadline updated.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
+
+        return FormError(id);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateBidOpening(
+        int id, DateTime? openingDate, int clientUtcOffsetMinutes = 0)
+    {
+        var tender = await MyTenders().FirstOrDefaultAsync(t => t.Id == id);
+        if (tender == null) return NotFound();
+        if (tender.Status is not (TenderStatus.Draft or TenderStatus.Published))
+            return Conflict("Bid opening can only be changed before bidding is closed.");
+
+        if (openingDate == null)
+            ModelState.AddModelError(nameof(openingDate), "Choose a bid opening date and time.");
+        else
+        {
+            var openingUtc = NormalizeClientDate(openingDate.Value, clientUtcOffsetMinutes);
+            if (openingUtc < tender.SubmissionDeadline)
+                ModelState.AddModelError(nameof(openingDate), "Bid opening cannot be before the submission deadline.");
+
+            if (ModelState.IsValid)
+            {
+                var previous = tender.OpeningDate;
+                tender.OpeningDate = openingUtc;
+                Log(tender, "UpdateBidOpening", WorkflowStage.Sourcing, WorkflowStage.Sourcing,
+                    $"Bid opening changed from {(previous is DateTime value ? value.ToString("O") + " UTC" : "not set")} to {openingUtc:O} UTC.");
+                await db.SaveChangesAsync();
+                TempData["Success"] = "Bid opening updated.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
+
+        return FormError(id);
+    }
+
     private async Task<List<TenderResponsibilityStatus>> ResponsibilityStatuses(Tender tender, TenderResultFlow.Step resultStep)
     {
         var result = new List<TenderResponsibilityStatus>();
+        if (tender.Status is TenderStatus.Awarded or TenderStatus.Cancelled) return result;
         var members = tender.CommitteeMembers.Where(m => m.CommitteeType == CommitteeType.Evaluation && m.RoleType != null)
             .GroupBy(m => m.RoleType!.Value).ToDictionary(g => g.Key, g => g.First());
         string Person(CommitteeMemberRole role) => members.TryGetValue(role, out var member)
@@ -924,6 +993,11 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             form.OpeningDate = DateTime.SpecifyKind(opening, DateTimeKind.Unspecified)
                 .AddMinutes(clientUtcOffsetMinutes);
     }
+    private static DateTime NormalizeClientDate(DateTime value, int clientUtcOffsetMinutes) =>
+        DateTime.SpecifyKind(
+            DateTime.SpecifyKind(value, DateTimeKind.Unspecified)
+                .AddMinutes(Math.Clamp(clientUtcOffsetMinutes, -840, 840)),
+            DateTimeKind.Utc);
     private async Task LoadCategories() => ViewBag.Categories = new SelectList(await db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync(), "Id", "Name");
     private async Task<IActionResult> InvalidTender(SourcingTenderForm form, ProcurementRequest? request = null)
     { await LoadCategories(); ViewBag.Request = request; return View("TenderForm", form); }

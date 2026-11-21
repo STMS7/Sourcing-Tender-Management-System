@@ -33,6 +33,7 @@
             </div>
         </div>
         <div class="actions">
+            <partial name="_RecordQrCode" model='new RecordQrCodeViewModel(Model.TenderId, "TenderRole", Model.Tender.TenderNumber, TenderQrAudience.Supplier)' />
             <a asp-action="Report" asp-route-id="@Model.Id" class="btn btn-outline-primary">View report / print</a>
             <a asp-action="Export" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Download CSV</a>
         </div>

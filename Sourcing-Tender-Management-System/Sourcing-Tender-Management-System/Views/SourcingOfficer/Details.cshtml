@@ -16,6 +16,9 @@
     var history = (List<WorkflowTransition>)ViewBag.History;
     var handoff = (SourcingEvaluationReadiness)ViewBag.Handoff;
     var responsibilityStatuses = (List<TenderResponsibilityStatus>)(ViewBag.ResponsibilityStatuses ?? new List<TenderResponsibilityStatus>());
+    var terminal = Model.Status is TenderStatus.Awarded or TenderStatus.Cancelled;
+    var awardedBid = Model.AwardedBid ?? Model.EvaluationReports.OrderByDescending(r => r.Round).Select(r => r.RecommendedBid).FirstOrDefault(b => b != null);
+    var finalisedAt = history.FirstOrDefault(h => h.Action is WorkflowAction.Awarded or WorkflowAction.Rejected)?.CreatedAt;
     var agreedWeights = Sourcing_Tender_Management_System.Services.CommitteeWeighting.Agree(
         Sourcing_Tender_Management_System.Services.CommitteeWeighting.ReadProposals(Model.EvaluationCriteria));
     var preparationReasons = (List<string>)(ViewBag.PreparationWaitingReasons ?? new List<string>());
@@ -24,7 +27,8 @@
         Model.SubmissionDeadline > DateTime.UtcNow && (Model.OpeningDate == null || Model.OpeningDate >= Model.SubmissionDeadline);
     var canReadOffers = (bool)ViewBag.CanReadOffers;
     var canClarify = Model.Status is TenderStatus.Closed or TenderStatus.UnderEvaluation;
-    var showWorkflowBar = draft || Model.Status == TenderStatus.Published || canReadOffers || resultActionLabel != null;
+    var canEditSchedule = Model.Status is TenderStatus.Draft or TenderStatus.Published;
+    var showWorkflowBar = !terminal && (draft || Model.Status == TenderStatus.Published || canReadOffers || resultActionLabel != null);
     var longTerms = (Model.TermsAndConditions?.Length ?? 0) > 450;
     // Status colours are never the only signal: every chip also carries the status text.
     string Tone(string status) => status switch {
@@ -55,7 +59,10 @@
             <h1>@Model.Title</h1>
             <p class="od-ref"><span class="od-chip" data-tone="@Tone(Model.Status.ToString())">@Words(Model.Status.ToString())</span><span>@Model.Category.Name</span></p>
         </div>
-        <a class="btn btn-outline-secondary" asp-action="Tenders">Back to my tenders</a>
+        <div class="actions">
+            <partial name="_RecordQrCode" model='new RecordQrCodeViewModel(Model.Id, "TenderRole", Model.TenderNumber, TenderQrAudience.SourcingOfficer)' />
+            <a class="btn btn-outline-secondary" asp-action="Tenders">Back to my tenders</a>
+        </div>
     </header>
 
     <nav class="od-tabs od-tabs-top" role="tablist" aria-label="Tender sections" data-od-tabs hidden>
@@ -134,13 +141,69 @@
     }
 
     @if (Model.Status == TenderStatus.Published) { <p class="od-note">Offers remain sealed. After the deadline, close bidding to begin compliance review. Suppliers must be prevented from submitting after the deadline.</p> }
-    @if (!draft && !preApproved) {
+    @if (!terminal && !draft && !preApproved) {
         <p class="alert alert-warning od-warning" role="note"><strong>Historical tender.</strong> This historical tender has no verified approval recorded before publication. Do not change weights after receiving offers. Resolve it through the team's documented procedure before evaluation.</p>
     }
 
+    @if (Model.Status == TenderStatus.Awarded) {
+    <section class="od-final-result" aria-labelledby="final-result-title">
+        <div class="od-final-mark" aria-hidden="true">✓</div>
+        <div class="od-final-copy">
+            <span class="od-owner-kicker">Final result</span>
+            <h2 id="final-result-title">Tender awarded</h2>
+            @if (awardedBid != null) {
+                <p><strong>@awardedBid.Supplier.CompanyName</strong> is the selected supplier for this tender.</p>
+            } else {
+                <p>The final award is complete. The winning bid is recorded in the committee report.</p>
+            }
+        </div>
+        @if (awardedBid != null) {
+        <dl class="od-final-facts">
+            <div><dt>Awarded amount</dt><dd>@awardedBid.TotalAmount.ToString("N2") @awardedBid.Currency</dd></div>
+            <div><dt>Finalised</dt><dd>@if (finalisedAt is DateTime awardedAt) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(awardedAt, DateTimeKind.Utc).ToString("O")">@awardedAt.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>Completed</span> }</dd></div>
+        </dl>
+        }
+    </section>
+    }
+    else if (Model.Status == TenderStatus.Cancelled) {
+    <section class="od-final-result is-cancelled" aria-labelledby="final-result-title">
+        <div class="od-final-mark" aria-hidden="true">×</div><div class="od-final-copy"><span class="od-owner-kicker">Final result</span><h2 id="final-result-title">Tender closed without an award</h2><p>The final decision is complete. No supplier was selected.</p></div>
+    </section>
+    }
+
     <ul class="od-stats" aria-label="Tender summary">
-        <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconClock + svgClose)</span><span class="od-stat-label">Submission deadline</span><strong class="od-stat-value"><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></strong><span class="od-stat-note">Shown in your device time</span></li>
-        <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconOpen + svgClose)</span><span class="od-stat-label">Bid opening</span><strong class="od-stat-value">@if (Model.OpeningDate is DateTime openingDate) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(openingDate, DateTimeKind.Utc).ToString("O")">@openingDate.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</strong><span class="od-stat-note">Shown in your device time</span></li>
+        <li class="od-stat-editable">
+            <span class="od-stat-icon">@Html.Raw(svgOpen + IconClock + svgClose)</span><span class="od-stat-label">Submission deadline</span>
+            @if (canEditSchedule) { <button class="od-stat-edit" type="button" data-bs-toggle="collapse" data-bs-target="#edit-submission-deadline" aria-expanded="false" aria-controls="edit-submission-deadline">Edit</button> }
+            <strong class="od-stat-value"><time class="device-local-time" datetime="@DateTime.SpecifyKind(Model.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@Model.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></strong><span class="od-stat-note">Shown in your device time</span>
+            @if (canEditSchedule) {
+            <div class="collapse od-stat-editor" id="edit-submission-deadline">
+                <form asp-action="UpdateSubmissionDeadline" method="post">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <input type="hidden" name="clientUtcOffsetMinutes" value="0" />
+                    <label for="submission-deadline-input">New submission deadline (device time)</label>
+                    <input id="submission-deadline-input" name="submissionDeadline" type="datetime-local" class="form-control form-control-sm" value="@Model.SubmissionDeadline.ToString("yyyy-MM-ddTHH:mm")" data-device-local-input required />
+                    <div class="od-stat-editor-actions"><button class="btn btn-primary btn-sm" type="submit">Save</button><button class="btn btn-link btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#edit-submission-deadline">Cancel</button></div>
+                </form>
+            </div>
+            }
+        </li>
+        <li class="od-stat-editable">
+            <span class="od-stat-icon">@Html.Raw(svgOpen + IconOpen + svgClose)</span><span class="od-stat-label">Bid opening</span>
+            @if (canEditSchedule) { <button class="od-stat-edit" type="button" data-bs-toggle="collapse" data-bs-target="#edit-bid-opening" aria-expanded="false" aria-controls="edit-bid-opening">Edit</button> }
+            <strong class="od-stat-value">@if (Model.OpeningDate is DateTime openingDate) { <time class="device-local-time" datetime="@DateTime.SpecifyKind(openingDate, DateTimeKind.Utc).ToString("O")">@openingDate.ToString("dd MMM yyyy HH:mm") UTC</time> } else { <span>After deadline and closure</span> }</strong><span class="od-stat-note">Shown in your device time</span>
+            @if (canEditSchedule) {
+            <div class="collapse od-stat-editor" id="edit-bid-opening">
+                <form asp-action="UpdateBidOpening" method="post">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <input type="hidden" name="clientUtcOffsetMinutes" value="0" />
+                    <label for="bid-opening-input">New bid opening (device time)</label>
+                    <input id="bid-opening-input" name="openingDate" type="datetime-local" class="form-control form-control-sm" value="@(Model.OpeningDate?.ToString("yyyy-MM-ddTHH:mm"))" data-device-local-input required />
+                    <div class="od-stat-editor-actions"><button class="btn btn-primary btn-sm" type="submit">Save</button><button class="btn btn-link btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#edit-bid-opening">Cancel</button></div>
+                </form>
+            </div>
+            }
+        </li>
         <li><span class="od-stat-icon">@Html.Raw(svgOpen + IconCoin + svgClose)</span><span class="od-stat-label">Estimated value</span><strong class="od-stat-value">@Model.EstimatedValue.ToString("N2")</strong><span class="od-stat-note">As entered for this tender</span></li>
     </ul>
 
@@ -285,13 +348,13 @@
             @if (ViewBag.EvaluationSentAt is DateTime sentAt) {
                 <p role="status">Sent to the evaluation committee on <strong>@sentAt.ToString("dd MMM yyyy HH:mm") UTC</strong>. Assigned technical and financial members receive a link to their evaluation page.</p>
             }
-            <div class="od-eval-flow"><span>Current stage</span><strong>@Words(Model.Status.ToString())</strong><p>Evaluation committee → Sourcing manager → Top Committee</p></div>
+            <div class="od-eval-flow"><span>Current stage</span><strong>@Words(Model.Status.ToString())</strong><p>@(terminal ? "Final decision completed — this tender is read-only." : "Evaluation committee → Sourcing manager → Top Committee")</p></div>
         </article>
 
         @if (ViewBag.ResultReport is EvaluationReport resultReport && ViewBag.ResultStep is Sourcing_Tender_Management_System.Services.TenderResultFlow.Step resultStep) {
         <section class="od-card od-result" aria-labelledby="result-cycle-heading">
         <header class="od-card-head"><h2 id="result-cycle-heading">Result cycle — report round @resultReport.Round</h2></header>
-        <p>Chosen bid: <strong>@resultReport.RecommendedBid?.Supplier.CompanyName (@resultReport.RecommendedBid?.BidNumber)</strong></p>
+        <p>Selected supplier: <strong>@resultReport.RecommendedBid?.Supplier.CompanyName</strong></p>
         @switch (resultStep) {
             case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.AtOfficerToForward:
                 <p>The evaluation committee sent you its report and chosen bid. Forward it to the sourcing manager.</p>
@@ -322,7 +385,13 @@
                 <button type="submit" class="btn btn-outline-primary">Send back to evaluation committee</button></form>
                 break;
             case Sourcing_Tender_Management_System.Services.TenderResultFlow.Step.Done:
-                <p role="status">This round is finished: the result was sent to the suppliers, or the tender went back to the committee.</p>
+                @if (Model.Status == TenderStatus.Awarded && awardedBid != null) {
+                    <p role="status">Final award completed. <strong>@awardedBid.Supplier.CompanyName</strong> was selected for @awardedBid.TotalAmount.ToString("N2") @awardedBid.Currency. The result was sent to the suppliers.</p>
+                } else if (Model.Status == TenderStatus.Cancelled) {
+                    <p role="status">The final decision is complete. The tender was closed without an award and the suppliers were notified.</p>
+                } else {
+                    <p role="status">This result round is complete.</p>
+                }
                 break;
         }
         </section>
@@ -336,7 +405,7 @@
             <li>
                 <div class="od-report-head"><strong>Report round @report.Round</strong><span class="od-chip" data-tone="@Tone(report.Status.ToString())">@Words(report.Status.ToString())</span><span class="od-muted">@(report.SubmittedAt?.ToString("dd MMM yyyy HH:mm") ?? "Not submitted")</span></div>
                 @if (report.RecommendedBid is { } chosenBid) {
-                <p class="mb-0">Chosen bid: <strong>@chosenBid.Supplier.CompanyName (@chosenBid.BidNumber)</strong> · @chosenBid.TotalAmount.ToString("N2") @chosenBid.Currency</p>
+                <p class="mb-0">Selected supplier: <strong>@chosenBid.Supplier.CompanyName</strong> · @chosenBid.TotalAmount.ToString("N2") @chosenBid.Currency</p>
                 }
                 @if (!string.IsNullOrWhiteSpace(report.Summary)) {
                 <details class="od-more"><summary>Committee report round @report.Round</summary><pre class="preserve-lines">@report.Summary</pre>
