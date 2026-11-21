@@ -54,6 +54,7 @@ namespace Sourcing_Tender_Management_System
             builder.Services.AddControllersWithViews();
             builder.Services.AddTopCommittee();
             builder.Services.AddBiometrics(builder.Configuration);
+            builder.Services.AddOfferExtras();
             builder.Services.AddBidAnalysisAssistant(builder.Configuration);
             builder.Services.Configure<StaffNetworkOptions>(builder.Configuration.GetSection("StaffNetwork"));
             builder.Services.Configure<GoogleMapsOptions>(builder.Configuration.GetSection("GoogleMaps"));
