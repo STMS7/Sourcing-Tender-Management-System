@@ -1,16 +1,33 @@
 @model Sourcing_Tender_Management_System.Models.RecordQrCodeViewModel
 @{
-    var qrAction = Model.Kind == "Tender" ? "Tender" : "PurchaseRequest";
-    var pdfAction = Model.Kind == "Tender" ? "TenderPdf" : "PurchaseRequestPdf";
-    var targetUrl = Url.Action(pdfAction, "QrCodes", new { id = Model.Id }, Context.Request.Scheme, Context.Request.Host.Value);
+    var roleReport = Model.Audience is not null;
+    var qrAction = roleReport ? "TenderRole" : Model.Kind == "Tender" ? "Tender" : "PurchaseRequest";
+    var pdfAction = roleReport ? "OpenTenderRolePdf" : Model.Kind == "Tender" ? "TenderPdf" : "PurchaseRequestPdf";
+    var route = roleReport ? new { id = Model.Id, audience = Model.Audience } : (object)new { id = Model.Id };
+    var qrUrl = Url.Action(qrAction, "QrCodes", route);
+    var pdfUrl = Url.Action(pdfAction, "QrCodes", route);
+    var downloadUrl = Url.Action(qrAction, "QrCodes", roleReport
+        ? new { id = Model.Id, audience = Model.Audience, download = true }
+        : (object)new { id = Model.Id, download = true });
+    var modalId = $"record-qr-{Model.Kind}-{Model.Id}-{Model.Audience}".ToLowerInvariant();
 }
-<section class="card my-4" aria-label="QR code for @Model.Reference">
-    <div class="card-body d-flex flex-wrap align-items-center gap-4">
-        <img src="@Url.Action(qrAction, "QrCodes", new { id = Model.Id })" width="200" height="200" alt="QR code linking to a PDF for @Model.Reference" />
-        <div class="flex-grow-1">
-            <h2 class="h5">Printable record</h2>
-            <p class="text-muted mb-2">Scan to open a live PDF with the latest record details and the Source Officer watermark. No sign-in is required.</p>
-            <a class="btn btn-outline-primary" asp-area="" asp-controller="QrCodes" asp-action="@qrAction" asp-route-id="@Model.Id" asp-route-download="true">Download QR (PNG)</a>
+<button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#@modalId">
+    QR code
+</button>
+<div class="modal fade record-qr-modal" id="@modalId" tabindex="-1" aria-labelledby="@modalId-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header">
+            <div><h2 class="modal-title fs-5" id="@modalId-title">Live PDF QR code</h2><p class="small text-muted mb-0">@Model.Reference · @(Model.Audience?.ToString() ?? Model.Kind)</p></div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-    </div>
-</section>
+        <div class="modal-body text-center">
+            <img src="@qrUrl" width="260" height="260" class="img-fluid" alt="QR code linking to the live PDF for @Model.Reference" />
+            <p class="text-muted mt-3 mb-2">Anyone who scans this QR can open the latest live PDF without signing in. Share it only with the intended participants.</p>
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                <a class="btn btn-primary" href="@pdfUrl" target="_blank" rel="noopener">Open live PDF</a>
+                <a class="btn btn-outline-secondary" href="@downloadUrl">Download QR</a>
+            </div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+    </div></div>
+</div>

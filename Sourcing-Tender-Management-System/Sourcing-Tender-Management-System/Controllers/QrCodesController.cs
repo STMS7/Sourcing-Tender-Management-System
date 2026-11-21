@@ -1,6 +1,9 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
@@ -13,17 +16,22 @@ using Sourcing_Tender_Management_System.Services;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
-// Separate read-only feature. Reuse the officer workspace's record access policy.
-[Authorize(Roles = "ProcurementOfficer,SourcingOfficer")]
+// QR images are issued only from authorised workspaces. Their signed PDF targets are bearer links.
+[Authorize]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public class QrCodesController(ApplicationDbContext db, IWebHostEnvironment environment) : Controller
+public class QrCodesController(ApplicationDbContext db, IWebHostEnvironment environment,
+    IDataProtectionProvider protection, RoleTenderPdfService roleTenderPdfs) : Controller
 {
+    private readonly IDataProtector tenderGrantProtector = protection.CreateProtector("Zaytouna.LiveTenderQr.v1");
+    private sealed record TenderQrGrant(int TenderId, TenderQrAudience Audience, int? SupplierId);
+
     static QrCodesController()
     {
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
     [HttpGet]
+    [Authorize(Roles = "ProcurementOfficer,SourcingOfficer")]
     public async Task<IActionResult> Tender(int id, bool download = false)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -34,6 +42,7 @@ public class QrCodesController(ApplicationDbContext db, IWebHostEnvironment envi
     }
 
     [HttpGet]
+    [Authorize(Roles = "ProcurementOfficer,SourcingOfficer")]
     public async Task<IActionResult> PurchaseRequest(int id, bool download = false)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -43,8 +52,83 @@ public class QrCodesController(ApplicationDbContext db, IWebHostEnvironment envi
         return ImageFor(nameof(PurchaseRequestPdf), id, "purchase-request", download);
     }
 
-    // The QR is intentionally shareable. It opens a fresh PDF built from the latest database values.
+    [HttpGet]
+    public async Task<IActionResult> TenderRole(int id, TenderQrAudience audience, bool download = false)
+    {
+        var grant = await IssueGrant(id, audience);
+        if (grant is null) return NotFound();
+        var token = tenderGrantProtector.Protect(JsonSerializer.Serialize(grant));
+        var target = Url.Action(nameof(TenderRolePdf), "QrCodes", new { token }, Request.Scheme, Request.Host.Value);
+        if (target is null) return Problem("The live PDF URL could not be generated.");
+        return QrImage(target, $"{audience.ToString().ToLowerInvariant()}-{id}-qr", download);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> OpenTenderRolePdf(int id, TenderQrAudience audience)
+    {
+        var grant = await IssueGrant(id, audience);
+        if (grant is null) return NotFound();
+        var token = tenderGrantProtector.Protect(JsonSerializer.Serialize(grant));
+        return RedirectToAction(nameof(TenderRolePdf), new { token });
+    }
+
     [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> TenderRolePdf(string token)
+    {
+        TenderQrGrant? grant;
+        try
+        {
+            grant = JsonSerializer.Deserialize<TenderQrGrant>(tenderGrantProtector.Unprotect(token));
+        }
+        catch (Exception exception) when (exception is CryptographicException or JsonException)
+        {
+            return NotFound();
+        }
+        if (grant is null || grant.TenderId <= 0 || !Enum.IsDefined(grant.Audience)) return NotFound();
+        var result = await roleTenderPdfs.CreateAsync(grant.TenderId, grant.Audience, grant.SupplierId);
+        if (result is null) return NotFound();
+        Response.Headers.ContentDisposition = $"inline; filename={SafeFilePart(result.Value.Reference)}-{grant.Audience}.pdf";
+        return File(result.Value.Pdf, "application/pdf");
+    }
+
+    private async Task<TenderQrGrant?> IssueGrant(int tenderId, TenderQrAudience audience)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId)) return null;
+        var tenderExists = await db.Tenders.AsNoTracking().AnyAsync(t => t.Id == tenderId);
+        if (!tenderExists) return null;
+
+        switch (audience)
+        {
+            case TenderQrAudience.SourcingOfficer:
+                if (!User.IsInRole("SourcingOfficer") && !User.IsInRole("ProcurementOfficer")) return null;
+                if (!await SourcingCommunicationPolicy.TendersFor(db, userId).AsNoTracking().AnyAsync(t => t.Id == tenderId)) return null;
+                return new(tenderId, audience, null);
+            case TenderQrAudience.SourcingManager:
+                if (!User.IsInRole("SourcingManager") || !await db.EvaluationReports.AnyAsync(r => r.TenderId == tenderId)) return null;
+                return new(tenderId, audience, null);
+            case TenderQrAudience.EvaluationCommittee:
+                if (!User.IsInRole("TechnicalRepresentative") && !User.IsInRole("FinancialRepresentative") &&
+                    !User.IsInRole("SourcingManager") && !User.IsInRole("DepartmentRepresentative")) return null;
+                if (!await db.TenderCommitteeMembers.AnyAsync(m => m.TenderId == tenderId && m.UserId == userId)) return null;
+                return new(tenderId, audience, null);
+            case TenderQrAudience.TopCommittee:
+                if (!User.IsInRole("TopCommittee")) return null;
+                return new(tenderId, audience, null);
+            case TenderQrAudience.Supplier:
+                if (!User.IsInRole("Supplier")) return null;
+                var supplierId = await db.Users.Where(u => u.Id == userId).Select(u => u.SupplierId).SingleOrDefaultAsync();
+                if (supplierId is null || !await db.TenderInvitations.AnyAsync(i => i.TenderId == tenderId && i.SupplierId == supplierId) &&
+                    !await db.Bids.AnyAsync(b => b.TenderId == tenderId && b.SupplierId == supplierId)) return null;
+                return new(tenderId, audience, supplierId);
+            default:
+                return null;
+        }
+    }
+
+    // The QR is intentionally shareable. It opens a fresh PDF built from the latest database values.
+    [Authorize(Roles = "ProcurementOfficer,SourcingOfficer")]
     [HttpGet]
     public async Task<IActionResult> TenderPdf(int id)
     {
@@ -101,10 +185,16 @@ public class QrCodesController(ApplicationDbContext db, IWebHostEnvironment envi
         // Url.Action includes the current scheme, host and application path base.
         var target = Url.Action(action, "QrCodes", new { id }, Request.Scheme, Request.Host.Value);
         if (target is null) return Problem("The detail-page URL could not be generated.");
+        return QrImage(target, $"{prefix}-{id}-qr", download);
+    }
+
+    private static IActionResult QrImage(string target, string fileName, bool download)
+    {
         using var data = QRCodeGenerator.GenerateQrCode(target, QRCodeGenerator.ECCLevel.Q);
         using var renderer = new PngByteQRCode(data);
         var png = renderer.GetGraphic(8);
-        return download ? File(png, "image/png", $"{prefix}-{id}-qr.png") : File(png, "image/png");
+        return download ? new FileContentResult(png, "image/png") { FileDownloadName = fileName + ".png" }
+            : new FileContentResult(png, "image/png");
     }
 
     private static byte[] CreateTenderPdf(Tender tender, string officerName, byte[] logo) => Document.Create(document =>

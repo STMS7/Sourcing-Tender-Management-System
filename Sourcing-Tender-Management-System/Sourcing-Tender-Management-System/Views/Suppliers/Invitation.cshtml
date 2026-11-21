@@ -28,6 +28,7 @@
                 <span class="dp-num" title="@tender.TenderNumber">@tender.TenderNumber</span>
             </div>
         </div>
+        <div class="actions"><partial name="_RecordQrCode" model='new RecordQrCodeViewModel(tender.Id, "TenderRole", tender.TenderNumber, TenderQrAudience.Supplier)' /></div>
     </div>
 
     @if (TempData["SupplierNotice"] is string notice) { <div class="alert alert-success" role="status">@notice</div> }

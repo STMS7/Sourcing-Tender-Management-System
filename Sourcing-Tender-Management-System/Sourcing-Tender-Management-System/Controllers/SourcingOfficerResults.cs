@@ -18,7 +18,9 @@ public partial class SourcingOfficerController
     private async Task<(EvaluationReport? Report, Step Step)> CurrentResultStep(int tenderId)
     {
         var report = await LatestReport(tenderId);
-        return report == null ? (null, Step.None) : (report, await StepOf(db, report));
+        if (report == null) return (null, Step.None);
+        if (report.Tender.Status is TenderStatus.Awarded or TenderStatus.Cancelled) return (report, Step.Done);
+        return (report, await StepOf(db, report));
     }
 
     private Task<EvaluationReport?> LatestReport(int tenderId) => db.EvaluationReports

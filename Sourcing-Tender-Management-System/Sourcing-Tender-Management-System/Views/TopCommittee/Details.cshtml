@@ -22,8 +22,9 @@
     </div>
     @if (Model.MyVote is not null)
     {
-        <div class="actions"><a class="btn btn-outline-primary" asp-action="Meeting" asp-route-id="@Model.TenderId">Committee meeting</a></div>
+        <div class="actions"><partial name="_RecordQrCode" model='new RecordQrCodeViewModel(Model.TenderId, "TenderRole", Model.TenderNumber, TenderQrAudience.TopCommittee)' /><a class="btn btn-outline-primary" asp-action="Meeting" asp-route-id="@Model.TenderId">Committee meeting</a></div>
     }
+    else { <partial name="_RecordQrCode" model='new RecordQrCodeViewModel(Model.TenderId, "TenderRole", Model.TenderNumber, TenderQrAudience.TopCommittee)' /> }
 </div>
 <partial name="_Nav" model="@("")" />
 @await Component.InvokeAsync("TenderJourney", new { tenderId = Model.TenderId, yourTurn = Model.MyVote == CommitteeDecision.Pending ? true : Model.MyVote != null ? false : (bool?)null, anchor = "vote" })

@@ -1,6 +1,6 @@
 @model SupplierOfferViewModel
 @{ ViewData["Title"] = "Submit Offer"; var tender = Model.Tender!; }
-<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Submit Offer</h1><a asp-action="Invitation" asp-route-id="@Model.InvitationId" class="btn btn-outline-secondary align-self-start">Back to invitation</a></div>
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h2">Submit Offer</h1><div class="actions"><partial name="_RecordQrCode" model='new RecordQrCodeViewModel(tender.Id, "TenderRole", tender.TenderNumber, TenderQrAudience.Supplier)' /><a asp-action="Invitation" asp-route-id="@Model.InvitationId" class="btn btn-outline-secondary align-self-start">Back to invitation</a></div></div>
 <div class="alert alert-info"><strong>@tender.TenderNumber — @tender.Title</strong><br />Submission deadline (device time): <time class="device-local-time" datetime="@DateTime.SpecifyKind(tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></div>
 <form asp-action="Offer" method="post" enctype="multipart/form-data">
     <input asp-for="InvitationId" type="hidden" />

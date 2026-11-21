@@ -9,7 +9,7 @@ else
         <table class="table"><caption class="visually-hidden">Sourcing tenders</caption>
             <thead><tr><th scope="col">Tender</th><th scope="col">Status</th><th scope="col">Deadline (UTC)</th><th scope="col">Action</th></tr></thead>
             <tbody>@foreach (var tender in Model) {
-                <tr><td><strong>@tender.Title</strong></td><td><span class="status">@tender.Status</span></td><td><time class="device-local-time" datetime="@DateTime.SpecifyKind(tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></td><td><a asp-action="Details" asp-route-id="@tender.Id">Manage <span class="visually-hidden">@tender.Title</span></a></td></tr>
+                <tr><td><strong>@tender.Title</strong></td><td><span class="status">@tender.Status</span></td><td><time class="device-local-time" datetime="@DateTime.SpecifyKind(tender.SubmissionDeadline, DateTimeKind.Utc).ToString("O")">@tender.SubmissionDeadline.ToString("dd MMM yyyy HH:mm") UTC</time></td><td><a asp-action="Details" asp-route-id="@tender.Id">@(tender.Status is TenderStatus.Awarded or TenderStatus.Cancelled ? "View result" : "Manage") <span class="visually-hidden">@tender.Title</span></a></td></tr>
             }</tbody>
         </table>
     </div>

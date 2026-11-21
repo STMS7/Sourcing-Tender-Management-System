@@ -16,7 +16,10 @@
         <h1 class="manager-title mb-1">@Model.Tender.TenderNumber — @Model.Tender.Title</h1>
         <div class="manager-intro">@Model.Tender.Category.Name · Submitted @(Model.SubmittedAt?.ToLocalTime().ToString("dd MMM yyyy, HH:mm") ?? "—") by @Model.PreparedByUser.FullName</div>
     </div>
-    <span class="badge text-bg-secondary fs-6">@Model.Status</span>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="badge text-bg-secondary fs-6">@Model.Status</span>
+        <partial name="_RecordQrCode" model='new RecordQrCodeViewModel(Model.TenderId, "TenderRole", Model.Tender.TenderNumber, TenderQrAudience.SourcingManager)' />
+    </div>
 </div>
 @await Component.InvokeAsync("TenderJourney", new { tenderId = Model.TenderId })
 

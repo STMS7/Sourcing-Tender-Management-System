@@ -14,6 +14,12 @@ document.addEventListener("submit", syncClientUtcOffset, true);
 
 // Display stored UTC dates using the visitor's device time zone.
 document.addEventListener("DOMContentLoaded", () => {
+    // Workspace containers use filters/transforms that create stacking contexts. Keep QR
+    // dialogs directly under body so Bootstrap's backdrop stays behind the active modal.
+    document.querySelectorAll(".record-qr-modal").forEach(modal => {
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    });
+
     document.querySelectorAll("time.device-local-time[datetime]").forEach(element => {
         const date = new Date(element.getAttribute("datetime"));
         if (!Number.isNaN(date.getTime())) {
