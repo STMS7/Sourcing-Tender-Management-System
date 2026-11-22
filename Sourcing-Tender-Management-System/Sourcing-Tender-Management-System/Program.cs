@@ -52,6 +52,7 @@ namespace Sourcing_Tender_Management_System
             });
             builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.SupplierFileStore>();
             builder.Services.AddScoped<RoleTenderPdfService>();
+            builder.Services.AddScoped<SupplierHistoryPdfService>();
             builder.Services.AddControllersWithViews();
             builder.Services.AddTopCommittee();
             builder.Services.AddBiometrics(builder.Configuration);

@@ -222,6 +222,7 @@ public class TopCommitteeService(ApplicationDbContext db) : ITopCommitteeService
                     return new ReviewBid
                     {
                         BidId = b.Id,
+                        SupplierId = b.SupplierId,
                         BidNumber = b.BidNumber,
                         SupplierName = b.Supplier.CompanyName,
                         TotalAmount = b.TotalAmount,

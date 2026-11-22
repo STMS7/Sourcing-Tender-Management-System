@@ -1,0 +1,83 @@
+@model SupplierHistoryPageViewModel
+@{
+    ViewData["Title"] = "Supplier history";
+    var selected = Model.SelectedSupplier;
+}
+
+<div class="manager-page supplier-history-page">
+    <header class="manager-page-heading supplier-history-head">
+        <div>
+            <p class="manager-kicker mb-1">Evaluation reference</p>
+            <h1 class="manager-title mb-1">Supplier history</h1>
+            <p class="manager-intro mb-0">A clear record of completed tender participation. Historical facts only - no supplier recommendation.</p>
+        </div>
+    </header>
+
+    <form method="get" class="card manager-card supplier-filter" aria-label="Supplier history filters">
+        <div class="supplier-filter-main">
+            <label class="form-label" for="supplierId">Supplier</label>
+            <select class="form-select" id="supplierId" name="supplierId" required>
+                <option value="">Choose a supplier</option>
+                @foreach (var supplier in Model.Suppliers)
+                {
+                    <option value="@supplier.Id" selected="@(Model.SupplierId == supplier.Id)">@supplier.CompanyName - @supplier.RegistrationNumber</option>
+                }
+            </select>
+        </div>
+        <div><label class="form-label" for="history-from">From</label><input class="form-control" id="history-from" type="date" name="from" value="@Model.From?.ToString("yyyy-MM-dd")" /></div>
+        <div><label class="form-label" for="history-to">To</label><input class="form-control" id="history-to" type="date" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" /></div>
+        <button class="btn btn-primary" type="submit">Show history</button>
+    </form>
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <p class="supplier-filter-note">Leave the dates empty to use the supplier approval date through today.</p>
+
+    @if (selected is null)
+    {
+        <section class="supplier-empty card manager-card"><span class="supplier-empty-icon" aria-hidden="true">⌁</span><h2>Select a supplier</h2><p>Choose a supplier above to see completed tenders, outcomes and awarded value.</p></section>
+    }
+    else
+    {
+        <section class="supplier-details" id="supplier-details" aria-labelledby="supplier-details-title">
+            <div class="supplier-details-head">
+                <div class="supplier-identity">
+                    <span class="supplier-avatar" aria-hidden="true">@selected.CompanyName.Trim()[..1].ToUpperInvariant()</span>
+                    <div>
+                        <p class="manager-kicker mb-1">Selected supplier</p>
+                        <h2 id="supplier-details-title" class="manager-title mb-0">@selected.CompanyName</h2>
+                    </div>
+                </div>
+                <div class="supplier-details-actions">
+                    <span class="supplier-period">@selected.PeriodFrom.ToString("dd MMM yyyy") - @selected.PeriodTo.ToString("dd MMM yyyy")</span>
+                    <a class="btn btn-outline-primary" asp-action="DownloadPdf" asp-route-supplierId="@selected.Id" asp-route-from="@selected.PeriodFrom.ToString("yyyy-MM-dd")" asp-route-to="@selected.PeriodTo.ToString("yyyy-MM-dd")"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2h9l4 4v16H6zM14 2v5h5M9 13h6M9 17h6" /></svg> Download PDF</a>
+                </div>
+            </div>
+
+            <section class="supplier-awarded-hero" aria-label="Total awarded value">
+                <div><span>Total value awarded</span><strong>@(selected.WonValues.Count == 0 ? "0" : string.Join("  ·  ", selected.WonValues.Select(v => $"{v.Amount:N2} {v.Currency}")))</strong><small>Winning offer value during the selected period</small></div>
+                <div class="supplier-win-seal"><strong>@selected.Wins</strong><span>win@(selected.Wins == 1 ? "" : "s")</span></div>
+            </section>
+
+            <ul class="supplier-summary" aria-label="Supplier history summary">
+                <li><span>Tenders entered</span><strong>@selected.TendersEntered</strong></li>
+                <li><span>Won</span><strong>@selected.Wins</strong></li>
+                @if (selected.NotWon > 0) { <li><span>Not selected</span><strong>@selected.NotWon</strong></li> }
+                @if (selected.CancelledTenders > 0) { <li><span>Cancelled tenders</span><strong>@selected.CancelledTenders</strong></li> }
+                @if (selected.DisqualifiedOrNonCompliant > 0) { <li><span>Disqualified</span><strong>@selected.DisqualifiedOrNonCompliant</strong></li> }
+            </ul>
+
+            <section class="card manager-card supplier-bids" aria-labelledby="supplier-bids-title">
+                <div class="card-header supplier-table-head"><div><p class="manager-kicker mb-1">Full record</p><h3 id="supplier-bids-title" class="h5 mb-0">Completed tender bids</h3></div><span>@selected.Bids.Count records</span></div>
+                @if (selected.Bids.Count == 0) { <p class="empty-state">No completed tender bids were found for this period.</p> }
+                else
+                {
+                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><caption class="visually-hidden">Completed tender bids for @selected.CompanyName</caption><thead><tr><th scope="col">Tender and bid</th><th scope="col">Submitted</th><th scope="col">Offer</th><th scope="col">Compliance</th><th scope="col">Outcome</th></tr></thead><tbody>
+                    @foreach (var bid in selected.Bids)
+                    {
+                        <tr data-search-item><td><strong class="d-block">@bid.TenderTitle</strong><span class="dp-num dp-num-wide">@bid.TenderNumber</span><span class="dp-meta mt-1">@bid.CategoryName · @bid.BidNumber</span></td><td class="text-nowrap">@bid.SubmittedAt.ToString("dd MMM yyyy")</td><td class="text-nowrap money">@bid.TotalAmount.ToString("N2") @bid.Currency</td><td><span class="supplier-outcome is-neutral">@bid.ComplianceStatus</span></td><td><span class="supplier-outcome @(bid.Won ? "is-won" : bid.TenderStatus == TenderStatus.Cancelled ? "is-cancelled" : "is-lost")">@bid.Outcome</span></td></tr>
+                    }
+                    </tbody></table></div>
+                }
+            </section>
+        </section>
+    }
+</div>

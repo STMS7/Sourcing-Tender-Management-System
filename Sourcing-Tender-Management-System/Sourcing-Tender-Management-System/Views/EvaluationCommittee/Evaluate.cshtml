@@ -155,7 +155,7 @@
 @foreach (var bid in Model.Bids) {
 
 <article data-search-item id="bid-@bid.Id" class="manager-bid ec-bid-card">
-<header class="ec-bid-head"><div><span class="manager-kicker">Supplier offer</span><h3>@bid.Supplier.CompanyName @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3></div><strong>@bid.TotalAmount.ToString("N2") @bid.Currency</strong></header>
+<header class="ec-bid-head"><div><span class="manager-kicker">Supplier offer</span><h3>@bid.Supplier.CompanyName @if (bid.Id == Model.AgreedBidId) { <span class="badge">Agreed</span> } else if (bid.Id == Model.MyChoiceBidId) { <span class="badge">Your choice</span> }</h3><a class="small fw-semibold" asp-controller="SupplierHistory" asp-action="Index" asp-route-supplierId="@bid.SupplierId" asp-fragment="supplier-details">View supplier history <span aria-hidden="true">→</span></a></div><strong>@bid.TotalAmount.ToString("N2") @bid.Currency</strong></header>
 <div class="ec-bid-facts"><span><small>Delivery</small><strong>@bid.DeliveryDays days</strong></span><span><small>Valid until</small><strong>@(bid.ValidUntil?.ToString("dd MMM yyyy") ?? "Not specified")</strong></span><span><small>Payment</small><strong>@bid.PaymentTerms</strong></span></div>
 <p class="preserve-lines ec-bid-summary">@bid.TechnicalSummary</p>
 <details class="ec-bid-details"><summary>View full offer details</summary><div class="ec-bid-details-body">
