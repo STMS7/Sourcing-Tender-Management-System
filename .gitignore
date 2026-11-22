@@ -6,4 +6,5 @@ obj/
 
 # Local supplier uploads
 **/App_Data/SupplierFiles/
+**/App_Data/OfferExtras/
 PrivateUploads/

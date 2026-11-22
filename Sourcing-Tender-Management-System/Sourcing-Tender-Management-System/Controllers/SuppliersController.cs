@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Services;
+using Sourcing_Tender_Management_System.Services.OfferExtras;
+using Sourcing_Tender_Management_System.Models.OfferExtras;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
@@ -176,7 +178,8 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         .Include(x => x.Tender).ThenInclude(x => x.DocumentRequirements).SingleOrDefaultAsync(x => x.Id == id && x.SupplierId == supplier!.Id);
 
     [HttpPost, RequestSizeLimit(30 * 1024 * 1024)]
-    public async Task<IActionResult> Offer(SupplierOfferViewModel model)
+    public async Task<IActionResult> Offer(SupplierOfferViewModel model,
+        [FromServices] OfferExtrasStore extras, [FromServices] OfferExtrasFiles extraFiles)
     {
         var invitation = await OfferInvitation(model.InvitationId);
         if (invitation is null) return NotFound();
@@ -201,12 +204,24 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
             if (!model.Files.Any(x => x.RequirementId == requirement.Id && x.File is not null)) ModelState.AddModelError("", $"Upload the required document: {requirement.DocumentType}.");
         foreach (var upload in model.Files.Where(x => x.File is not null))
             if (await files.ValidateAsync(upload.File!) is string error) ModelState.AddModelError("", error);
+        model.SamplePictures ??= [];
+        var sampleTypes = new List<OfferExtrasFiles.Detected>();
+        if (model.SamplePictures.Count > OfferExtrasRules.MaxSamples)
+            ModelState.AddModelError(nameof(model.SamplePictures), $"Choose up to {OfferExtrasRules.MaxSamples} sample pictures.");
+        foreach (var picture in model.SamplePictures.Take(OfferExtrasRules.MaxSamples))
+        {
+            var (type, error) = await OfferExtrasFiles.InspectImageAsync(picture);
+            if (type is null) ModelState.AddModelError(nameof(model.SamplePictures), error!);
+            else sampleTypes.Add(type);
+        }
         if (!ModelState.IsValid) return View(model);
         var totals = model.Items.Select(x => decimal.Round(x.UnitPrice * invitation.Tender.Items.Single(t => t.Id == x.TenderItemId).Quantity, 2, MidpointRounding.AwayFromZero)).ToArray();
+        model.TaxAmount = SupplierOfferPricing.Tax(totals.Sum());
         var total = totals.Sum() + model.TaxAmount + model.FeesAmount + model.ShippingAmount + model.InstallationAmount + model.MaintenanceAmount;
         if (total > 9999999999999999.99m) ModelState.AddModelError("", "The total exceeds the supported amount.");
         if (!ModelState.IsValid) return View(model);
         var saved = new List<string>();
+        var savedSamples = new List<string>();
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         try
         {
@@ -235,6 +250,14 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
                     DocumentType = requirements[upload.RequirementId].DocumentType });
             }
             db.Bids.Add(bid); await db.SaveChangesAsync();
+            for (var i = 0; i < model.SamplePictures.Count; i++)
+            {
+                var picture = model.SamplePictures[i];
+                var name = await extraFiles.SaveAsync(picture, sampleTypes[i]);
+                savedSamples.Add(name);
+                await extras.AddSampleAsync(bid.Id, name, Path.GetFileName(picture.FileName),
+                    sampleTypes[i].ContentType, picture.Length, null);
+            }
             db.Notifications.Add(new Notification { UserId = invitation.InvitedByUserId, Title = "Supplier offer submitted",
                 Message = $"An offer was submitted for {invitation.Tender.TenderNumber}.", Type = NotificationType.Information });
             Log("Submit", "Bid", bid.Id); await db.SaveChangesAsync(); await transaction.CommitAsync();
@@ -243,6 +266,7 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         catch (Exception ex)
         {
             await transaction.RollbackAsync(); foreach (var name in saved) files.Delete(name);
+            foreach (var name in savedSamples) extraFiles.Delete(name);
             logger.LogError(ex, "Supplier offer submission failed"); ModelState.AddModelError("", "The offer could not be saved. Refresh and try again."); return View(model);
         }
     }

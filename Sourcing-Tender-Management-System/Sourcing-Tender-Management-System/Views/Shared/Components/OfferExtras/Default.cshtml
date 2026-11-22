@@ -62,7 +62,7 @@
     </div>
 
     <div class="card manager-card mb-4">
-        <div class="card-header dp-split"><h2 class="h5 mb-0">Bank guarantees and legal warranties</h2><span class="badge">@Model.Guarantees.Count</span></div>
+        <div class="card-header dp-split"><h2 class="h5 mb-0">Bank guarantees, legal and standard warranties</h2><span class="badge">@Model.Guarantees.Count</span></div>
         <div class="card-body">
             @if (Model.CanEdit)
             {
@@ -78,6 +78,9 @@
                             <optgroup label="Legal warranty">
                                 @foreach (var p in OfferExtrasRules.LegalPurposes) { <option value="@p">@p</option> }
                             </optgroup>
+                            <optgroup label="Standard warranty">
+                                @foreach (var p in OfferExtrasRules.StandardPurposes) { <option value="@p">@p</option> }
+                            </optgroup>
                         </select>
                     </div>
                     <div class="oex-field">
@@ -90,7 +93,8 @@
                     </div>
                     <div class="oex-field">
                         <label for="oex-amount-@Model.BidId" class="form-label">Amount@(currency.Length > 0 ? " (" + currency + ")" : "")</label>
-                        <input id="oex-amount-@Model.BidId" class="form-control" type="number" name="Amount" required min="0.01" max="9999999999.99" step="0.01" inputmode="decimal" />
+                        <input id="oex-amount-@Model.BidId" class="form-control" type="number" name="Amount" required min="0" max="9999999999.99" step="0.01" inputmode="decimal" />
+                        <div class="form-text">Use zero for warranties without a monetary value. Bank guarantees require a positive amount.</div>
                     </div>
                     <div class="oex-field">
                         <label for="oex-months-@Model.BidId" class="form-label">Duration (months)</label>
@@ -102,11 +106,19 @@
                     </div>
                     <div class="oex-field oex-wide">
                         <label for="oex-document-@Model.BidId" class="form-label">Guarantee document (PDF, up to 5 MB)</label>
-                        <input id="oex-document-@Model.BidId" class="form-control" type="file" name="Document" accept="application/pdf,.pdf" required />
+                        <input id="oex-document-@Model.BidId" class="form-control" type="file" name="Document" accept="application/pdf,.pdf" />
+                        <div class="form-text">Required for bank guarantees; optional for legal and standard warranties.</div>
                     </div>
                     <button type="submit" class="btn btn-primary oex-submit">Add guarantee</button>
                 </form>
-                <p class="form-text">A QR code is created for each guarantee. Scanning it opens the verification page. You can add up to @Model.MaxGuarantees guarantees.</p>
+                <p class="form-text">Choose the purpose and duration to match the product or service. The QR code opens an independent simulation page to check STMS records and expiry; it does not verify real bank issuance. You can add up to @Model.MaxGuarantees guarantees.</p>
+                <div class="alert alert-info">
+                    <p>Demo bank account: <strong>STMS Demo Bank (fictional)</strong>. Create a sample PDF with QR verification. No real bank account is used.</p>
+                    <form asp-controller="OfferExtras" asp-action="AddDemoGuarantee" method="post">
+                        <input type="hidden" name="bidId" value="@Model.BidId" />
+                        <button type="submit" class="btn btn-outline-primary">Create demo bank guarantee</button>
+                    </form>
+                </div>
             }
 
             @if (Model.Guarantees.Count == 0)
@@ -137,7 +149,10 @@
                                 </dl>
                                 <div class="oex-actions">
                                     <a class="btn btn-sm btn-outline-primary" href="@verifyUrl" target="_blank" rel="noopener">Verify online</a>
-                                    <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("GuaranteeDocument", "OfferExtras", new { id = g.Id })" target="_blank" rel="noopener">Document (PDF)</a>
+                                    @if (!string.IsNullOrEmpty(g.StoredName))
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("GuaranteeDocument", "OfferExtras", new { id = g.Id })" target="_blank" rel="noopener">Document (PDF)</a>
+                                    }
                                     <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Sheet", "OfferExtras", new { id = g.Id })">Sheet with QR (PDF)</a>
                                     @if (Model.CanEdit)
                                     {

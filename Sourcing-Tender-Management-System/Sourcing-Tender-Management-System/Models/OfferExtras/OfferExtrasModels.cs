@@ -38,7 +38,12 @@ public class GuaranteeRow
     public DateTime CreatedAt { get; set; }
 
     public bool IsExpired(DateTime today) => ExpiresOn.Date < today.Date;
-    public string KindLabel => Kind == OfferExtrasRules.Bank ? "Bank guarantee" : "Legal warranty";
+    public string KindLabel => Kind switch
+    {
+        OfferExtrasRules.Bank => "Bank guarantee",
+        OfferExtrasRules.Legal => "Legal warranty",
+        _ => "Standard warranty"
+    };
 }
 
 /// <summary>What the guarantee form posts.</summary>
@@ -88,6 +93,7 @@ public static class OfferExtrasRules
 {
     public const string Bank = "Bank";
     public const string Legal = "Legal";
+    public const string Standard = "Standard";
     public const int MaxSamples = 8;
     public const int MaxGuarantees = 6;
     public const long MaxImageBytes = 3 * 1024 * 1024;
@@ -97,11 +103,14 @@ public static class OfferExtrasRules
         ["Bid bond", "Performance bond", "Advance-payment bond", "Maintenance bond"];
     public static readonly string[] LegalPurposes =
         ["Product warranty", "Service warranty", "Performance warranty"];
+    public static readonly string[] StandardPurposes =
+        ["Standard product warranty", "Standard service warranty"];
 
     public static string[] PurposesFor(string? kind) => kind switch
     {
         Bank => BankPurposes,
         Legal => LegalPurposes,
+        Standard => StandardPurposes,
         _ => []
     };
 
