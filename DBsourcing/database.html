@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive database documentation for the Zaytouna Sourcing Portal.">
+  <title>Zaytouna · Database design</title>
+  <link rel="stylesheet" href="database.css">
+  <script src="database-data.js" defer></script>
+  <script src="database.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#documentation">Skip to documentation</a>
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="brand"><span class="brand-symbol">Z</span><strong id="project-name">Zaytouna</strong><span>/</span><span>Technical library</span></div>
+      <span class="database-badge" id="database-badge"></span>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">The structure behind procurement</p>
+        <h1>Database design<span>.</span></h1>
+        <p id="project-description" class="lead"></p>
+        <div class="stores" id="stores"></div>
+      </div>
+      <div class="metrics" id="metrics" aria-label="Schema totals"></div>
+    </section>
+
+    <aside id="schema-provenance" class="provenance"></aside>
+
+    <main id="documentation">
+      <nav class="tabs" role="tablist" aria-label="Database documentation views">
+        <button class="tab active" id="tab-er" data-panel="er" role="tab" aria-selected="true"><span>01</span> ER diagram</button>
+        <button class="tab" id="tab-schema" data-panel="schema" role="tab" aria-selected="false"><span>02</span> Schema</button>
+        <button class="tab" id="tab-tables" data-panel="tables" role="tab" aria-selected="false"><span>03</span> Tables</button>
+        <button class="tab" id="tab-sql" data-panel="sql" role="tab" aria-selected="false"><span>04</span> SQL script</button>
+        <button class="tab" id="tab-rules" data-panel="rules" role="tab" aria-selected="false"><span>05</span> Rules</button>
+      </nav>
+
+      <section class="panel" id="panel-er" role="tabpanel" aria-labelledby="tab-er">
+        <div class="view-heading"><div><p class="eyebrow">Relationship overview</p><h2>How the workflow connects.</h2></div><p>Select a table to isolate its direct relationships.</p></div>
+        <div class="toolbar"><label>Domain <select id="group-filter"><option value="all">All domains</option></select></label><button id="clear-selection" type="button">Clear selection</button><span id="relation-status"></span></div>
+        <div id="er-content" class="diagram" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" id="panel-schema" role="tabpanel" aria-labelledby="tab-schema" hidden>
+        <div class="view-heading"><div><p class="eyebrow">Detailed structure</p><h2>Columns, keys and references.</h2></div><p>PK = primary key, FK = foreign key, UQ = unique.</p></div>
+        <div class="schema-toolbar">
+          <div class="schema-zoom" aria-label="Schema zoom controls">
+            <button id="schema-zoom-out" type="button" aria-label="Zoom out">−</button>
+            <input id="schema-zoom" type="range" min="20" max="100" step="5" value="50" aria-label="Schema zoom">
+            <button id="schema-zoom-in" type="button" aria-label="Zoom in">+</button>
+            <button id="schema-fit" type="button">Fit diagram</button>
+          </div>
+          <span id="schema-status" aria-live="polite">Select a table to highlight its relationships.</span>
+        </div>
+        <div class="schema-viewport" id="schema-viewport" tabindex="0" aria-label="Interactive database schema diagram">
+          <svg id="schema-content" role="img" aria-labelledby="schema-svg-title schema-svg-description"></svg>
+        </div>
+        <div id="schema-legend" class="schema-legend" aria-label="Schema domain legend"></div>
+      </section>
+
+      <section class="panel" id="panel-tables" role="tabpanel" aria-labelledby="tab-tables" hidden>
+        <div class="view-heading"><div><p class="eyebrow">The data dictionary</p><h2>Every table, in context.</h2></div><label class="search-label">Find a table <input id="table-search" type="search" placeholder="Tender, supplier, bid…"></label></div>
+        <div id="table-directory" class="directory"></div>
+        <div id="tables-content"></div>
+      </section>
+
+      <section class="panel" id="panel-sql" role="tabpanel" aria-labelledby="tab-sql" hidden>
+        <div class="view-heading"><div><p class="eyebrow">SQL Server DDL</p><h2>From model to definition.</h2></div><div class="button-row"><button id="copy-sql" type="button">Copy SQL</button><button class="primary" id="download-sql" type="button">Download .sql ↓</button></div></div>
+        <p class="notice">Presentation schema generated from the EF Core snapshot. Review migrations before using it in a real database.</p>
+        <p id="sql-status" class="status" aria-live="polite"></p>
+        <div class="code-frame"><div><span id="sql-filename"></span><span>Schema only · no application data</span></div><pre tabindex="0"><code id="sql-code"></code></pre></div>
+      </section>
+
+      <section class="panel" id="panel-rules" role="tabpanel" aria-labelledby="tab-rules" hidden>
+        <div class="view-heading"><div><p class="eyebrow">Integrity, explained</p><h2>What the design guarantees.</h2></div><p>Database constraints and application responsibilities are shown separately.</p></div>
+        <div id="rules-content"></div>
+      </section>
+    </main>
+
+    <footer><span id="footer-context"></span><span>Generated from <code>ApplicationDbContextModelSnapshot.cs</code></span></footer>
+  </div>
+  <noscript><p class="notice">Enable JavaScript to view this documentation.</p></noscript>
+</body>
+</html>

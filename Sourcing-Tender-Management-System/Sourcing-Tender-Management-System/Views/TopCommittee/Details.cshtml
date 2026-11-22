@@ -137,6 +137,7 @@
                         <span class="fw-semibold">@b.SupplierName</span>
                         @if (b.IsAwarded) { <span class="dp-status is-approved ms-1">Awarded</span> }
                         else if (b.IsRecommended) { <span class="dp-status is-returned ms-1">Recommended</span> }
+                        <a class="d-block small fw-semibold mt-1" asp-controller="SupplierHistory" asp-action="Index" asp-route-supplierId="@b.SupplierId" asp-fragment="supplier-details">View supplier history <span aria-hidden="true">→</span></a>
                         <span class="dp-num dp-num-wide" title="@b.BidNumber">@b.BidNumber</span>
                         <span class="dp-meta mt-1 d-flex flex-wrap align-items-center gap-2">@b.DocumentCount documents
                             @if (b.ComplianceDecision is { } c) { <partial name="_Badge" model="@c.ToString()" /> }</span>

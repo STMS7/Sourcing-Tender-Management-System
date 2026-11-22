@@ -18,7 +18,7 @@
     var isAdminArea = isAdmin && (controller is "Admin" or "AdminCatalog" or "AdminCommittee");
     var isProfile = (ViewContext.RouteData.Values["page"] as string)?.StartsWith("/Account/Manage") == true;
     // Department, clarification, messages and profile pages share the evaluation committee look.
-    var committeeLook = controller is "SourcingManager" or "EvaluationCommittee" or "Department" or "CycleChat" or "Messages" or "TopCommittee" or "Notifications" || isProfile;
+    var committeeLook = controller is "SourcingManager" or "EvaluationCommittee" or "SupplierHistory" or "Department" or "CycleChat" or "Messages" or "TopCommittee" or "Notifications" || isProfile;
 
     // The olive heritage skin (css/heritage.css) is only for inner pages. The admin area, sign-in and home
     // never get it, so they keep the look the team set.
@@ -87,6 +87,10 @@
     {
         links.Add(("Evaluation", Url.Action("Index", "EvaluationCommittee")!, IconGrid, controller == "EvaluationCommittee" && currentAction == "Index"));
         links.Add(("My tenders", Url.Action("Tenders", "EvaluationCommittee")!, IconScale, controller == "EvaluationCommittee" && currentAction != "Index"));
+    }
+    if (InRole("TechnicalRepresentative", "FinancialRepresentative", "SourcingManager", "DepartmentRepresentative", "TopCommittee"))
+    {
+        links.Add(("Supplier history", Url.Action("Index", "SupplierHistory")!, IconHistory, controller == "SupplierHistory"));
     }
     var tools = new List<(string Label, string Href, string Icon, bool Active)>();
     if (signedIn && !isOfficer && !isAdmin)
@@ -196,6 +200,10 @@
     }
     <link rel="stylesheet" href="~/Sourcing_Tender_Management_System.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/search.css" asp-append-version="true" />
+    @if (controller == "SupplierHistory")
+    {
+        <link rel="stylesheet" href="~/css/supplier-history.css" asp-append-version="true" />
+    }
     @if (controller == "Department")
     {
         <link rel="stylesheet" href="~/css/department-requests.css" asp-append-version="true" />

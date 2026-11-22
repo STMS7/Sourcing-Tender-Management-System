@@ -136,6 +136,7 @@ public class ReviewCriterion
 public class ReviewBid
 {
     public int BidId { get; set; }
+    public int SupplierId { get; set; }
     public string BidNumber { get; set; } = string.Empty;
     public string SupplierName { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
