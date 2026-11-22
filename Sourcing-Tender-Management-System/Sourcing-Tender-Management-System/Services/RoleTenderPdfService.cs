@@ -36,15 +36,10 @@ public class RoleTenderPdfService(ApplicationDbContext db, IWebHostEnvironment e
 
         var history = await db.WorkflowTransitions.AsNoTracking().Include(w => w.PerformedByUser)
             .Where(w => w.TenderId == tenderId).OrderByDescending(w => w.CreatedAt).Take(40).ToListAsync();
-        var analysisAudience = audience switch
-        {
-            TenderQrAudience.SourcingOfficer => BidAnalysisAudience.SourcingOfficer,
-            TenderQrAudience.TopCommittee => BidAnalysisAudience.TopCommittee,
-            _ => BidAnalysisAudience.EvaluationCommittee
-        };
-        var analyses = audience == TenderQrAudience.Supplier ? [] : await db.BidAnalyses.AsNoTracking()
+        // The AI analysis lives with the sourcing officer only, so only the officer's brief carries it.
+        var analyses = audience != TenderQrAudience.SourcingOfficer ? [] : await db.BidAnalyses.AsNoTracking()
             .Include(a => a.Bid).ThenInclude(b => b.Supplier)
-            .Where(a => a.Bid.TenderId == tenderId && a.ModelName == $"assistant/{analysisAudience}")
+            .Where(a => a.Bid.TenderId == tenderId && a.ModelName == $"assistant/{BidAnalysisAudience.SourcingOfficer}")
             .OrderByDescending(a => a.AnalyzedAt).ToListAsync();
         var logo = await File.ReadAllBytesAsync(Path.Combine(environment.WebRootPath, "images", "zaytouna-logo.png"));
         var pdf = Build(tender, history, analyses, audience, supplierId, logo);
@@ -91,7 +86,7 @@ public class RoleTenderPdfService(ApplicationDbContext db, IWebHostEnvironment e
                     AddBids(content, tender, audience);
                     AddCommittee(content, tender.CommitteeMembers.OrderBy(m => m.Role));
                     AddReports(content, tender.EvaluationReports.OrderByDescending(r => r.Round), audience);
-                    AddAnalysis(content, analyses);
+                    if (audience == TenderQrAudience.SourcingOfficer) AddAnalysis(content, analyses);
                     AddHistory(content, history, audience);
                 }
                 AddText(content, "Terms and conditions", tender.TermsAndConditions);

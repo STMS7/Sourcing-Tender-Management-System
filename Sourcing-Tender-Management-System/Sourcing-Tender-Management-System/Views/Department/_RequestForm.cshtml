@@ -36,7 +36,7 @@
                 <span class="form-text m-0">At least one, up to 30</span>
             </div>
             <div class="table-responsive"><table class="table align-middle mb-0 dp-items" id="itemsTable"><caption class="visually-hidden">Requested items</caption>
-            <thead><tr><th scope="col">Item name</th><th scope="col">Specifications</th><th scope="col" style="width:110px">Quantity</th><th scope="col" style="width:100px">Unit</th><th scope="col" style="width:140px">Unit price</th><th scope="col" class="text-end" style="width:120px">Total</th><th scope="col" style="width:56px"><span class="visually-hidden">Remove</span></th></tr></thead>
+            <thead><tr><th scope="col">Item name</th><th scope="col">Specifications</th><th scope="col" style="width:110px">Quantity</th><th scope="col" style="width:140px">Unit price</th><th scope="col" class="text-end" style="width:120px">Total</th><th scope="col" style="width:56px"><span class="visually-hidden">Remove</span></th></tr></thead>
             <tbody>
             @for (int i = 0; i < Model.Items.Count; i++)
             {
@@ -44,7 +44,6 @@
                     <td><input type="hidden" name="Items[@i].CategoryId" value="@rows[i].CategoryId" /><input name="Items[@i].ItemName" value="@rows[i].ItemName" class="form-control" maxlength="250" aria-label="Item name" /></td>
                     <td><input name="Items[@i].Specifications" value="@rows[i].Specifications" class="form-control" maxlength="2000" aria-label="Specifications" /></td>
                     <td><input name="Items[@i].Quantity" value="@rows[i].Quantity" type="number" step="0.001" min="0" class="form-control" aria-label="Quantity" /></td>
-                    <td><input name="Items[@i].Unit" value="@rows[i].Unit" class="form-control" maxlength="30" aria-label="Unit" placeholder="pcs" /></td>
                     <td><input name="Items[@i].EstimatedUnitPrice" value="@rows[i].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" aria-label="Estimated unit price" /></td>
                     <td class="text-end dp-line-total">0.00</td>
                     <td><button type="button" class="btn btn-outline-danger dp-remove" data-remove-item aria-label="Remove item">×</button></td>
@@ -85,7 +84,6 @@
 <td><input name="Items[__INDEX__].ItemName" class="form-control" maxlength="250" aria-label="Item name" /></td>
 <td><input name="Items[__INDEX__].Specifications" class="form-control" maxlength="2000" aria-label="Specifications" /></td>
 <td><input name="Items[__INDEX__].Quantity" type="number" step="0.001" min="0" class="form-control" value="0" aria-label="Quantity" /></td>
-<td><input name="Items[__INDEX__].Unit" class="form-control" maxlength="30" aria-label="Unit" placeholder="pcs" /></td>
 <td><input name="Items[__INDEX__].EstimatedUnitPrice" type="number" step="0.01" min="0" class="form-control" value="0" aria-label="Estimated unit price" /></td>
 <td class="text-end dp-line-total">0.00</td>
 <td><button type="button" class="btn btn-outline-danger dp-remove" data-remove-item aria-label="Remove item">×</button></td>

@@ -88,8 +88,10 @@
     }
 
     @if (showWorkflowBar) {
+    @* Only the evaluation committee is missing: say so, instead of pointing at a button that is hidden. *@
+    var committeeBlocks = preparing && preparationReasons.Count > 0 && publication.OfficerTasks.Count <= 1;
     <section class="od-workflow" aria-label="Tender workflow actions">
-        <div class="od-next-action"><span>Next step</span><strong>@(publication.Ready ? "Publish the tender" : publication.OfficerTasks.FirstOrDefault() ?? (draft ? "Waiting for evaluation preparation" : Words(Model.Status.ToString())))</strong></div>
+        <div class="od-next-action"><span>Next step</span><strong>@(publication.Ready ? "Publish the tender" : (committeeBlocks ? preparationReasons[0] : publication.OfficerTasks.FirstOrDefault()) ?? (draft ? "Waiting for evaluation preparation" : Words(Model.Status.ToString())))</strong></div>
         <div class="actions">
         @if (draft) {
             @if (preparing) {
@@ -100,6 +102,8 @@
             </form>
             } else if (publication.OfficerTasks.Any(t => t.Contains("supplier", StringComparison.OrdinalIgnoreCase))) {
                 <a class="btn btn-primary" href="#suppliers" data-goto-tab="suppliers">Select suppliers</a>
+            } else if (committeeBlocks) {
+                <button class="btn btn-primary" type="button" disabled title="@preparationReasons[0]">Send for evaluation preparation</button>
             } else {
                 <a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Complete tender details</a>
             }

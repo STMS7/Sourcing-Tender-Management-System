@@ -1049,7 +1049,7 @@ public partial class SourcingOfficerController(ApplicationDbContext db) : Contro
             result.OfficerTasks.Add("Remove ineligible suppliers and select approved suppliers matching this category.");
         // Until the officer locks the draft, approval cannot start: that click is the officer's own task.
         if (tender.EvaluationCriteriaLockedAt == null)
-            result.OfficerTasks.Add("Click “Request pre-publication review” so the technical and financial members can approve the weights.");
+            result.OfficerTasks.Add("Click “Send for evaluation preparation” so the technical and financial members can approve the weights.");
         else if (!await EvaluationPreparation.Approved(db, tender))
             result.TeamDependencies.Add("Waiting for the technical and financial members to submit the evaluation weights.");
         if ((await EvaluationPreparation.MemberIssues(db, tender)).Count != 0)

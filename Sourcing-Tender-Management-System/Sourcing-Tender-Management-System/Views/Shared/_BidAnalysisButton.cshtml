@@ -1,13 +1,10 @@
 @model BidAnalysisButtonViewModel
-@* Floating "AI assistant" button (bottom-right) and its popup. The result is advisory only. *@
+@* The AI analysis popup. It is opened by the page's own "AI analysis" button (data-bs-target="#bid-analysis-modal");
+   there is no floating button of its own any more, because the bottom-right corner belongs to the chat assistant.
+   The result is advisory only. *@
 <link rel="stylesheet" href="~/css/bid-analysis.css" asp-append-version="true" />
 <div id="bid-analysis" data-url="@Model.Url">
     @Html.AntiForgeryToken()
-    <button type="button" class="btn btn-primary shadow rounded-pill px-4 py-2 bid-analysis-open"
-            style="position:fixed;right:1.5rem;bottom:1.5rem;z-index:1030"
-            data-bs-toggle="modal" data-bs-target="#bid-analysis-modal">
-        AI assistant
-    </button>
     <div class="modal fade" id="bid-analysis-modal" tabindex="-1" aria-labelledby="bid-analysis-title" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">

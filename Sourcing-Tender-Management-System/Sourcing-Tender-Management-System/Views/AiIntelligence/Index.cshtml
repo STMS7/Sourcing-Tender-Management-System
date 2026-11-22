@@ -1,10 +1,19 @@
-﻿@{
+﻿@using System.Security.Claims
+@using Sourcing_Tender_Management_System.Models.Reports
+@using Sourcing_Tender_Management_System.Services.Reports
+@{
     ViewData["Title"] = "AI Intelligence";
+    // A card is drawn only when the user's role may read its data (the same rule the server enforces).
+    var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+    var canTenders = ReportAccess.CanOpen(ReportKind.Tenders, roles);
+    var canBids = ReportAccess.CanOpen(ReportKind.Bids, roles);
 }
 
 <h1 class="h3 mb-1">AI Intelligence</h1>
-<p class="text-muted">Built from live system data. Pick a tender for its own report, or upload a file to preview it.</p>
+<p class="text-muted">Built from live system data.@(canBids ? " Pick a tender for its own report, or upload a file to preview it." : " Ask a question, or upload a file to preview it.")</p>
 
+@if (canTenders)
+{
 <div class="row g-3 mb-3">
     <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
         <div class="text-muted">Total tenders</div><div class="h2 mb-0" id="kpiTotal">-</div></div></div></div>
@@ -15,16 +24,24 @@
     <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
         <div class="text-muted">Days from creation to winner notice</div><div class="h2 mb-0" id="kpiDuration">-</div></div></div></div>
 </div>
+}
 
+@if (canTenders || canBids)
+{
 <div class="row g-3 mb-3">
-    <div class="col-xl-5">
+    @if (canTenders)
+    {
+    <div class="@(canBids ? "col-xl-5" : "col-12")">
         <div class="card h-100"><div class="card-body">
             <h2 class="h5">Tenders by status</h2>
             <div style="position:relative;height:280px"><canvas id="statusChart"></canvas></div>
             <p id="statusEmpty" class="text-muted mb-0" hidden>No tenders to show yet.</p>
         </div></div>
     </div>
-    <div class="col-xl-7">
+    }
+    @if (canBids)
+    {
+    <div class="@(canTenders ? "col-xl-7" : "col-12")">
         <div class="card h-100"><div class="card-body">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                 <h2 class="h5 mb-0 me-auto">Tender report</h2>
@@ -37,7 +54,9 @@
             <p id="bidEmpty" class="text-muted mb-0" hidden>No submitted bids for this tender.</p>
         </div></div>
     </div>
+    }
 </div>
+}
 
 <style>
     .ai-log { height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px; }
@@ -90,43 +109,50 @@
             });
         }
 
-        getJson('/AiIntelligence/TenderStats').then(d => {
-            byId('kpiTotal').textContent = d.total;
-            byId('kpiAwarded').textContent = d.awarded;
-            byId('kpiOpen').textContent = d.open;
-        });
-        getJson('/AiIntelligence/DurationKpi').then(d => byId('kpiDuration').textContent = d.averageDays);
-
-        getJson('/AiIntelligence/TendersByStatus').then(rows => {
-            byId('statusEmpty').hidden = rows.length > 0;
-            if (rows.length) bar('statusChart', rows.map(r => r.status), rows.map(r => r.count), 'Tenders');
-        });
-
-        let bidChart;
-        const picker = byId('tenderPicker');
-
-        function setDownload(btn, url) {
-            btn.href = url;
-            btn.classList.remove('disabled');
-            btn.removeAttribute('aria-disabled');
+        // These cards exist only for roles that may read tender data, so each block checks its card first.
+        if (byId('kpiTotal')) {
+            getJson('/AiIntelligence/TenderStats').then(d => {
+                byId('kpiTotal').textContent = d.total;
+                byId('kpiAwarded').textContent = d.awarded;
+                byId('kpiOpen').textContent = d.open;
+            });
+            getJson('/AiIntelligence/DurationKpi').then(d => byId('kpiDuration').textContent = d.averageDays);
         }
 
-        function loadBids(id) {
-            setDownload(byId('exportBtn'), '/AiIntelligence/ExportBids?tenderId=' + id);
-            setDownload(byId('pdfBtn'), '/AiIntelligence/ExportBidsPdf?tenderId=' + id);
-            getJson('/AiIntelligence/TenderBids?tenderId=' + id).then(rows => {
-                bidChart?.destroy();
-                byId('bidEmpty').hidden = rows.length > 0;
-                bidChart = rows.length ? bar('bidChart', rows.map(r => r.supplier), rows.map(r => r.amount), 'Bid amount') : null;
+        if (byId('statusChart')) {
+            getJson('/AiIntelligence/TendersByStatus').then(rows => {
+                byId('statusEmpty').hidden = rows.length > 0;
+                if (rows.length) bar('statusChart', rows.map(r => r.status), rows.map(r => r.count), 'Tenders');
             });
         }
 
-        getJson('/AiIntelligence/TenderOptions').then(opts => {
-            // new Option sets text, not HTML, so a tender title can never inject markup.
-            picker.replaceChildren(...opts.map(o => new Option(o.label, o.id)));
-            if (opts.length) loadBids(opts[0].id);
-        });
-        picker.addEventListener('change', () => loadBids(picker.value));
+        if (byId('tenderPicker')) {
+            let bidChart;
+            const picker = byId('tenderPicker');
+
+            const setDownload = (btn, url) => {
+                btn.href = url;
+                btn.classList.remove('disabled');
+                btn.removeAttribute('aria-disabled');
+            };
+
+            const loadBids = id => {
+                setDownload(byId('exportBtn'), '/AiIntelligence/ExportBids?tenderId=' + id);
+                setDownload(byId('pdfBtn'), '/AiIntelligence/ExportBidsPdf?tenderId=' + id);
+                getJson('/AiIntelligence/TenderBids?tenderId=' + id).then(rows => {
+                    bidChart?.destroy();
+                    byId('bidEmpty').hidden = rows.length > 0;
+                    bidChart = rows.length ? bar('bidChart', rows.map(r => r.supplier), rows.map(r => r.amount), 'Bid amount') : null;
+                });
+            };
+
+            getJson('/AiIntelligence/TenderOptions').then(opts => {
+                // new Option sets text, not HTML, so a tender title can never inject markup.
+                picker.replaceChildren(...opts.map(o => new Option(o.label, o.id)));
+                if (opts.length) loadBids(opts[0].id);
+            });
+            picker.addEventListener('change', () => loadBids(picker.value));
+        }
 
         function showTable(d) {
             const wrap = document.createElement('div');

@@ -38,7 +38,7 @@ public class DepartmentController : Controller
         Items = request.Items.Select(i => new ProcurementRequestItem
         {
             CategoryId = i.CategoryId, ItemName = i.ItemName, Specifications = i.Specifications,
-            Quantity = i.Quantity, Unit = i.Unit, EstimatedUnitPrice = i.EstimatedUnitPrice
+            Quantity = i.Quantity, EstimatedUnitPrice = i.EstimatedUnitPrice
         }).ToList()
     };
     private bool ValidateForm(ProcurementRequest form)
@@ -62,17 +62,16 @@ public class DepartmentController : Controller
         if (form.Items.Count > 30)
             ModelState.AddModelError("Items", "Maximum 30 items per request.");
         form.Items = form.Items.Where(i => !string.IsNullOrWhiteSpace(i.ItemName) ||
-            !string.IsNullOrWhiteSpace(i.Specifications) || !string.IsNullOrWhiteSpace(i.Unit) ||
+            !string.IsNullOrWhiteSpace(i.Specifications) ||
             i.Quantity != 0 || i.EstimatedUnitPrice != 0 || i.CategoryId != null).ToList();
         if (form.Items.Count == 0)
             ModelState.AddModelError("Items", "Add at least one item.");
         foreach (var item in form.Items)
         {
             if (string.IsNullOrWhiteSpace(item.ItemName) || item.ItemName.Length > 250 ||
-                string.IsNullOrWhiteSpace(item.Unit) || item.Unit.Length > 30 ||
                 item.Specifications?.Length > 2000 || item.Quantity <= 0 || item.EstimatedUnitPrice < 0 ||
                 item.Quantity > 1000000m || item.EstimatedUnitPrice > 1000000000m)
-                ModelState.AddModelError("Items", "Check item name, unit, quantity and estimated price.");
+                ModelState.AddModelError("Items", "Check item name, quantity and estimated price.");
             if (item.CategoryId.HasValue && !_db.Categories.Any(c => c.Id == item.CategoryId.Value))
                 ModelState.AddModelError("Items", "Invalid item category.");
         }
@@ -88,7 +87,8 @@ public class DepartmentController : Controller
             {
                 CategoryId = item.CategoryId, ItemName = item.ItemName.Trim(),
                 Specifications = item.Specifications?.Trim(), Quantity = item.Quantity,
-                Unit = item.Unit.Trim(), EstimatedUnitPrice = item.EstimatedUnitPrice
+                // The department no longer picks a unit; the column is still required downstream (tender items, offers).
+                Unit = "pcs", EstimatedUnitPrice = item.EstimatedUnitPrice
             });
         request.EstimatedBudget = form.Items.Sum(i => i.Quantity * i.EstimatedUnitPrice);
     }

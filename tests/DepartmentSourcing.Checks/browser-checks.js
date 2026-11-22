@@ -20,7 +20,6 @@ async page => {
     await page.locator('[name="Items[0].ItemName"]').fill('Food-safe bags');
     await page.locator('[name="Items[0].Specifications"]').fill('Sealed packaging, 25 kg capacity');
     await page.locator('[name="Items[0].Quantity"]').fill('100');
-    await page.locator('[name="Items[0].Unit"]').fill('bag');
     await page.locator('[name="Items[0].EstimatedUnitPrice"]').fill('2');
     await page.getByRole('button', { name: 'Save Draft', exact: true }).click();
     await page.waitForURL(/\/Department\/Details\/\d+/);

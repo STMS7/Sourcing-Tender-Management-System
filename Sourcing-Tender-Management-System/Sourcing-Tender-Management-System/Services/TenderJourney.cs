@@ -58,7 +58,7 @@ public static class TenderJourney
         return tender.Status switch
         {
             TenderStatus.Draft when tender.EvaluationCriteriaLockedAt == null =>
-                new(1, "Sourcing officer", Officer, "Complete the draft, invite suppliers, then click “Request pre-publication review”.", false),
+                new(1, "Sourcing officer", Officer, "Complete the draft, invite suppliers, then click “Send for evaluation preparation”.", false),
             TenderStatus.Draft when !weightsAgreed =>
                 new(2, "Technical + financial members", TechFin, "Each member submits the technical / financial weight split.", false),
             TenderStatus.Draft =>

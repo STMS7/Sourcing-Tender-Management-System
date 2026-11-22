@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Models.TopCommittee;
-using Sourcing_Tender_Management_System.Services.AiAssistant;
 using Sourcing_Tender_Management_System.Services.TopCommittee;
 
 namespace Sourcing_Tender_Management_System.Controllers;
@@ -29,20 +28,6 @@ public class TopCommitteeController(
     {
         var model = await topCommittee.GetReviewAsync(id, userManager.GetUserId(User));
         return model is null ? NotFound() : View(model);
-    }
-
-    // POST /TopCommittee/AnalyzeBids/5 — AI assistant popup: compares the recommended bid with the others.
-    // Advisory only: the member still votes with the Vote form.
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> AnalyzeBids(int id, [FromServices] IBidAnalysisService bidAnalysis,
-        CancellationToken ct)
-    {
-        var userId = userManager.GetUserId(User)!;
-        var review = await topCommittee.GetReviewAsync(id, userId);   // only tenders sent to the top committee
-        if (review is null) return NotFound();
-        var model = await bidAnalysis.AnalyzeAsync(new BidAnalysisRequest(id, BidAnalysisAudience.TopCommittee, userId,
-            IncludePendingCompliance: false, review.Report.RecommendedBidId), ct);
-        return model is null ? NotFound() : PartialView("_BidAnalysis", model);
     }
 
     // GET /TopCommittee/History?search=... — past tenders and their decisions.

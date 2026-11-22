@@ -61,7 +61,7 @@
                     <strong>@(recommended?.SupplierName ?? "no supplier")</strong>@(recommended is null ? "" : $" ({recommended.TotalAmount:N2} {recommended.Currency})").
                     A justification is required if you reject or ask for more details.
                 </p>
-                <form asp-action="Vote" method="post">
+                <form asp-action="Vote" method="post" id="voteForm">
                     <input type="hidden" name="EvaluationReportId" value="@Model.Report.EvaluationReportId" />
                     <div class="tc-choices" role="radiogroup" aria-label="Your decision">
                         <div class="tc-choice is-approve">
@@ -81,11 +81,25 @@
                         <label class="form-label" for="reason">Justification / notes</label>
                         <textarea class="form-control" id="reason" name="Reason" rows="3" maxlength="2000"></textarea>
                     </div>
-                    <button type="submit" class="btn btn-primary"
-                            onclick="return confirm('Your vote cannot be changed after it is recorded. Continue?');">
-                        Record my vote
-                    </button>
+                    <button type="submit" class="btn btn-primary">Record my vote</button>
                 </form>
+
+                @* Confirmation popup (replaces the browser's own confirm box). Opened by the script at the end of this page. *@
+                <dialog id="voteDialog" class="vd" aria-labelledby="vd-title" aria-describedby="vd-text">
+                    <div class="vd-body" data-state="ask">
+                        <div class="vd-icon" aria-hidden="true">
+                            <svg class="vd-ask" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" /><path d="M26 15v14M26 36v.01" /></svg>
+                            <svg class="vd-ok" viewBox="0 0 52 52"><circle class="vd-ring" cx="26" cy="26" r="24" /><path class="vd-tick" d="M14 27l8 8 16-17" /></svg>
+                            <svg class="vd-no" viewBox="0 0 52 52"><circle class="vd-ring" cx="26" cy="26" r="24" /><path class="vd-x" d="M17 17l18 18M35 17L17 35" /></svg>
+                        </div>
+                        <h2 id="vd-title" class="h5 mb-2">Record your vote?</h2>
+                        <p id="vd-text" class="mb-0">Your vote cannot be changed after it is recorded.</p>
+                        <div class="vd-actions">
+                            <button type="button" class="btn btn-outline-secondary" data-vd="cancel" autofocus>Cancel</button>
+                            <button type="button" class="btn btn-primary" data-vd="ok">OK, record it</button>
+                        </div>
+                    </div>
+                </dialog>
             </div>
         </section>
     }
@@ -302,7 +316,91 @@
 </div>
 </div>
 
-@if (Model.Bids.Count > 0)
-{
-    <partial name="_BidAnalysisButton" model="@(new BidAnalysisButtonViewModel { Url = Url.Action("AnalyzeBids", "TopCommittee", new { id = Model.TenderId })!, TenderNumber = Model.TenderNumber })" />
+<style>
+    /* Centered in the window. Stated explicitly (and !important) because a site-wide rule was overriding the browser's default dialog centering. */
+    .vd { position: fixed !important; inset: 0 !important; margin: auto !important; height: fit-content !important; max-height: calc(100vh - 32px);
+          border: 0; padding: 0; width: min(420px, calc(100vw - 32px)); border-radius: 24px; background: var(--zt-card, #FFFCF3); color: var(--zt-ink, #17402A);
+          box-shadow: 0 28px 70px rgba(16, 38, 26, .3), 0 6px 18px rgba(16, 38, 26, .15); }
+    .vd[open] { animation: vd-in .35s cubic-bezier(.16, 1, .3, 1); }
+    .vd::backdrop { background: rgba(16, 38, 26, .45); animation: vd-fade .25s ease; }
+    .vd-body { padding: 28px 28px 24px; text-align: center; }
+    .vd-icon { position: relative; width: 72px; height: 72px; margin: 0 auto 14px; }
+    .vd-icon svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+    .vd-body[data-state="ask"] .vd-ask, .vd-body[data-state="ok"] .vd-ok, .vd-body[data-state="no"] .vd-no { opacity: 1; }
+    .vd-ask { stroke: var(--zt-ink, #17402A); }
+    .vd-ok { stroke: #2F7D3A; }
+    .vd-no { stroke: #B3261E; }
+    .vd-ring { stroke-dasharray: 151; stroke-dashoffset: 151; }
+    .vd-tick { stroke-dasharray: 40; stroke-dashoffset: 40; }
+    .vd-x { stroke-dasharray: 30; stroke-dashoffset: 30; }
+    .vd-body[data-state="ok"] .vd-ring, .vd-body[data-state="no"] .vd-ring { animation: vd-draw .5s ease-out forwards; }
+    .vd-body[data-state="ok"] .vd-tick, .vd-body[data-state="no"] .vd-x { animation: vd-draw .35s .4s ease-out forwards; }
+    .vd-body[data-state="ok"] .vd-icon { animation: vd-pop .5s .55s cubic-bezier(.34, 1.56, .64, 1); }
+    .vd-body[data-state="no"] .vd-icon { animation: vd-shake .45s .45s ease-in-out; }
+    .vd-actions { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+    .vd-body[data-state="ok"] .vd-actions, .vd-body[data-state="no"] .vd-actions { visibility: hidden; }
+    @@keyframes vd-in { from { opacity: 0; transform: translateY(14px) scale(.92); } to { opacity: 1; transform: none; } }
+    @@keyframes vd-fade { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes vd-draw { to { stroke-dashoffset: 0; } }
+    @@keyframes vd-pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+    @@keyframes vd-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+    @@media (prefers-reduced-motion: reduce) { .vd, .vd *, .vd::backdrop { animation-duration: .01ms !important; animation-delay: 0s !important; } }
+</style>
+
+@section Scripts {
+<script>
+(function () {
+    var dialog = document.getElementById('voteDialog');
+    var form = document.getElementById('voteForm');
+    if (!dialog || !form) return;
+    var box = dialog.querySelector('.vd-body');
+    var title = document.getElementById('vd-title');
+    var text = document.getElementById('vd-text');
+    var okBtn = dialog.querySelector('[data-vd="ok"]');
+    var noBtn = dialog.querySelector('[data-vd="cancel"]');
+    var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var busy = false;
+
+    function chosen() {
+        var r = form.querySelector('input[name="Decision"]:checked');
+        return r ? r.closest('.tc-choice').querySelector('strong').textContent : '';
+    }
+    function show(state, heading, message) {
+        box.dataset.state = state;
+        title.textContent = heading;
+        text.textContent = message;
+    }
+    function finish(state, heading, message, then) {
+        if (busy) return;
+        busy = true;
+        okBtn.disabled = noBtn.disabled = true;
+        show(state, heading, message);
+        setTimeout(then, calm ? 150 : 1200);   // let the animation play before acting
+    }
+
+    // The browser already checked that a choice was made before this event fires.
+    form.addEventListener('submit', function (e) {
+        if (form.dataset.confirmed) return;    // second pass, after the member confirmed
+        e.preventDefault();
+        busy = false;
+        okBtn.disabled = noBtn.disabled = false;
+        show('ask', 'Record your vote?', 'You chose "' + chosen() + '". Your vote cannot be changed after it is recorded.');
+        dialog.showModal();
+    });
+
+    okBtn.addEventListener('click', function () {
+        finish('ok', 'Vote confirmed', 'Recording your vote...', function () {
+            form.dataset.confirmed = '1';
+            form.requestSubmit();
+        });
+    });
+
+    function cancel() {
+        finish('no', 'Vote cancelled', 'Nothing was recorded. You can still vote.', function () { dialog.close(); });
+    }
+    noBtn.addEventListener('click', cancel);
+    dialog.addEventListener('cancel', function (e) { e.preventDefault(); cancel(); });                   // Esc key
+    dialog.addEventListener('click', function (e) { if (e.target === dialog) cancel(); });               // dimmed area outside the popup
+})();
+</script>
 }
