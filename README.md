@@ -121,6 +121,17 @@ To turn it off, set `"Ollama": { "Enabled": false }` in `appsettings.json`.
 
 ## Configuration notes
 
+### Supplier images, tax and warranties
+
+- Suppliers can attach up to eight product/sample pictures when submitting an offer, or manage them from **Offers → Offer details → Product samples** while bidding remains open. JPG, PNG and WebP are supported, up to 3 MB each; the whole submission must remain under 30 MB.
+- New supplier offers use **16% tax on the rounded line-item subtotal**. Fees, shipping, installation and maintenance are added separately. The server calculates tax and the final total; existing offers retain their recorded values.
+- In offer details, suppliers can choose a **bank guarantee**, **legal warranty** or **standard product/service warranty**, including purpose, duration and issuer. Bank guarantees require a positive amount and a PDF (up to 5 MB); legal and standard warranties allow zero monetary value and an optional PDF.
+- **Create demo bank guarantee** uses the fictional **STMS Demo Bank** identity and generates a sample PDF with a QR code. This is an internal demo identity, not an external bank account. The sample has no financial or legal value.
+- The QR opens the standalone **/GuaranteeVerification** simulation. Both the guarantee number and verification code are required; the page checks the registered details and expiry, without claiming verification by a real bank. The workflow was informed by [Housing Bank's guarantee services](https://hbtf.com/en/corporate/bank-solutions-services/indirect-trade-facility); no bank logo, real account or bank document is copied.
+- Uploads stay private in **App_Data/OfferExtras**. Staff access remains subject to bid opening restrictions. The existing startup initializer prepares the **offerx** tables; no EF migration was added.
+
+Run the feature checks with `dotnet run --project tests/OfferExtras.Checks/OfferExtras.Checks.csproj`. They use a new disposable database on local SQL Server and a temporary upload directory, then remove both.
+
 | Setting | Purpose |
 |---|---|
 | `AdminBootstrap:*` | Creates the first admin if none exists. |

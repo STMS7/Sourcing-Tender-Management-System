@@ -106,18 +106,23 @@ public partial class OfferExtrasController(ApplicationDbContext db, UserManager<
         }
 
         var saved = new List<string>();
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         try
         {
+            if (await store.CountSamplesAsync(bidId) + pictures.Count > OfferExtrasRules.MaxSamples)
+                return Back(bidId, error: "The sample picture limit has been reached. Refresh and try again.");
             for (var i = 0; i < pictures.Count; i++)
             {
                 var name = await files.SaveAsync(pictures[i], types[i]);
                 saved.Add(name);
                 await store.AddSampleAsync(bidId, name, Path.GetFileName(pictures[i].FileName), types[i].ContentType, pictures[i].Length, caption);
             }
+            await transaction.CommitAsync();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Saving sample pictures failed for bid {BidId}", bidId);
+            await transaction.RollbackAsync();
             foreach (var name in saved) files.Delete(name);
             return Back(bidId, error: "The pictures could not be saved. Please try again.");
         }
@@ -162,53 +167,105 @@ public partial class OfferExtrasController(ApplicationDbContext db, UserManager<
         // The type list holds bank purposes and legal purposes with no overlap, so the kind follows from the choice.
         var purpose = form.Purpose?.Trim();
         var kind = OfferExtrasRules.BankPurposes.Contains(purpose) ? OfferExtrasRules.Bank
-            : OfferExtrasRules.LegalPurposes.Contains(purpose) ? OfferExtrasRules.Legal : null;
+            : OfferExtrasRules.LegalPurposes.Contains(purpose) ? OfferExtrasRules.Legal
+            : OfferExtrasRules.StandardPurposes.Contains(purpose) ? OfferExtrasRules.Standard : null;
         if (kind is null) errors.Add("Choose the guarantee type from the list.");
         var number = form.GuaranteeNumber?.Trim().ToUpperInvariant();
         if (number is null || !NumberPattern().IsMatch(number))
             errors.Add("The guarantee number must be 4 to 40 characters: letters, digits, - / or .");
         var issuer = form.IssuerName?.Trim();
         if (issuer is null or { Length: < 3 or > 150 }) errors.Add(kind == OfferExtrasRules.Legal ? "Enter the issuing party (3 to 150 characters)." : "Enter the issuing bank (3 to 150 characters).");
-        if (form.Amount is not > 0 or > 9_999_999_999.99m) errors.Add("Enter a guarantee amount greater than zero.");
+        if (form.Amount is null or < 0 or > 9_999_999_999.99m || kind == OfferExtrasRules.Bank && form.Amount <= 0)
+            errors.Add("Enter a non-negative amount; bank guarantees require an amount greater than zero.");
+        if (form.Amount is { } amount && decimal.Round(amount, 2) != amount)
+            errors.Add("The guarantee amount can have up to two decimal places.");
         if (form.DurationMonths is not (>= 1 and <= 120)) errors.Add("The duration must be between 1 and 120 months.");
         var today = DateTime.UtcNow.Date;
-        if (form.IssuedOn is not { } issued || issued.Date > today.AddDays(1) || issued.Date < today.AddYears(-1))
+        if (form.IssuedOn is not { } issued || issued.Date > today || issued.Date < today.AddYears(-1))
             errors.Add("The issue date must be within the last 12 months and not in the future.");
-        if (form.Document is null || form.Document.Length == 0) errors.Add("Attach the guarantee document (PDF).");
+        if (kind == OfferExtrasRules.Bank && (form.Document is null || form.Document.Length == 0))
+            errors.Add("Attach the bank guarantee document (PDF).");
         if (errors.Count > 0) return Back(bid.Id, error: string.Join(" ", errors));
 
         var issuedOn = form.IssuedOn!.Value.Date;
         var expiresOn = issuedOn.AddMonths(form.DurationMonths!.Value);
-        if (expiresOn <= today) return Back(bid.Id, error: "This guarantee has already expired. Attach a valid one.");
-        if (await store.CountGuaranteesAsync(bid.Id) >= OfferExtrasRules.MaxGuarantees)
-            return Back(bid.Id, error: $"An offer can have up to {OfferExtrasRules.MaxGuarantees} guarantees.");
-
-        var (type, fileError) = await OfferExtrasFiles.InspectDocumentAsync(form.Document!);
-        if (type is null) return Back(bid.Id, error: fileError);
-
-        var stored = await files.SaveAsync(form.Document!, type);
+        if (expiresOn < today) return Back(bid.Id, error: "This guarantee has already expired. Attach a valid one.");
+        var stored = "";
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         try
         {
+            if (await store.CountGuaranteesAsync(bid.Id) >= OfferExtrasRules.MaxGuarantees)
+                return Back(bid.Id, error: $"An offer can have up to {OfferExtrasRules.MaxGuarantees} guarantees.");
+            if (form.Document is { Length: > 0 })
+            {
+                var (type, fileError) = await OfferExtrasFiles.InspectDocumentAsync(form.Document);
+                if (type is null) return Back(bid.Id, error: fileError);
+                stored = await files.SaveAsync(form.Document, type);
+            }
             var added = await store.AddGuaranteeAsync(new GuaranteeRow
             {
                 BidId = bid.Id, Kind = kind!, Purpose = purpose!, GuaranteeNumber = number!, IssuerName = issuer!,
                 Amount = decimal.Round(form.Amount!.Value, 2), Currency = bid.Currency, DurationMonths = form.DurationMonths.Value,
                 IssuedOn = issuedOn, ExpiresOn = expiresOn, StoredName = stored,
-                OriginalName = Path.GetFileName(form.Document!.FileName), VerifyCode = OfferExtrasRules.NewVerifyCode()
+                OriginalName = form.Document is { Length: > 0 } ? Path.GetFileName(form.Document.FileName) : "", VerifyCode = OfferExtrasRules.NewVerifyCode()
             });
             if (!added)
             {
                 files.Delete(stored);
                 return Back(bid.Id, error: "A guarantee with this number is already registered.");
             }
+            await transaction.CommitAsync();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Saving a guarantee failed for bid {BidId}", bid.Id);
+            await transaction.RollbackAsync();
             files.Delete(stored);
             return Back(bid.Id, error: "The guarantee could not be saved. Please try again.");
         }
         return Back(bid.Id, notice: "Guarantee added. Its QR code is ready below.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AddDemoGuarantee(int bidId)
+    {
+        var bid = await OwnBidAsync(bidId);
+        if (bid is null) return NotFound();
+        if (!OfferExtrasRules.CanEdit(bid)) return Back(bidId, error: "Demo guarantees can only be added while bidding is open.");
+        var stored = "";
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        try
+        {
+            if (await store.CountGuaranteesAsync(bidId) >= OfferExtrasRules.MaxGuarantees)
+                return Back(bidId, error: "The guarantee limit has been reached.");
+            var g = new GuaranteeRow
+            {
+                BidId = bidId, Kind = OfferExtrasRules.Bank, Purpose = "Bid bond",
+                GuaranteeNumber = "DEMO-" + Guid.NewGuid().ToString("N").ToUpperInvariant(),
+                IssuerName = "STMS Demo Bank (fictional)", Currency = bid.Currency,
+                Amount = Math.Max(1m, decimal.Round(bid.TotalAmount * 0.05m, 2, MidpointRounding.AwayFromZero)),
+                DurationMonths = 12, IssuedOn = DateTime.UtcNow.Date,
+                ExpiresOn = DateTime.UtcNow.Date.AddMonths(12), VerifyCode = OfferExtrasRules.NewVerifyCode()
+            };
+            var supplierName = await db.Suppliers.Where(x => x.Id == bid.SupplierId).Select(x => x.CompanyName).SingleAsync();
+            var url = GuaranteeVerificationController.VerifyUrl(Url, Request, g);
+            var bytes = BuildSheet(g, bid.Tender.TenderNumber, supplierName, url, GuaranteeVerificationController.QrPng(url));
+            using var stream = new MemoryStream(bytes);
+            var document = new FormFile(stream, 0, bytes.Length, "Document", "demo-bank-guarantee.pdf");
+            stored = await files.SaveAsync(document, new(".pdf", "application/pdf"));
+            g.StoredName = stored;
+            g.OriginalName = "demo-bank-guarantee.pdf";
+            if (!await store.AddGuaranteeAsync(g)) throw new InvalidOperationException("Duplicate demo guarantee number.");
+            await transaction.CommitAsync();
+            return Back(bidId, notice: "Fictional demo bank guarantee created with a PDF and QR code. It has no financial or legal value.");
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            files.Delete(stored);
+            logger.LogError(ex, "Creating a demo guarantee failed for bid {BidId}", bidId);
+            return Back(bidId, error: "The demo guarantee could not be created. Please try again.");
+        }
     }
 
     [HttpPost]
@@ -263,6 +320,10 @@ public partial class OfferExtrasController(ApplicationDbContext db, UserManager<
             {
                 column.Spacing(12);
                 column.Item().Text("Guarantee verification sheet").FontSize(22).SemiBold();
+                column.Item().Text("STMS SIMULATION - This summary only confirms a registered record, not issuance by a bank.")
+                    .Bold().FontColor(Colors.Red.Darken2);
+                if (g.GuaranteeNumber.StartsWith("DEMO-", StringComparison.Ordinal))
+                    column.Item().Text("FICTIONAL DEMO GUARANTEE - No financial or legal value.").Bold().FontColor(Colors.Red.Darken2);
                 column.Item().Text("Scan the code or open the link to check this guarantee on the verification portal.").FontColor(Colors.Grey.Darken2);
                 column.Item().Table(table =>
                 {

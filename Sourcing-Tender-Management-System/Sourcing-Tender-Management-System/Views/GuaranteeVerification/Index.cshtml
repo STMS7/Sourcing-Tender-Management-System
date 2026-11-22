@@ -9,6 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
     <title>Guarantee verification</title>
     <link rel="stylesheet" href="~/css/guarantee-verify.css" asp-append-version="true" />
 </head>
@@ -25,7 +26,8 @@
 
     <main class="gv-main">
         <section class="gv-card" aria-labelledby="gv-title">
-            <h1 id="gv-title">Check a guarantee</h1>
+            <h1 id="gv-title">Check a guarantee — simulation</h1>
+            <p class="gv-lead"><strong>DEMO ONLY — this portal checks STMS records. It is not affiliated with any bank and cannot confirm real bank issuance.</strong></p>
             <p class="gv-lead">Enter the guarantee number and the verification code printed on the guarantee sheet, or scan its QR code.</p>
             <form method="get" asp-controller="GuaranteeVerification" asp-action="Index" class="gv-form" novalidate>
                 <div class="gv-field">
@@ -61,8 +63,8 @@
                 <section class="gv-result @(Model.Expired ? "is-warn" : "is-ok")" role="status" aria-live="polite">
                     <p class="gv-badge">@(Model.Expired ? "Expired" : "Valid")</p>
                     <p class="gv-verdict">
-                        @if (Model.Expired) { <text>This guarantee was genuine but its validity ended on @g.ExpiresOn.ToString("dd MMM yyyy").</text> }
-                        else { <text>This guarantee is genuine and valid for another @Model.DaysLeft @(Model.DaysLeft == 1 ? "day" : "days").</text> }
+                        @if (Model.Expired) { <text>This STMS record matches, but its recorded validity ended on @g.ExpiresOn.ToString("dd MMM yyyy").</text> }
+                        else { <text>This STMS record matches and its recorded validity ends on @g.ExpiresOn.ToString("dd MMM yyyy") (@Model.DaysLeft days remaining). Bank issuance has not been verified.</text> }
                     </p>
                     <dl class="gv-dl">
                         <div><dt>Guarantee number</dt><dd>@g.GuaranteeNumber</dd></div>
