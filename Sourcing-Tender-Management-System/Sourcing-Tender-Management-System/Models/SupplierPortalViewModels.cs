@@ -19,13 +19,16 @@ public class SupplierOfferViewModel
     [Required, MaxLength(3000)] public string TechnicalSummary { get; set; } = string.Empty;
     [Required, MaxLength(2000)] public string PaymentTerms { get; set; } = string.Empty;
     [Required, DataType(DataType.Date)] public DateTime? ValidUntil { get; set; }
-    [CurrencyAmount, Range(typeof(decimal), "0", "1000000000")] public decimal TaxAmount { get; set; }
+    // Calculated by the server; never accept an amount submitted by the browser.
+    [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever, Microsoft.AspNetCore.Mvc.ModelBinding.Validation.ValidateNever]
+    public decimal TaxAmount { get; set; }
     [CurrencyAmount, Range(typeof(decimal), "0", "1000000000")] public decimal FeesAmount { get; set; }
     [CurrencyAmount, Range(typeof(decimal), "0", "1000000000")] public decimal ShippingAmount { get; set; }
     [CurrencyAmount, Range(typeof(decimal), "0", "1000000000")] public decimal InstallationAmount { get; set; }
     [CurrencyAmount, Range(typeof(decimal), "0", "1000000000")] public decimal MaintenanceAmount { get; set; }
     public List<SupplierOfferItemViewModel> Items { get; set; } = [];
     public List<SupplierOfferFileViewModel> Files { get; set; } = [];
+    public List<IFormFile> SampleImages { get; set; } = [];
 }
 public class SupplierOfferItemViewModel
 {

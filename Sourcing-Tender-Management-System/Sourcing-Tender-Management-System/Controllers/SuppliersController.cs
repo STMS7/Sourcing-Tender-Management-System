@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Services;
+using Sourcing_Tender_Management_System.Services.SupplierBidExtras;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
@@ -15,7 +16,7 @@ namespace Sourcing_Tender_Management_System.Controllers;
 [AutoValidateAntiforgeryToken]
 public class SuppliersController(ApplicationDbContext db, UserManager<ApplicationUser> users,
     IWebHostEnvironment environment, IConfiguration configuration, SupplierFileStore files,
-    ILogger<SuppliersController> logger) : Controller
+    ILogger<SuppliersController> logger, SampleImageStore images) : Controller
 {
     private ApplicationUser? account;
     private Supplier? supplier;
@@ -190,6 +191,7 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         if (await db.Bids.AnyAsync(x => x.TenderId == invitation.TenderId && x.SupplierId == supplier!.Id)) return BadRequest("An offer already exists for this tender.");
         model.Items ??= [];
         model.Files ??= [];
+        model.SampleImages ??= [];
         var expected = invitation.Tender.Items.Select(x => x.Id).Order().ToArray();
         if (expected.Length == 0 || !expected.SequenceEqual(model.Items.Select(x => x.TenderItemId).Order())) return BadRequest("The submitted items do not match this tender.");
         ModelState.Remove(nameof(model.Currency));
@@ -201,12 +203,22 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
             if (!model.Files.Any(x => x.RequirementId == requirement.Id && x.File is not null)) ModelState.AddModelError("", $"Upload the required document: {requirement.DocumentType}.");
         foreach (var upload in model.Files.Where(x => x.File is not null))
             if (await files.ValidateAsync(upload.File!) is string error) ModelState.AddModelError("", error);
+        if (images.ValidateCount(model.SampleImages.Count) is string countError)
+            ModelState.AddModelError(nameof(model.SampleImages), countError);
+        else
+            foreach (var image in model.SampleImages)
+                if (await images.ValidateAsync(image) is string imageError)
+                    ModelState.AddModelError(nameof(model.SampleImages), imageError);
         if (!ModelState.IsValid) return View(model);
         var totals = model.Items.Select(x => decimal.Round(x.UnitPrice * invitation.Tender.Items.Single(t => t.Id == x.TenderItemId).Quantity, 2, MidpointRounding.AwayFromZero)).ToArray();
-        var total = totals.Sum() + model.TaxAmount + model.FeesAmount + model.ShippingAmount + model.InstallationAmount + model.MaintenanceAmount;
+        var pricing = BidTaxCalculator.Calculate(totals.Sum(), model.FeesAmount, model.ShippingAmount,
+            model.InstallationAmount, model.MaintenanceAmount);
+        model.TaxAmount = pricing.TaxAmount;
+        var total = pricing.TotalAmount;
         if (total > 9999999999999999.99m) ModelState.AddModelError("", "The total exceeds the supported amount.");
         if (!ModelState.IsValid) return View(model);
         var saved = new List<string>();
+        var savedImages = new List<string>();
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         try
         {
@@ -234,7 +246,19 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
                     ContentType = "application/pdf", FileSize = upload.File.Length, TenderDocumentRequirementId = upload.RequirementId,
                     DocumentType = requirements[upload.RequirementId].DocumentType });
             }
-            db.Bids.Add(bid); await db.SaveChangesAsync();
+            db.Bids.Add(bid);
+            db.SupplierBidExtras.Add(new SupplierBidExtra { Bid = bid,
+                TaxRate = BidTaxCalculator.TaxRate, TaxableAmount = pricing.ItemsSubtotal });
+            foreach (var image in model.SampleImages)
+            {
+                var key = await images.SaveAsync(image);
+                savedImages.Add(key);
+                db.BidSampleImages.Add(new BidSampleImage { Bid = bid,
+                    FileName = Path.GetFileName(image.FileName), FilePath = key,
+                    ContentType = Path.GetExtension(key) == ".png" ? "image/png" : "image/jpeg",
+                    FileSize = image.Length });
+            }
+            await db.SaveChangesAsync();
             db.Notifications.Add(new Notification { UserId = invitation.InvitedByUserId, Title = "Supplier offer submitted",
                 Message = $"An offer was submitted for {invitation.Tender.TenderNumber}.", Type = NotificationType.Information });
             Log("Submit", "Bid", bid.Id); await db.SaveChangesAsync(); await transaction.CommitAsync();
@@ -243,6 +267,7 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
         catch (Exception ex)
         {
             await transaction.RollbackAsync(); foreach (var name in saved) files.Delete(name);
+            foreach (var key in savedImages) images.Delete(key);
             logger.LogError(ex, "Supplier offer submission failed"); ModelState.AddModelError("", "The offer could not be saved. Refresh and try again."); return View(model);
         }
     }
@@ -267,7 +292,28 @@ public class SuppliersController(ApplicationDbContext db, UserManager<Applicatio
     private Task<Bid?> OwnBid(int id) => db.Bids.AsNoTracking().Include(x => x.Tender).Include(x => x.Items).ThenInclude(x => x.TenderItem)
 
         .Include(x => x.Documents).SingleOrDefaultAsync(x => x.Id == id && x.SupplierId == supplier!.Id);
-    public async Task<IActionResult> OfferDetails(int id) { var bid = await OwnBid(id); return bid is null ? NotFound() : View(bid); }
+    public async Task<IActionResult> OfferDetails(int id)
+    {
+        var bid = await OwnBid(id);
+        if (bid is null) return NotFound();
+        ViewData["SampleImages"] = await db.BidSampleImages.AsNoTracking()
+            .Where(x => x.BidId == id && x.Bid.SupplierId == supplier!.Id)
+            .OrderBy(x => x.Id).ToListAsync();
+        return View(bid);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SampleImage(int id)
+    {
+        var image = await db.BidSampleImages.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id && x.Bid.SupplierId == supplier!.Id);
+        var path = image is null ? null : images.Resolve(image.FilePath);
+        if (path is null) return NotFound();
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers.CacheControl = "private, no-store";
+        var contentType = Path.GetExtension(path) == ".png" ? "image/png" : "image/jpeg";
+        return PhysicalFile(path, contentType);
+    }
     public async Task<IActionResult> Report(int id) { var bid = await OwnBid(id); return bid is null ? NotFound() : View("Report", bid); }
     public async Task<IActionResult> Export(int id)
     {

@@ -685,6 +685,45 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.ToTable("BidItems");
                 });
 
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidSampleImage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BidId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BidId");
+
+                    b.ToTable("BidSampleImages");
+                });
+
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Category", b =>
                 {
                     b.Property<int>("Id")
@@ -1668,6 +1707,34 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.ToTable("Suppliers");
                 });
 
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.SupplierBidExtra", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BidId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BidId")
+                        .IsUnique();
+
+                    b.ToTable("SupplierBidExtras");
+                });
+
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.SupplierCategory", b =>
                 {
                     b.Property<int>("SupplierId")
@@ -2502,6 +2569,17 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                     b.Navigation("TenderItem");
                 });
 
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.BidSampleImage", b =>
+                {
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Bid", "Bid")
+                        .WithMany()
+                        .HasForeignKey("BidId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Bid");
+                });
+
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.Category", b =>
                 {
                     b.HasOne("Sourcing_Tender_Management_System.Models.Category", "ParentCategory")
@@ -2877,6 +2955,17 @@ namespace Sourcing_Tender_Management_System.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ReviewedByUser");
+                });
+
+            modelBuilder.Entity("Sourcing_Tender_Management_System.Models.SupplierBidExtra", b =>
+                {
+                    b.HasOne("Sourcing_Tender_Management_System.Models.Bid", "Bid")
+                        .WithMany()
+                        .HasForeignKey("BidId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Bid");
                 });
 
             modelBuilder.Entity("Sourcing_Tender_Management_System.Models.SupplierCategory", b =>

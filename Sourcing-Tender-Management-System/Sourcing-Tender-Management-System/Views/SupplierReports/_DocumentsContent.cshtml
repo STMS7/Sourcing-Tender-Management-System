@@ -1,0 +1,37 @@
+@using Sourcing_Tender_Management_System.Models.SupplierBidExtras
+@model SupplierDocumentsPage
+<link rel="stylesheet" href="~/css/supplier-reports.css" asp-append-version="true" />
+<div class="supplier-report">
+    <header class="sr-heading"><div><a asp-controller="SupplierReports" asp-action="Index">Back to supplier reports</a><h1>@Model.Supplier.CompanyName</h1><p>Document tracking · @Model.Supplier.RegistrationNumber</p></div></header>
+    <section class="sr-panel" aria-labelledby="supplier-legal-heading">
+        <h2 id="supplier-legal-heading">Legal verification and license</h2>
+        <p>Company verification: <strong>@Model.Supplier.Verification</strong> · Registration: <strong>@Model.Supplier.Status</strong></p>
+        <p class="mb-0">License expiry: <strong>@(Model.Supplier.LicenseExpiresAt?.ToString("dd MMM yyyy") ?? "Not recorded")</strong>
+            @if (Model.Supplier.LicenseExpiresAt is DateTime expiry) { <span> — @(expiry.Date < Model.AsOf.Date ? "Expired" : expiry.Date <= Model.AsOf.Date.AddDays(30) ? "Expires within 30 days" : "Beyond the 30-day window")</span> }
+        </p>
+    </section>
+    <section class="sr-panel" aria-labelledby="supplier-documents-heading">
+        <h2 id="supplier-documents-heading">Uploaded documents</h2>
+        <p class="sr-muted">@Model.Supplier.Documents documents · Page @Model.Page of @Model.TotalPages. Expiry uses UTC calendar dates; verification is shown separately.</p>
+        @if (Model.Documents.Count == 0) { <div class="sr-empty"><h3>No documents uploaded</h3><p>No document records are available for this supplier.</p></div> }
+        else
+        {
+            <div class="sr-table-wrap" role="region" aria-label="Supplier documents table" tabindex="0"><table class="table align-middle sr-table"><caption class="visually-hidden">Supplier uploaded document verification and expiry</caption>
+                <thead><tr><th scope="col">Document</th><th scope="col">Verification</th><th scope="col">Expiry date</th><th scope="col">Expiry status</th><th scope="col">File</th></tr></thead>
+                <tbody>@foreach (var doc in Model.Documents)
+                {
+                    var expired = doc.VerificationStatus == DocumentVerificationStatus.Expired || doc.ExpiresAt?.Date < Model.AsOf.Date;
+                    var soon = !expired && doc.ExpiresAt?.Date <= Model.AsOf.Date.AddDays(30);
+                    <tr><th scope="row">@doc.DocumentType<span class="sr-muted d-block text-break">@doc.FileName</span></th><td>@doc.VerificationStatus</td><td>@(doc.ExpiresAt?.ToString("dd MMM yyyy") ?? "Not recorded")</td>
+                        <td class="@(expired ? "sr-danger" : soon ? "sr-attention" : "")">@(expired ? "Expired" : soon ? "Expires within 30 days" : doc.ExpiresAt is null ? "Unknown — no expiry date" : "Beyond the 30-day window")</td>
+                        <td><a asp-controller="AdminCatalog" asp-action="DownloadSupplierDocument" asp-route-id="@doc.Id" class="btn btn-sm btn-outline-primary" aria-label="Download @doc.FileName">Download</a></td></tr>
+                }</tbody>
+            </table></div>
+            <nav class="sr-pagination" aria-label="Document pages">
+                @if (Model.Page > 1) { <a class="btn btn-outline-secondary" asp-controller="SupplierReports" asp-action="Documents" asp-route-id="@Model.Supplier.Id" asp-route-page="@(Model.Page - 1)">Previous</a> }
+                <span>Page @Model.Page of @Model.TotalPages</span>
+                @if (Model.Page < Model.TotalPages) { <a class="btn btn-outline-secondary" asp-controller="SupplierReports" asp-action="Documents" asp-route-id="@Model.Supplier.Id" asp-route-page="@(Model.Page + 1)">Next</a> }
+            </nav>
+        }
+    </section>
+</div>

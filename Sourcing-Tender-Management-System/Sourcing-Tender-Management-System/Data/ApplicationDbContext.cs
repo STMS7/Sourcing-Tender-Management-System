@@ -20,6 +20,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Bid> Bids => Set<Bid>();
     public DbSet<BidItem> BidItems => Set<BidItem>();
     public DbSet<BidDocument> BidDocuments => Set<BidDocument>();
+    public DbSet<SupplierBidExtra> SupplierBidExtras => Set<SupplierBidExtra>();
+    public DbSet<BidSampleImage> BidSampleImages => Set<BidSampleImage>();
     public DbSet<BidEvaluation> BidEvaluations => Set<BidEvaluation>();
     public DbSet<BidEvaluationScore> BidEvaluationScores => Set<BidEvaluationScore>();
     public DbSet<Clarification> Clarifications => Set<Clarification>();

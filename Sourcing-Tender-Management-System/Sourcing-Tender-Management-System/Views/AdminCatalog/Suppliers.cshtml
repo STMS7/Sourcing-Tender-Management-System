@@ -15,6 +15,7 @@
 <div class="py-4">
     <h1>Suppliers</h1>
     <p class="text-secondary">Suppliers register their own accounts. Review registrations and company details here.</p>
+    <a asp-controller="SupplierReports" asp-action="Index" class="btn btn-outline-primary mb-3">Supplier reports and document tracking</a>
     @if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
     @if (TempData["Message"] is string message) { <div class="alert alert-success">@message</div> }
 

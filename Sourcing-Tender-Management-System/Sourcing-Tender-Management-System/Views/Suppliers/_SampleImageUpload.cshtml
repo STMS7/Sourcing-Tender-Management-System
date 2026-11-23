@@ -1,0 +1,11 @@
+@model SupplierOfferViewModel
+<section class="card mb-4" aria-labelledby="sample-images-heading">
+    <div class="card-body">
+        <h2 id="sample-images-heading" class="h5">Sample images (optional)</h2>
+        <label asp-for="SampleImages" class="form-label">Attach sample photographs</label>
+        <input asp-for="SampleImages" type="file" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+               class="form-control" aria-describedby="sample-images-help sample-images-error" />
+        <p id="sample-images-help" class="form-text">Up to 5 JPEG or PNG images, maximum 5 MB each. All images and PDF documents together must fit within the 30 MB submission limit. Select your files again if submission fails.</p>
+        <span asp-validation-for="SampleImages" id="sample-images-error" class="text-danger" aria-live="polite"></span>
+    </div>
+</section>

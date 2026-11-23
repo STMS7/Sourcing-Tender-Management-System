@@ -1,0 +1,29 @@
+@model IReadOnlyList<BidSampleImage>
+<section class="card manager-card mb-4" aria-labelledby="sample-gallery-heading">
+    <div class="card-header"><h2 id="sample-gallery-heading" class="h5 mb-0">Sample images</h2></div>
+    <div class="card-body">
+        @if (Model.Count == 0)
+        {
+            <p class="mb-0">No sample images attached.</p>
+        }
+        else
+        {
+            <ul class="row g-3 list-unstyled mb-0">
+                @foreach (var image in Model)
+                {
+                    <li class="col-12 col-sm-6" data-search-item>
+                        <figure class="mb-0">
+                            <a asp-controller="Suppliers" asp-action="SampleImage" asp-route-id="@image.Id">
+                                <img src="@Url.Action("SampleImage", "Suppliers", new { id = image.Id })"
+                                     alt="Sample photograph: @image.FileName" class="img-fluid rounded border"
+                                     width="480" height="320" style="width:100%;height:200px;object-fit:contain" loading="lazy" />
+                                <span class="d-block mt-2 text-break">View @image.FileName</span>
+                            </a>
+                            <figcaption class="small mt-1">@((image.FileSize / 1024d).ToString("N0")) KB</figcaption>
+                        </figure>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</section>

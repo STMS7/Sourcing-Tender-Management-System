@@ -101,6 +101,7 @@
 
         <div class="col-xl-4">
             <div class="dp-sticky">
+                <partial name="_SampleImages" model="@(ViewData["SampleImages"] as IReadOnlyList<BidSampleImage> ?? Array.Empty<BidSampleImage>())" />
                 <section class="card manager-card mb-4">
                     <div class="card-header"><h2 class="h5 mb-0">Offer</h2></div>
                     <div class="table-responsive">

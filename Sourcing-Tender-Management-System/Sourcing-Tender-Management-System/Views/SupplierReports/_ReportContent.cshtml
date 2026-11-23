@@ -1,0 +1,92 @@
+@using Sourcing_Tender_Management_System.Models.SupplierBidExtras
+@model SupplierReportPage
+@{ var filter = Model.Filter; var excelRoutes = filter.Routes(format: "xlsx"); var pdfRoutes = filter.Routes(format: "pdf"); }
+<link rel="stylesheet" href="~/css/supplier-reports.css" asp-append-version="true" />
+<div class="supplier-report">
+    <header class="sr-heading">
+        <div><a asp-controller="AdminCatalog" asp-action="Suppliers">Supplier administration</a><h1>Supplier reports</h1><p>Registration, legal documents and participation in one place.</p></div>
+        <p class="sr-muted">Updated @Model.AsOf.ToString("dd MMM yyyy HH:mm") UTC</p>
+    </header>
+    @if (Model.Error is not null)
+    {
+        <div class="alert alert-danger" role="alert"><strong>@Model.Error</strong> <a asp-controller="SupplierReports" asp-action="Index" asp-all-route-data="filter.Routes()">Try again</a></div>
+    }
+    @if (TempData["SupplierReportError"] is string exportError) { <div class="alert alert-danger" role="alert">@exportError</div> }
+    <section class="sr-panel" aria-labelledby="supplier-filter-heading">
+        <h2 id="supplier-filter-heading">Find suppliers</h2>
+        <form asp-controller="SupplierReports" asp-action="Index" method="get" class="sr-filters" aria-describedby="supplier-filter-help">
+            <div asp-validation-summary="All" class="text-danger sr-full" role="alert"></div>
+            <div class="sr-search"><label for="sr-search">Company, registration or email</label><input id="sr-search" name="Search" value="@filter.Search" maxlength="100" class="form-control" placeholder="Search suppliers" /></div>
+            <div><label for="sr-status">Registration status</label><select id="sr-status" name="Status" class="form-select"><option value="">All statuses</option>@foreach (var status in Enum.GetValues<SupplierRegistrationStatus>()) { <option value="@status" selected="@(filter.Status == status)">@status</option> }</select></div>
+            <div><label for="sr-verification">Legal verification</label><select id="sr-verification" name="Verification" class="form-select"><option value="">All verification states</option>@foreach (var status in Enum.GetValues<DocumentVerificationStatus>()) { <option value="@status" selected="@(filter.Verification == status)">@status</option> }</select></div>
+            <div><label for="sr-documents">Document attention</label><select id="sr-documents" name="DocumentState" class="form-select">
+                <option value="All" selected="@(filter.DocumentState == SupplierDocumentState.All)">All documents</option>
+                <option value="Expired" selected="@(filter.DocumentState == SupplierDocumentState.Expired)">Has expired documents</option>
+                <option value="Expiring" selected="@(filter.DocumentState == SupplierDocumentState.Expiring)">Expires within 30 days</option>
+                <option value="Missing" selected="@(filter.DocumentState == SupplierDocumentState.Missing)">No documents uploaded</option>
+                <option value="Undated" selected="@(filter.DocumentState == SupplierDocumentState.Undated)">Has documents without expiry</option>
+            </select></div>
+            <div><label for="sr-from">Registered from</label><input id="sr-from" name="From" type="date" value="@filter.From?.ToString("yyyy-MM-dd")" class="form-control" /></div>
+            <div><label for="sr-to">Registered to</label><input id="sr-to" name="To" type="date" value="@filter.To?.ToString("yyyy-MM-dd")" class="form-control" /></div>
+            <div class="sr-actions"><button type="submit" class="btn btn-primary">Apply filters</button><a asp-controller="SupplierReports" asp-action="Index" class="btn btn-outline-secondary">Clear filters</a></div>
+        </form>
+        <p id="supplier-filter-help" class="sr-muted mb-0 mt-3">Date filters use supplier registration dates. Document attention uses uploaded documents; license expiry is listed separately in details. Expiring soon includes today through 30 days ahead, using UTC.</p>
+    </section>
+    @if (Model.Error is null)
+    {
+        <section aria-labelledby="supplier-overview-heading">
+            <h2 id="supplier-overview-heading" class="sr-section-title">Overview <span class="sr-muted">All suppliers matching your filters</span></h2>
+            <dl class="sr-metrics">
+                <div><dt>Registered suppliers</dt><dd>@Model.Summary.Suppliers.ToString("N0")</dd></div>
+                <div><dt>Approved suppliers</dt><dd>@Model.Summary.Approved.ToString("N0")</dd></div>
+                <div><dt>Suspended suppliers</dt><dd>@Model.Summary.Suspended.ToString("N0")</dd></div>
+                <div><dt>Expired documents</dt><dd>@Model.Summary.ExpiredDocuments.ToString("N0")</dd></div>
+                <div><dt>Documents expiring soon</dt><dd>@Model.Summary.ExpiringDocuments.ToString("N0")</dd></div>
+            </dl>
+        </section>
+        <section class="sr-panel" aria-labelledby="supplier-results-heading">
+            <div class="sr-results-head"><div><h2 id="supplier-results-heading">Supplier results</h2><p class="sr-muted mb-0">@Model.Summary.Suppliers matching suppliers · Page @filter.Page of @Model.TotalPages</p></div>
+                @if (Model.Rows.Count > 0)
+                {
+                    <div><div class="sr-actions"><a asp-controller="SupplierReports" asp-action="Export" asp-all-route-data="excelRoutes" class="btn btn-outline-primary">Excel — this page</a><a asp-controller="SupplierReports" asp-action="Export" asp-all-route-data="pdfRoutes" class="btn btn-outline-primary">PDF — this page</a></div><p class="sr-muted small mt-2 mb-0">Downloads include the @Model.Rows.Count suppliers shown below.</p></div>
+                }
+            </div>
+            @if (Model.Rows.Count == 0)
+            {
+                <div class="sr-empty"><h3>No suppliers match these filters</h3><p>Try another company name or clear the filters to see all registered suppliers.</p><a asp-controller="SupplierReports" asp-action="Index" class="btn btn-outline-primary">Clear filters</a></div>
+            }
+            else
+            {
+                <p class="sr-muted small">On smaller screens, scroll the table sideways to see all columns.</p>
+                <div class="sr-table-wrap" role="region" aria-label="Supplier results table" tabindex="0">
+                    <table class="table align-middle sr-table">
+                        <caption class="visually-hidden">Supplier registration, document attention and performance for the current page</caption>
+                        <thead><tr><th scope="col">Supplier</th><th scope="col">Registration</th><th scope="col">Legal verification</th><th scope="col">Uploaded documents</th><th scope="col">Participation</th><th scope="col">Details</th></tr></thead>
+                        <tbody>@foreach (var row in Model.Rows)
+                        {
+                            <tr>
+                                <th scope="row"><span class="sr-company">@row.CompanyName</span><span class="sr-muted d-block">@row.RegistrationNumber</span><span class="sr-muted d-block text-break">@row.Email</span></th>
+                                <td><span class="sr-badge">@row.Status</span><span class="sr-muted d-block mt-1">@(row.IsActive ? "Account active" : "Account inactive")</span></td>
+                                <td><span class="sr-badge">@row.Verification</span></td>
+                                <td><span class="d-block">@row.VerifiedDocuments verified / @row.Documents uploaded</span>
+                                    @if (row.Documents == 0) { <span class="sr-attention d-block">No documents uploaded</span> }
+                                    @if (row.ExpiredDocuments > 0) { <span class="sr-danger d-block">@row.ExpiredDocuments expired</span> }
+                                    @if (row.ExpiringDocuments > 0) { <span class="sr-attention d-block">@row.ExpiringDocuments expiring within 30 days</span> }
+                                    @if (row.UndatedDocuments > 0) { <span class="sr-muted d-block">@row.UndatedDocuments without expiry date</span> }
+                                </td>
+                                <td><span class="d-block">@row.SubmittedBids submitted bids</span><span class="d-block">@row.Awards awards</span><span class="sr-muted d-block">@(row.AwardRate is decimal rate ? $"{rate:0.#}% award rate" : "Award rate: no bids")</span></td>
+                                <td><a asp-controller="SupplierReports" asp-action="Documents" asp-route-id="@row.Id" class="btn btn-sm btn-outline-primary" aria-label="View documents for @row.CompanyName">View documents</a></td>
+                            </tr>
+                        }</tbody>
+                    </table>
+                </div>
+                <nav aria-label="Supplier result pages" class="sr-pagination">
+                    @if (filter.Page > 1) { <a class="btn btn-outline-secondary" asp-controller="SupplierReports" asp-action="Index" asp-all-route-data="filter.Routes(filter.Page - 1)">Previous</a> }
+                    <span>Page @filter.Page of @Model.TotalPages</span>
+                    @if (filter.Page < Model.TotalPages) { <a class="btn btn-outline-secondary" asp-controller="SupplierReports" asp-action="Index" asp-all-route-data="filter.Routes(filter.Page + 1)">Next</a> }
+                </nav>
+            }
+        </section>
+        <details class="sr-panel"><summary>How to read this report</summary><p class="mt-3 mb-0">Submitted bids exclude drafts and withdrawals. Awards count tenders actually awarded to the supplier. Award rate is awards divided by submitted bids; it is not a quality rating. A verified document may still be expired. Documents without expiry dates are unknown, not confirmed valid. No uploaded documents does not mean a specific required document is missing.</p></details>
+    }
+</div>

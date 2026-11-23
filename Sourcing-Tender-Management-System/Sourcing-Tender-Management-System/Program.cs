@@ -51,6 +51,9 @@ namespace Sourcing_Tender_Management_System
                 };
             });
             builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.SupplierFileStore>();
+            builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.SupplierBidExtras.SampleImageStore>();
+            builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.SupplierBidExtras.SupplierReportService>();
+            builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.SupplierBidExtras.SupplierReportExporter>();
             builder.Services.AddControllersWithViews();
             builder.Services.AddTopCommittee();
             builder.Services.AddBiometrics(builder.Configuration);
