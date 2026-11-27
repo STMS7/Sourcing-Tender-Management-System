@@ -449,7 +449,10 @@
                 return;
             }
             const d = await res.json();
-            out.replaceChildren(...(isPdf ? showText(d) : showTable(d)));
+            out.textContent = `${d.name} uploaded.`;
+            out.className = 'mb-0 mt-2';
+            byId('knowledgeList').append(el('li', d.name));
+            e.target.reset();
         });
 
         const log = byId('chatLog');
@@ -474,6 +477,16 @@
             const parts = [el('strong', r.title)];
             if (r.summary) parts.push(el('p', r.summary, 'mb-1 mt-1'));
             if (r.text) parts.push(el('p', r.text, 'mb-0'));
+            if (r.suggestion) {
+                const yes = el('button', `Yes: ${r.suggestion}`, 'ai-chip mt-2');
+                yes.type = 'button';
+                yes.addEventListener('click', () => {
+                    if (byId('chatSend').disabled) return;
+                    byId('chatInput').value = r.suggestion;
+                    byId('chatForm').requestSubmit();
+                });
+                parts.push(yes);
+            }
             if (r.cards) {
                 const box = el('div', '', 'ai-cards');
                 r.cards.forEach(c => box.append(el('div', `${c.label}: ${c.value}`)));

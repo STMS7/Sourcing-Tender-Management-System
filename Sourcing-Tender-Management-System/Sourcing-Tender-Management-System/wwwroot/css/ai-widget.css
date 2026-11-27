@@ -88,27 +88,33 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 18px;
-  background: var(--aiw-ink);
-  color: var(--aiw-card);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--aiw-line);
 }
 .aiw-head > div { flex: 1 1 auto; min-width: 0; }
 .aiw-title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
-.aiw-sub { margin-top: 2px; font-size: 12px; color: color-mix(in srgb, var(--aiw-card) 72%, var(--aiw-ink)); }
+.aiw-sub { margin-top: 2px; font-size: 12px; color: var(--aiw-muted); }
+.aiw-avatar { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--aiw-ink); color: var(--aiw-lime); }
+.aiw-avatar svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.aiw-welcome { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: auto 0; text-align: center; animation: aiw-in .28s var(--aiw-ease); }
+.aiw-welcome .aiw-avatar { width: 60px; height: 60px; }
+.aiw-welcome .aiw-avatar svg { width: 30px; height: 30px; }
+.aiw-welcome .aiw-chips { flex-direction: column; align-items: center; margin-top: 0; }
+.aiw-hello { font-size: 19px; font-weight: 700; }
 .aiw-clear {
   flex: none;
   padding: 6px 12px;
-  border: 1px solid color-mix(in srgb, var(--aiw-card) 30%, transparent);
+  border: 1px solid var(--aiw-line);
   border-radius: 999px;
   background: transparent;
-  color: var(--aiw-card);
+  color: var(--aiw-ink);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
-  transition: background .2s ease, color .2s ease;
+  transition: background .2s ease;
 }
-.aiw-clear:hover { background: var(--aiw-lime); border-color: var(--aiw-lime); color: var(--aiw-ink); }
-.aiw-clear:focus-visible { outline: 2px solid var(--aiw-lime); outline-offset: 2px; }
+.aiw-clear:hover { background: var(--aiw-lime); }
+.aiw-clear:focus-visible { outline: 2px solid var(--aiw-ink); outline-offset: 2px; }
 
 /* Conversation */
 .aiw-log {
@@ -118,7 +124,7 @@
   gap: 10px;
   padding: 16px;
   overflow-y: auto;
-  background: var(--aiw-bg);
+  background: var(--aiw-card);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--aiw-ink) 30%, transparent) transparent;
 }
@@ -189,27 +195,27 @@
 .aiw-dots span:nth-child(3) { animation-delay: .3s; }
 @keyframes aiw-dot { 0%, 80%, 100% { opacity: .25; transform: none; } 40% { opacity: 1; transform: translateY(-3px); } }
 
-/* Composer */
-.aiw-form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--aiw-line); background: var(--aiw-card); }
+/* Composer: one pill holding the input and the send button */
+.aiw-form { display: flex; align-items: center; gap: 8px; margin: 0 12px 12px; padding: 5px 5px 5px 16px; border: 1px solid var(--aiw-line); border-radius: 999px; background: var(--aiw-bg); }
+.aiw-form:focus-within { outline: 2px solid var(--aiw-ink); outline-offset: 1px; }
 .aiw-form input[name="question"] {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 10px 16px;
-  border: 1px solid var(--aiw-line);
-  border-radius: 999px;
-  background: var(--aiw-bg);
+  padding: 6px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
   color: var(--aiw-ink);
   font: inherit;
   font-size: 14px;
 }
 .aiw-form input[name="question"]::placeholder { color: var(--aiw-muted); }
-.aiw-form input[name="question"]:focus-visible { outline: 2px solid var(--aiw-ink); outline-offset: 1px; }
 .aiw-send {
   flex: none;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -219,7 +225,7 @@
   transition: transform .2s var(--aiw-ease), opacity .2s ease;
 }
 .aiw-send svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.aiw-send:hover:not(:disabled) { transform: translateX(2px); }
+.aiw-send:hover:not(:disabled) { transform: translateY(-1px); }
 .aiw-send:disabled { opacity: .45; cursor: default; }
 .aiw-send:focus-visible { outline: 2px solid var(--aiw-ink); outline-offset: 2px; }
 

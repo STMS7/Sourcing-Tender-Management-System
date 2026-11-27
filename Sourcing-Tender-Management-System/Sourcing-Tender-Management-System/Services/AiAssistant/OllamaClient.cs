@@ -35,6 +35,7 @@ public class OllamaClient(HttpClient http, IOptions<OllamaOptions> options) : IO
 
     public async Task<string> ChatJsonAsync(string system, string user, object jsonSchema, CancellationToken ct)
     {
+        //It builds the request body sent to Ollama:
         var request = new ChatRequest(
             settings.Model,
             [new ChatMessage("system", system), new ChatMessage("user", user)],
@@ -43,6 +44,7 @@ public class OllamaClient(HttpClient http, IOptions<OllamaOptions> options) : IO
             Options: new ChatOptions(settings.Temperature, settings.ContextTokens, settings.MaxOutputTokens),
             KeepAlive: "10m");
 
+        //Sends the request to Ollama and waits for the response
         using var response = await http.PostAsJsonAsync("api/chat", request, ct);
         if (!response.IsSuccessStatusCode)
         {

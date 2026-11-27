@@ -6,7 +6,6 @@ using Sourcing_Tender_Management_System.Services.AiIntelligence;
 using Sourcing_Tender_Management_System.Services.Reports;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
-using UglyToad.PdfPig;
 
 namespace Sourcing_Tender_Management_System.Controllers;
 
@@ -124,6 +123,43 @@ public class AiIntelligenceController(AiDataService data, AiChatService chat) : 
     }
 
 
+    // The supplier comparison the chat shows, as a PDF report (same permission checks).
+    [HttpGet]
+    public async Task<IActionResult> ExportSupplierComparisonPdf(int a, int b)
+    {
+        try
+        {
+            var options = await data.GetSupplierOptions(User);
+            var first = options.FirstOrDefault(o => o.Id == a);
+            var second = options.FirstOrDefault(o => o.Id == b);
+            if (first is null || second is null || a == b) return NotFound();
+            var reply = AiChatService.CompareReply(first, second, await data.GetSupplierComparison(User, a, b));
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            var pdf = Document.Create(doc => doc.Page(page =>
+            {
+                page.Margin(30);
+                page.DefaultTextStyle(x => x.FontSize(10));
+                page.Header().Text($"Supplier comparison: {reply.Title}").Bold().FontSize(16);
+                page.Content().PaddingTop(15).Column(column =>
+                {
+                    column.Item().Table(t =>
+                    {
+                        t.ColumnsDefinition(c => { foreach (var _ in reply.Headers!) c.RelativeColumn(); });
+                        t.Header(h => { foreach (var title in reply.Headers!) h.Cell().Text(title).Bold(); });
+                        foreach (var row in reply.Rows!)
+                            foreach (var value in row) t.Cell().PaddingVertical(2).Text(value);
+                    });
+                    column.Item().PaddingTop(12);
+                    foreach (var note in reply.Notes!) column.Item().Text($"• {note}");
+                });
+            })).GeneratePdf();
+
+            return File(pdf, "application/pdf", $"supplier-comparison-{a}-{b}.pdf");
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
     [HttpGet]
     public async Task<IActionResult> DurationKpi()
     {
@@ -131,63 +167,30 @@ public class AiIntelligenceController(AiDataService data, AiChatService chat) : 
         catch (UnauthorizedAccessException) { return Forbid(); }
     }
 
-    public record UploadPreviewDto(string[] Headers, List<string[]> Rows, int TotalRows);
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> UploadExcel(IFormFile file)
+    // Admin only: keeps a PDF so the chat's document search (RAG) can read it.
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UploadKnowledge(IFormFile file,
+        [FromServices] Services.SupplierFileStore validator, [FromServices] IWebHostEnvironment environment)
     {
-        if (file is null || file.Length == 0) return BadRequest("No file.");
-        if (file.Length > 5 * 1024 * 1024) return BadRequest("File is larger than 5 MB.");
-        if (!string.Equals(Path.GetExtension(file.FileName), ".xlsx", StringComparison.OrdinalIgnoreCase))
-            return BadRequest("Only .xlsx files are allowed.");
+        if (file is null) return BadRequest("No file.");
+        if (await validator.ValidateAsync(file) is { } problem) return BadRequest(problem);   // PDF, up to 5 MB
 
+        using var memory = new MemoryStream();
+        await file.CopyToAsync(memory);
+        var bytes = memory.ToArray();
         try
         {
-            await using var stream = file.OpenReadStream();
-            using var wb = new XLWorkbook(stream);
-            var range = wb.Worksheets.First().RangeUsed();
-            if (range is null) return BadRequest("The sheet is empty.");
+            if (DocumentText.FromPdf(bytes).Count == 0) return BadRequest("This PDF has no text (is it a scan?).");
+        }
+        catch (Exception) { return BadRequest("This PDF could not be read."); }
 
-            var all = range.RowsUsed()
-                .Select(r => r.Cells().Select(c => c.GetFormattedString()).ToArray()).ToList();
-            return Json(new UploadPreviewDto(all[0], all.Skip(1).Take(20).ToList(), all.Count - 1));
-        }
-        catch (Exception)
-        {
-            return BadRequest("This file could not be read as an Excel file.");
-        }
+        var name = Path.GetFileNameWithoutExtension(file.FileName);   // drops any folder part the browser sends
+        if (name.Length > 80) name = name[..80];
+        var folder = DocumentSearch.KnowledgeFolder(environment);
+        Directory.CreateDirectory(folder);
+        await System.IO.File.WriteAllBytesAsync(Path.Combine(folder, $"{Guid.NewGuid():N}_{name}.pdf"), bytes);
+        return Json(new { name = name + ".pdf" });
     }
-
-    public record PdfPreviewDto(int Pages, int Characters, string Preview);
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> UploadPdf(IFormFile file)
-    {
-        if (file is null || file.Length == 0) return BadRequest("No file.");
-        if (file.Length > 5 * 1024 * 1024) return BadRequest("File is larger than 5 MB.");
-
-        await using var stream = file.OpenReadStream();
-        var header = new byte[5];
-        // Real PDFs start with the bytes "%PDF-"; this catches renamed files.
-        if (await stream.ReadAsync(header) < 5 || System.Text.Encoding.ASCII.GetString(header) != "%PDF-")
-            return BadRequest("This is not a PDF file.");
-        stream.Position = 0;
-
-        try
-        {
-            using var pdf = PdfDocument.Open(stream);
-            var pages = pdf.GetPages().Take(50).Select(p => p.Text).ToList();
-            var text = string.Join("\n", pages);
-            if (string.IsNullOrWhiteSpace(text))
-                return BadRequest("No text found. This may be a scanned PDF.");
-            return Json(new PdfPreviewDto(pdf.NumberOfPages, text.Length, text.Length > 1500 ? text[..1500] + "..." : text));
-        }
-        catch (Exception)
-        {
-            return BadRequest("This file could not be read as a PDF.");
-        }
-    }
-
 
     // 9. Ask a question to the AI service and return the answer
     [HttpPost, ValidateAntiForgeryToken]
@@ -200,7 +203,7 @@ public class AiIntelligenceController(AiDataService data, AiChatService chat) : 
         if (context.Length > 200) context = "";
         try
         {
-            var plan = await chat.PlanAsync(question, context, ct);
+            var plan = await chat.CorrectAsync(await chat.PlanAsync(question, context, ct), User, question);
             var reply = await chat.RunAsync(plan, User, question, ct);
             reply = reply with
             {
@@ -210,5 +213,8 @@ public class AiIntelligenceController(AiDataService data, AiChatService chat) : 
             return Json(reply);
         }
         catch (HttpRequestException) { return StatusCode(503, "The AI service is not running."); }
+        // HttpClient reports its timeout as a cancellation; one the browser did not ask for means the model was too slow.
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        { return StatusCode(504, "The AI is taking too long. Please try again."); }
     }
 }

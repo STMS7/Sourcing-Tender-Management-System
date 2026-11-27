@@ -1,3 +1,4 @@
+using Sourcing_Tender_Management_System.Services;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Models;
@@ -56,7 +57,7 @@ public partial class ReportService
             .Select(i => new { Supplier = i.Supplier.CompanyName, i.Status, i.InvitedAt, i.RespondedAt, i.ResponseReason })
             .ToListAsync();
 
-        var bids = await db.Bids.AsNoTracking().Where(b => b.TenderId == tenderId && b.Status != BidStatus.Draft)
+        var bids = await db.Bids.AsNoTracking().Unsealed().Where(b => b.TenderId == tenderId && b.Status != BidStatus.Draft)
             .OrderBy(b => b.TotalAmount)
             .Select(b => new
             {

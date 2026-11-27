@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
+﻿using Sourcing_Tender_Management_System.Services;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
@@ -71,11 +72,20 @@ public class AiDataService(ApplicationDbContext db)
     public async Task<List<BidPointDto>> GetTenderBids(ClaimsPrincipal user, int tenderId)
     {
         Check(user, ReportKind.Bids);
-        return await db.Bids.AsNoTracking()
+        return await db.Bids.AsNoTracking().Unsealed()
             .Where(b => b.TenderId == tenderId && b.Status != BidStatus.Draft)
             .OrderBy(b => b.TotalAmount)
             .Select(b => new BidPointDto(b.Supplier.CompanyName, b.TotalAmount, b.DeliveryDays))
             .ToListAsync();
+    }
+
+    // The opening date to tell the user about, when a tender's offers are still sealed.
+    public async Task<(bool Sealed, DateTime? Opens)> GetSeal(ClaimsPrincipal user, int tenderId)
+    {
+        Check(user, ReportKind.Bids);
+        var sealedBids = await db.Bids.AnyAsync(b => b.TenderId == tenderId && b.Status != BidStatus.Draft)
+            && !await db.Bids.Unsealed().AnyAsync(b => b.TenderId == tenderId && b.Status != BidStatus.Draft);
+        return (sealedBids, await db.Tenders.Where(t => t.Id == tenderId).Select(t => t.OpeningDate).FirstOrDefaultAsync());
     }
 
     private void Check(ClaimsPrincipal user, ReportKind kind)
@@ -108,7 +118,7 @@ public class AiDataService(ApplicationDbContext db)
     public async Task<List<PriceRangeDto>> GetPriceRanges(ClaimsPrincipal user, IReadOnlyCollection<int>? tenderIds = null)
     {
         Check(user, ReportKind.Bids);
-        var bids = db.Bids.AsNoTracking().Where(b => b.Status != BidStatus.Draft);
+        var bids = db.Bids.AsNoTracking().Unsealed().Where(b => b.Status != BidStatus.Draft);
         if (tenderIds is not null) bids = bids.Where(b => tenderIds.Contains(b.TenderId));
         var rows = await bids.GroupBy(b => new { b.TenderId, b.Tender.Title })
             .Select(g => new { g.Key.TenderId, g.Key.Title, Min = g.Min(b => b.TotalAmount), Max = g.Max(b => b.TotalAmount),
@@ -123,7 +133,7 @@ public class AiDataService(ApplicationDbContext db)
     public async Task<List<ParticipationDto>> GetSupplierParticipation(ClaimsPrincipal user)
     {
         Check(user, ReportKind.Suppliers);
-        var rows = await db.Bids.AsNoTracking().Where(b => b.Status != BidStatus.Draft)
+        var rows = await db.Bids.AsNoTracking().Unsealed().Where(b => b.Status != BidStatus.Draft)
             .GroupBy(b => new { b.SupplierId, b.Supplier.CompanyName })
             .Select(g => new { g.Key.CompanyName, Bids = g.Count(), Wins = g.Count(b => b.Status == BidStatus.Accepted) })
             .OrderByDescending(x => x.Bids).Take(15)
@@ -133,7 +143,9 @@ public class AiDataService(ApplicationDbContext db)
 
     // 10. Compare two suppliers' bids, tender by tender
     public record SupplierOptionDto(int Id, string Name, string Email);
-    public record SupplierCompareRowDto(string Tender, decimal? AmountA, decimal? AmountB);
+    /// <param name="Score">Weighted total from the latest evaluation round; null until the bid has been evaluated.</param>
+    public record BidFactsDto(decimal Amount, int DeliveryDays, string Compliance, decimal? Score);
+    public record SupplierCompareRowDto(string Tender, BidFactsDto? A, BidFactsDto? B);
 
     public async Task<List<SupplierOptionDto>> GetSupplierOptions(ClaimsPrincipal user)
     {
@@ -146,16 +158,44 @@ public class AiDataService(ApplicationDbContext db)
     {
         Check(user, ReportKind.Suppliers);
         Check(user, ReportKind.Bids);
-        var bids = await db.Bids.AsNoTracking()
+        var bids = await db.Bids.AsNoTracking().Unsealed()
             .Where(b => b.Status != BidStatus.Draft && (b.SupplierId == supplierA || b.SupplierId == supplierB))
-            .Select(b => new { b.SupplierId, b.TenderId, Tender = b.Tender.Title, b.TotalAmount })
+            .Select(b => new { b.Id, b.SupplierId, b.TenderId, Tender = b.Tender.Title, b.TotalAmount, b.DeliveryDays, b.ComplianceStatus })
             .ToListAsync();
+        var ids = bids.Select(b => b.Id).ToList();
+        var scores = (await db.EvaluationReportBids.AsNoTracking().Where(x => ids.Contains(x.BidId))
+                .Select(x => new { x.BidId, x.EvaluationReport.Round, x.WeightedTotal }).ToListAsync())
+            .GroupBy(x => x.BidId).ToDictionary(g => g.Key, g => g.MaxBy(x => x.Round)!.WeightedTotal);
         return bids.GroupBy(x => x.TenderId)
-            .Select(g => new SupplierCompareRowDto(g.First().Tender,
-                g.FirstOrDefault(x => x.SupplierId == supplierA)?.TotalAmount,
-                g.FirstOrDefault(x => x.SupplierId == supplierB)?.TotalAmount))
-            .OrderByDescending(r => r.AmountA != null && r.AmountB != null).ThenBy(r => r.Tender)
+            .Select(g =>
+            {
+                BidFactsDto? Facts(int supplier) => g.FirstOrDefault(x => x.SupplierId == supplier) is { } b
+                    ? new(b.TotalAmount, b.DeliveryDays, b.ComplianceStatus.ToString(), scores.TryGetValue(b.Id, out var s) ? s : null)
+                    : null;
+                return new SupplierCompareRowDto(g.First().Tender, Facts(supplierA), Facts(supplierB));
+            })
+            .OrderByDescending(r => r.A != null && r.B != null).ThenBy(r => r.Tender)
             .ToList();
+    }
+
+    // 10b. One supplier's profile: registration facts, bid history and (for roles that may see them) contract count
+    public record SupplierBidRowDto(string Tender, decimal Amount, string Status, DateTime? SubmittedAt);
+    public record SupplierProfileDto(string Name, string Email, string? Phone, string Registration, bool Active, DateTime RegisteredAt,
+        int Contracts, List<SupplierBidRowDto> Bids);
+
+    public async Task<SupplierProfileDto?> GetSupplierProfile(ClaimsPrincipal user, int supplierId)
+    {
+        Check(user, ReportKind.Suppliers);
+        Check(user, ReportKind.Bids);
+        var s = await db.Suppliers.AsNoTracking().Where(x => x.Id == supplierId)
+            .Select(x => new { x.CompanyName, x.Email, x.PhoneNumber, x.RegistrationStatus, x.IsActive, x.RegisteredAt }).FirstOrDefaultAsync();
+        if (s is null) return null;
+        var bids = await db.Bids.AsNoTracking().Unsealed().Where(b => b.SupplierId == supplierId && b.Status != BidStatus.Draft)
+            .OrderByDescending(b => b.Id).Take(50)
+            .Select(b => new { b.Tender.Title, b.TotalAmount, b.Status, b.SubmittedAt }).ToListAsync();
+        var contracts = ReportAccess.CanSeeContracts(RolesOf(user)) ? await db.Contracts.CountAsync(c => c.SupplierId == supplierId) : 0;
+        return new(s.CompanyName, s.Email, s.PhoneNumber, s.RegistrationStatus.ToString(), s.IsActive, s.RegisteredAt, contracts,
+            bids.Select(b => new SupplierBidRowDto(b.Title, b.TotalAmount, b.Status.ToString(), b.SubmittedAt)).ToList());
     }
 
     // 11. Contracts and deliveries (management and sourcing roles)
