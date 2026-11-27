@@ -7,6 +7,14 @@
     var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
     var canTenders = ReportAccess.CanOpen(ReportKind.Tenders, roles);
     var canBids = ReportAccess.CanOpen(ReportKind.Bids, roles);
+    // Example questions for the empty chat, only for data this role may open. Unfinished ones are left in the box to complete.
+    var examples = new List<(string Label, string Question, bool Finished)>();
+    if (canTenders) examples.Add(("Tenders by status", "Tenders by status", true));
+    if (canBids) examples.Add(("Bids for a tender", "Show the bids of ", false));
+    if (ReportAccess.CanOpen(ReportKind.Suppliers, roles)) examples.Add(("Report about a supplier", "Report about ", false));
+    if (!canTenders && ReportAccess.CanOpen(ReportKind.Requests, roles)) examples.Add(("List the requests", "List the requests", true));
+    examples.Add(("My clarifications", "Show my clarifications", true));
+    examples.Add(("What can I ask?", "What can I ask?", true));
 }
 
 <h1 class="h3 mb-1">AI Intelligence</h1>
@@ -65,17 +73,48 @@
     .ai-msg.bot { align-self: flex-start; background: var(--zt-sage-soft); }
     .ai-cards { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .ai-cards div { background: var(--zt-card); border: 1px solid var(--zt-line); border-radius: 12px; padding: 6px 12px; }
+    .ai-avatar { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--zt-ink); color: var(--zt-lime, #DCEB4B); }
+    .ai-avatar svg { width: 55%; height: 55%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .ai-welcome { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: auto 0; text-align: center; }
+    .ai-welcome .ai-avatar { width: 60px; height: 60px; }
+    .ai-hello { font-size: 19px; font-weight: 700; }
+    .ai-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 520px; }
+    .ai-chip { padding: 6px 14px; border: 1px solid var(--zt-line); border-radius: 999px; background: var(--zt-card); color: var(--zt-ink); font-size: 14px; }
+    .ai-chip:hover { background: var(--zt-lime, #DCEB4B); }
+    .ai-composer { display: flex; align-items: center; gap: 8px; padding: 5px 5px 5px 18px; border: 1px solid var(--zt-line); border-radius: 999px; }
+    .ai-composer:focus-within, .ai-chip:focus-visible { outline: 2px solid var(--zt-ink); outline-offset: 1px; }
+    .ai-composer input[name="question"] { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--zt-ink); box-shadow: none; }
+    .ai-send { border: 0; padding: 0; width: 38px; height: 38px; cursor: pointer; }
+    .ai-send:disabled { opacity: .45; cursor: default; }
 </style>
 
 <div class="card mb-3"><div class="card-body">
-    <h2 class="h5">Ask the data</h2>
-    <p class="text-muted">Answers come from live system data. The AI only comments and never decides or acts.</p>
-    <div id="chatLog" class="ai-log" aria-live="polite"></div>
-    <form id="chatForm" class="d-flex gap-2 mt-3">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <span class="ai-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16v4M17 18h4" /></svg></span>
+        <div>
+            <h2 class="h5 mb-0">Ask the data</h2>
+            <div class="text-muted small">Answers come from live system data. The AI only comments and never decides or acts.</div>
+        </div>
+    </div>
+    <div id="chatLog" class="ai-log" aria-live="polite">
+        <div id="chatWelcome" class="ai-welcome">
+            <span class="ai-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16v4M17 18h4" /></svg></span>
+            <div class="ai-hello">How can I help?</div>
+            <div class="ai-chips">
+                @foreach (var x in examples)
+                {
+                    <button type="button" class="ai-chip" data-q="@x.Question" data-finished="@(x.Finished ? "1" : "")">@x.Label</button>
+                }
+            </div>
+        </div>
+    </div>
+    <form id="chatForm" class="ai-composer mt-3">
         @Html.AntiForgeryToken()
-        <input id="chatInput" name="question" class="form-control" maxlength="500" autocomplete="off"
-               placeholder="e.g. Show prices for the eggss tender" aria-label="Question" required />
-        <button id="chatSend" class="btn btn-primary" type="submit">Ask</button>
+        <input id="chatInput" name="question" maxlength="500" autocomplete="off"
+               placeholder="Type a question" aria-label="Question" required />
+        <button id="chatSend" class="ai-avatar ai-send" type="submit" aria-label="Send question">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
+        </button>
     </form>
 </div></div>
 
@@ -220,6 +259,16 @@
             const parts = [el('strong', r.title)];
             if (r.summary) parts.push(el('p', r.summary, 'mb-1 mt-1'));
             if (r.text) parts.push(el('p', r.text, 'mb-0'));
+            if (r.suggestion) {
+                const yes = el('button', `Yes: ${r.suggestion}`, 'ai-chip mt-2');
+                yes.type = 'button';
+                yes.addEventListener('click', () => {
+                    if (byId('chatSend').disabled) return;
+                    byId('chatInput').value = r.suggestion;
+                    byId('chatForm').requestSubmit();
+                });
+                parts.push(yes);
+            }
             if (r.cards) {
                 const box = el('div', '', 'ai-cards');
                 r.cards.forEach(c => box.append(el('div', `${c.label}: ${c.value}`)));
@@ -259,13 +308,20 @@
             if (canvas) bar(canvas, r.labels, r.values, r.title);   // draw only after it is in the page
         }
 
-        bubble('bot').textContent = 'Ask me about tender totals, tenders by status, the bids of one tender, or how long it takes to notify winners.';
+        log.querySelectorAll('.ai-chip').forEach(chip => chip.addEventListener('click', () => {
+            const input = byId('chatInput');
+            if (byId('chatSend').disabled) return;
+            input.value = chip.dataset.q;
+            if (chip.dataset.finished) byId('chatForm').requestSubmit();
+            else input.focus();
+        }));
 
         byId('chatForm').addEventListener('submit', async e => {
             e.preventDefault();
             const input = byId('chatInput'), send = byId('chatSend');
             const q = input.value.trim();
             if (!q) return;
+            byId('chatWelcome')?.remove();
             const fd = new FormData(e.target);          // read before clearing the box
             fd.set('context', chatContext);
             bubble('user').textContent = q;

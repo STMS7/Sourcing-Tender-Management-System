@@ -158,6 +158,26 @@ public class AiDataService(ApplicationDbContext db)
             .ToList();
     }
 
+    // 10b. One supplier's profile: registration facts, bid history and (for roles that may see them) contract count
+    public record SupplierBidRowDto(string Tender, decimal Amount, string Status, DateTime? SubmittedAt);
+    public record SupplierProfileDto(string Name, string Email, string? Phone, string Registration, bool Active, DateTime RegisteredAt,
+        int Contracts, List<SupplierBidRowDto> Bids);
+
+    public async Task<SupplierProfileDto?> GetSupplierProfile(ClaimsPrincipal user, int supplierId)
+    {
+        Check(user, ReportKind.Suppliers);
+        Check(user, ReportKind.Bids);
+        var s = await db.Suppliers.AsNoTracking().Where(x => x.Id == supplierId)
+            .Select(x => new { x.CompanyName, x.Email, x.PhoneNumber, x.RegistrationStatus, x.IsActive, x.RegisteredAt }).FirstOrDefaultAsync();
+        if (s is null) return null;
+        var bids = await db.Bids.AsNoTracking().Where(b => b.SupplierId == supplierId && b.Status != BidStatus.Draft)
+            .OrderByDescending(b => b.Id).Take(50)
+            .Select(b => new { b.Tender.Title, b.TotalAmount, b.Status, b.SubmittedAt }).ToListAsync();
+        var contracts = ReportAccess.CanSeeContracts(RolesOf(user)) ? await db.Contracts.CountAsync(c => c.SupplierId == supplierId) : 0;
+        return new(s.CompanyName, s.Email, s.PhoneNumber, s.RegistrationStatus.ToString(), s.IsActive, s.RegisteredAt, contracts,
+            bids.Select(b => new SupplierBidRowDto(b.Title, b.TotalAmount, b.Status.ToString(), b.SubmittedAt)).ToList());
+    }
+
     // 11. Contracts and deliveries (management and sourcing roles)
     public record ContractRowDto(string Number, string Supplier, string Status, decimal Value, string Currency, DateTime Start, DateTime End);
     public record DeliveryRowDto(string Number, string PurchaseOrder, string Supplier, string Status, DateTime Delivered, DateTime? Inspected);

@@ -6,17 +6,25 @@
     var showAiWidget = User.Identity?.IsAuthenticated == true
                        && ReportAccess.AllRoles.Any(User.IsInRole)
                        && controllerName != "AiIntelligence";
+    // Example questions are offered only for data this user's roles may open.
+    var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+    bool Can(Sourcing_Tender_Management_System.Models.Reports.ReportKind kind) => ReportAccess.CanOpen(kind, roles);
 }
 @if (showAiWidget)
 {
     <link rel="stylesheet" href="~/css/ai-widget.css" asp-append-version="true" />
     <div id="aiw" class="aiw"
          data-user="@User.FindFirstValue(ClaimTypes.NameIdentifier)"
+         data-tenders="@(Can(Sourcing_Tender_Management_System.Models.Reports.ReportKind.Tenders) ? "1" : "")"
+         data-bids="@(Can(Sourcing_Tender_Management_System.Models.Reports.ReportKind.Bids) ? "1" : "")"
+         data-suppliers="@(Can(Sourcing_Tender_Management_System.Models.Reports.ReportKind.Suppliers) ? "1" : "")"
+         data-requests="@(Can(Sourcing_Tender_Management_System.Models.Reports.ReportKind.Requests) ? "1" : "")"
          data-ask-url="@Url.Action("Ask", "AiIntelligence")"
          data-excel-url="@Url.Action("ExportBids", "AiIntelligence")"
          data-pdf-url="@Url.Action("ExportBidsPdf", "AiIntelligence")">
         <section id="aiw-panel" class="aiw-panel" role="dialog" aria-label="AI assistant" inert>
             <header class="aiw-head">
+                <span class="aiw-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16v4M17 18h4" /></svg></span>
                 <div>
                     <div class="aiw-title">Ask the data</div>
                     <div class="aiw-sub">Live system data. Advice only, never decisions.</div>
@@ -26,9 +34,9 @@
             <div class="aiw-log" role="log" aria-live="polite"></div>
             <form class="aiw-form" autocomplete="off">
                 @Html.AntiForgeryToken()
-                <input name="question" maxlength="500" placeholder="Ask about tenders, bids, suppliers..." aria-label="Your question" required />
+                <input name="question" maxlength="500" placeholder="Type a question" aria-label="Your question" required />
                 <button class="aiw-send" type="submit" aria-label="Send question">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
                 </button>
             </form>
         </section>

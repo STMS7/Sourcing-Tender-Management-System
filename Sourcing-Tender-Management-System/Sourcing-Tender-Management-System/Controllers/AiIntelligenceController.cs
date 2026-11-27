@@ -200,7 +200,7 @@ public class AiIntelligenceController(AiDataService data, AiChatService chat) : 
         if (context.Length > 200) context = "";
         try
         {
-            var plan = await chat.PlanAsync(question, context, ct);
+            var plan = await chat.CorrectAsync(await chat.PlanAsync(question, context, ct), User, question);
             var reply = await chat.RunAsync(plan, User, question, ct);
             reply = reply with
             {

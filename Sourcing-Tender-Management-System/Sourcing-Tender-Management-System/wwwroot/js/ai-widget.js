@@ -74,6 +74,14 @@
             wrap.append(table);
             parts.push(wrap);
         }
+        if (r.suggestion) {
+            const yes = el('button', `Yes: ${r.suggestion}`, 'aiw-chip');
+            yes.type = 'button';
+            yes.addEventListener('click', () => ask(r.suggestion));
+            const box = el('div', '', 'aiw-chips');
+            box.append(yes);
+            parts.push(box);
+        }
         let chartBox;
         if (r.type === 'chart') { chartBox = el('div', '', 'aiw-chart'); parts.push(chartBox); }
         if (r.notes?.length) {
@@ -107,16 +115,29 @@
 
     let welcomeBox;
     function showWelcome() {
-        welcomeBox = bubble('bot');
-        welcomeBox.append(el('span', 'Hi. I answer from live system data, within your role. I only advise; I never decide or change anything.'));
+        welcomeBox = el('div', '', 'aiw-welcome');
+        const avatar = $('.aiw-avatar').cloneNode(true);
         const chips = el('div', '', 'aiw-chips');
-        ['Tender totals', 'Tenders by status', 'What can I ask?'].forEach(q => {
-            const b = el('button', q, 'aiw-chip');
+        // [label, question, finished]: an unfinished question is put in the box for the user to complete.
+        [
+            urls.tenders && ['Tenders by status', 'Tenders by status', true],
+            urls.bids && ['Bids for a tender', 'Show the bids of ', false],
+            urls.suppliers && ['Report about a supplier', 'Report about ', false],
+            !urls.tenders && urls.requests && ['List the requests', 'List the requests', true],
+            ['My clarifications', 'Show my clarifications', true],
+            ['What can I ask?', 'What can I ask?', true]
+        ].filter(Boolean).forEach(([label, q, finished]) => {
+            const b = el('button', label, 'aiw-chip');
             b.type = 'button';
-            b.addEventListener('click', () => ask(q));
+            b.addEventListener('click', () => {
+                if (finished) { ask(q); return; }
+                input.value = q;
+                input.focus();
+            });
             chips.append(b);
         });
-        welcomeBox.append(chips);
+        welcomeBox.append(avatar, el('div', 'How can I help?', 'aiw-hello'), chips);
+        log.append(welcomeBox);
     }
 
     async function ask(q) {

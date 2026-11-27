@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
 using Sourcing_Tender_Management_System.Models;
 using Sourcing_Tender_Management_System.Models.Reports;
@@ -8,6 +9,7 @@ using Sourcing_Tender_Management_System.Services.Reports;
 
 namespace Sourcing_Tender_Management_System.Services.AiIntelligence;
 
+//is a small data holder for the AI's decision
 public record ChatPlan(string Tool, string? TenderQuery, string? TenderQuery2 = null, string? Report = null, string? Search = null,
     string? Supplier = null, string? Supplier2 = null);
 public record CardDto(string Label, string Value);
@@ -16,12 +18,14 @@ public record CardDto(string Label, string Value);
 public record ChatReply(string Type, string Title, List<CardDto>? Cards = null, string[]? Labels = null,
     decimal[]? Values = null, string[]? Headers = null, List<string[]>? Rows = null, string? Text = null,
     string? Summary = null, int? TenderId = null, string? Context = null,
-    List<string>? Notes = null, string? Link = null);
+    List<string>? Notes = null, string? Link = null,
+    string? Suggestion = null, string? Typed = null);
 
 public class AiChatService(IOllamaClient ollama, AiDataService data, IReportService reports, UserManager<ApplicationUser> users)
 {
+    //Tools the ai use 
     public static readonly string[] Tools = { "tender_stats", "tenders_by_status", "tender_bids", "duration_kpi",
-        "price_ranges", "compare_tenders", "compare_suppliers", "supplier_participation", "report", "tender_file", "contracts", "deliveries", "clarifications", "general", "help", "none" };
+        "price_ranges", "compare_tenders", "compare_suppliers", "supplier_profile", "supplier_participation", "report", "tender_file", "contracts", "deliveries", "clarifications", "general", "help", "none" };
 
     private static List<string> RolesOf(ClaimsPrincipal user) =>
         user.FindAll(ClaimTypes.Role).Select(c => c.Value).Distinct().ToList();
@@ -37,6 +41,7 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
         - compare_tenders: compare TWO tenders; put the first name words in tenderQuery and the second in tenderQuery2
         - compare_suppliers: compare the bids/offers of TWO suppliers; put the first supplier's name or email in supplier
           and the second in supplier2
+        - supplier_profile: a report/profile/info about ONE named supplier; put the supplier's name or email in supplier
         - supplier_participation: how many tenders each supplier bid on and won
         - report: any other question about requests, tenders, suppliers, bids or approvals; put the family in report
           (Requests, Tenders, Suppliers, Bids or Approvals) and any words to search for in search.
@@ -60,6 +65,8 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
     the user can consider; you cannot decide or act for them. Reply as JSON.
     """;
 
+
+    //narrates only the returned data
     public async Task<string?> SummarizeAsync(string question, ChatReply reply, CancellationToken ct)
     {
         if (reply.Type == "text") return null;
@@ -75,8 +82,11 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
         catch (Exception e) when (e is JsonException or HttpRequestException) { return null; }   // the data still shows without the comment
     }
 
+
+    //model routes to one tool, reply validated "which tool, with which inputs"
     public async Task<ChatPlan> PlanAsync(string question, string? context, CancellationToken ct)
     {
+        //describes the JSON shape the AI model must reply with:
         var schema = new
         {
             type = "object",
@@ -125,6 +135,7 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
         return term.Length == 0 ? null : term;
     }
 
+    //is a backup for when the AI does not give a valid report type. It guesses from the words in the question.
     private static string? GuessReport(string question)
     {
         foreach (var (word, kind) in ReportWords)
@@ -132,7 +143,50 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
         return null;
     }
 
+
+    // The small model confuses two pairs of tools, so code corrects them. Only the tool changes; RunAsync still checks permissions.
+    public async Task<ChatPlan> CorrectAsync(ChatPlan plan, ClaimsPrincipal user, string question)
+    {
+        // "compare the bids of X" names one tender: that is the bids of X, not a comparison of two tenders.
+        if (plan.Tool == "compare_tenders" && !string.IsNullOrWhiteSpace(plan.TenderQuery))
+        {
+            var second = plan.TenderQuery2?.Trim() ?? "";
+            var real = second.Length > 0 && !second.Equals(plan.TenderQuery.Trim(), StringComparison.OrdinalIgnoreCase)
+                && !GenericWords.Contains(second) && question.Contains(second, StringComparison.OrdinalIgnoreCase);
+            return real ? plan : plan with { Tool = "tender_bids" };
+        }
+
+        // "report about <supplier>" means that one supplier's profile, not the general report.
+        if (plan.Tool != "report" || !ReportAccess.CanOpen(ReportKind.Suppliers, RolesOf(user))) return plan;
+        if (new[] { "tender", "bid", "offer", "request", "approval" }.Any(w => question.Contains(w, StringComparison.OrdinalIgnoreCase)))
+            return plan;
+        var options = await data.GetSupplierOptions(user);
+        // Keep the words the user typed, so a misspelling is still answered with "Did you mean ...?".
+        var name = plan.Supplier;
+        if (string.IsNullOrWhiteSpace(name) || FindSupplier(options, name) is (null, { Suggestion: null }))
+            name = NamedIn(question, options.Select(o => o.Name));
+        var (supplier, problem) = FindSupplier(options, name);
+        return supplier is null && problem?.Suggestion is null ? plan : plan with { Tool = "supplier_profile", Supplier = name };
+    }
+
+    // A "Did you mean" reply carries the corrected question, which the chat offers as a button.
     public async Task<ChatReply> RunAsync(ChatPlan plan, ClaimsPrincipal user, string question, CancellationToken ct)
+    {
+        var reply = await RunToolAsync(plan, user, question, ct);
+        if (reply.Suggestion is not { } name) return reply;
+        var corrected = reply.Typed is { Length: > 0 } typed && question.Contains(typed, StringComparison.OrdinalIgnoreCase)
+            ? question.Replace(typed, name, StringComparison.OrdinalIgnoreCase)
+            : plan.Tool switch
+            {
+                "supplier_profile" => $"Report about {name}",
+                "tender_file" => $"Everything about the tender {name}",
+                _ => $"Show the bids of {name}"
+            };
+        return reply with { Suggestion = corrected, Typed = null };
+    }
+
+    //runs the chosen tool
+    private async Task<ChatReply> RunToolAsync(ChatPlan plan, ClaimsPrincipal user, string question, CancellationToken ct)
     {
         try
         {
@@ -180,6 +234,9 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
 
                 case "compare_suppliers":
                     return await SupplierCompareReply(plan, user);
+
+                case "supplier_profile":
+                    return await SupplierProfileReply(plan, user, question);
 
                 case "report":
                     return await ReportReply(plan, user);
@@ -237,15 +294,128 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
             Notes: notes);
     }
 
+    private async Task<ChatReply> SupplierProfileReply(ChatPlan plan, ClaimsPrincipal user, string question)
+    {
+        var options = await data.GetSupplierOptions(user);   // runs the Suppliers permission check
+        // A small model often drops a lowercase name; fall back to the supplier named in the question itself.
+        var query = string.IsNullOrWhiteSpace(plan.Supplier) ? NamedIn(question, options.Select(o => o.Name)) : plan.Supplier;
+        var (sup, problem) = FindSupplier(options, query);
+        if (sup is null) return problem!;
+        var p = await data.GetSupplierProfile(user, sup.Id);
+        if (p is null) return new("text", "Not found", Text: "That supplier is not available.");
+
+        var cards = new List<CardDto> { new("Registration", p.Registration), new("Active", p.Active ? "Yes" : "No"),
+            new("Registered", p.RegisteredAt.ToString("yyyy-MM-dd")), new("Bids", p.Bids.Count.ToString()) };
+        cards.Add(new("Wins", p.Bids.Count(b => b.Status == nameof(BidStatus.Accepted)).ToString()));
+        if (ReportAccess.CanSeeContracts(RolesOf(user))) cards.Add(new("Contracts", p.Contracts.ToString()));
+
+        var notes = new List<string> { $"Contact: {p.Email}" + (string.IsNullOrWhiteSpace(p.Phone) ? "" : $", {p.Phone}"),
+            "Amounts are plain numbers; currencies are not converted." };
+        return new("table", p.Name, Cards: cards, Headers: ["Tender", "Amount", "Status", "Submitted"],
+            Rows: p.Bids.Select(b => new[] { b.Tender, b.Amount.ToString("N2"), b.Status, b.SubmittedAt?.ToString("yyyy-MM-dd") ?? "-" }).ToList(),
+            Notes: notes, Link: $"/Reports/Show?kind=Suppliers&Search={Uri.EscapeDataString(p.Name)}");
+    }
+
+    // Letters and digits only, lower-case: "Eggs Company", "eggscompany" and "EGGS-COMPANY" all compare equal.
+    private static string Norm(string s) => new(s.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+
+    internal static int Distance(string a, string b)
+    {
+        var d = new int[a.Length + 1, b.Length + 1];
+        for (var i = 0; i <= a.Length; i++) d[i, 0] = i;
+        for (var j = 0; j <= b.Length; j++) d[0, j] = j;
+        for (var i = 1; i <= a.Length; i++)
+            for (var j = 1; j <= b.Length; j++)
+            {
+                d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])   // two swapped letters are one mistake
+                    d[i, j] = Math.Min(d[i, j], d[i - 2, j - 2] + 1);
+            }
+        return d[a.Length, b.Length];
+    }
+
+    // A misspelled name is never answered silently: the user is asked first.
+    // Longer names may have more wrong letters: under 4 letters none, 4-5 one, 6-8 two, 9 or more three.
+    private static int Allowed(int length) => length < 4 ? 0 : length < 6 ? 1 : length < 9 ? 2 : 3;
+
+    private static readonly string[] CompanyWords = ["company", "co", "ltd", "limited", "inc", "llc", "corp", "group", "trading", "est"];
+
+    private static string[] Words(string s) => s.Split([' ', '-', '_', '.', ',', '&'], StringSplitOptions.RemoveEmptyEntries);
+
+    // The same name written other ways: as is, words in alphabetical order, and without "Ltd", "Company" and the like.
+    private static IEnumerable<string> Keys(string name)
+    {
+        yield return Norm(name);
+        var words = Words(name);
+        yield return Norm(string.Concat(words.Order(StringComparer.OrdinalIgnoreCase)));
+        yield return Norm(string.Concat(words.Where(w => !CompanyWords.Contains(w, StringComparer.OrdinalIgnoreCase))));
+    }
+
+    // How many letters are wrong between what was typed and a name; null when too different to guess.
+    private static int? Score(string typed, string name)
+    {
+        int? best = null;
+        foreach (var a in Keys(typed))
+            foreach (var b in Keys(name).Concat(Words(name).Where(w => !CompanyWords.Contains(w, StringComparer.OrdinalIgnoreCase)).Select(Norm)))   // one word of the name counts too
+            {
+                if (a.Length < 4 || b.Length < 4) continue;
+                var d = Distance(a, b);
+                if (d <= Allowed(a.Length) && (best is null || d < best)) best = d;
+            }
+        return best;
+    }
+
+    private static string? Closest(string query, IEnumerable<string> names) => names
+        .Select(n => (n, d: Score(query, n))).Where(x => x.d is not null).OrderBy(x => x.d).Select(x => x.n).FirstOrDefault();
+
+    // The words of the question (up to 4 in a row) that spell, or nearly spell, one of the names.
+    private static string? NamedIn(string question, IEnumerable<string> names)
+    {
+        var words = question.Split([' ', '?', '!', ',', ':', '"', '\''], StringSplitOptions.RemoveEmptyEntries).Select(w => w.TrimEnd('.')).ToArray();
+        var list = names.ToList();
+        string? best = null;
+        var bestScore = int.MaxValue;
+        for (var i = 0; i < words.Length; i++)
+            for (var n = 1; n <= 4 && i + n <= words.Length; n++)
+            {
+                var part = words.Skip(i).Take(n).ToArray();
+                // A name does not begin or end with "report", "for", "me" and the like.
+                if (CommandWords.Contains(part[0]) || CommandWords.Contains(part[^1])) continue;
+                var phrase = string.Join(' ', part);
+                foreach (var name in list)
+                {
+                    var score = Norm(name) == Norm(phrase) ? 0 : Score(phrase, name) + 1;
+                    if (score < bestScore) (best, bestScore) = (phrase, score.Value);
+                }
+            }
+        return best;
+    }
+
+    private static readonly HashSet<string> CommandWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "give", "show", "tell", "get", "find", "me", "my", "the", "a", "an", "for", "of", "about", "on", "with", "and",
+        "supplier", "vendor", "report", "profile", "info", "information", "details", "please", "all", "everything"
+    };
+
+    private static ChatReply DidYouMean(string name, string typed) =>
+        new("text", "Did you mean?", Text: $"I found no \"{typed}\". Did you mean \"{name}\"?", Suggestion: name, Typed: typed);
+
     // Matches a supplier by name or email among the suppliers this user may see.
-    private static (AiDataService.SupplierOptionDto?, ChatReply?) FindSupplier(List<AiDataService.SupplierOptionDto> options, string? query)
+    internal static (AiDataService.SupplierOptionDto?, ChatReply?) FindSupplier(List<AiDataService.SupplierOptionDto> options, string? query)
     {
         if (string.IsNullOrWhiteSpace(query)) return (null, new("text", "Which supplier?", Text: "Tell me the supplier name or email."));
         var q = query.Trim();
         var exact = options.Where(o => o.Email.Equals(q, StringComparison.OrdinalIgnoreCase)).ToList();
         if (exact.Count == 1) return (exact[0], null);
-        var matches = options.Where(o => o.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
-                                      || o.Email.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+        var nk = Norm(q);
+        // Direct answer only when the typed text starts the name or one of its words; a middle piece ("ggs") is asked about.
+        bool Starts(string name) => nk.Length > 0 && (Norm(name).StartsWith(nk) || Words(name).Any(w => Norm(w).StartsWith(nk)));
+        var matches = options.Where(o => Starts(o.Name) || o.Email.StartsWith(q, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matches.Count == 0 && nk.Length >= 3
+            && options.Where(o => Norm(o.Name).Contains(nk)).ToList() is [var inside])
+            return (null, DidYouMean(inside.Name, q));
+        if (matches.Count == 0 && Closest(q, options.Select(o => o.Name)) is { } near)
+            return (null, DidYouMean(near, q));
         if (matches.Count == 0) return (null, new("text", "Not found", Text: $"No supplier matches \"{q}\"."));
         if (matches.Count > 1)
             return (null, new("text", "Which one?", Text: "Several suppliers match: " + string.Join("; ", matches.Take(5).Select(m => m.Name))));
@@ -378,7 +548,7 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
             .Select(k => $"{k}: ask for the {k.ToString().ToLower()} report, optionally with a word to search for.").ToList();
         if (ReportAccess.CanOpen(ReportKind.Tenders, roles)) lines.Add("Tenders: totals, tenders by status, days from creation to winner notice.");
         if (ReportAccess.CanOpen(ReportKind.Bids, roles)) lines.Add("Bids: the bids of one tender, price ranges, comparing two tenders.");
-        if (ReportAccess.CanOpen(ReportKind.Suppliers, roles)) lines.Add("Suppliers: how many tenders each supplier bid on and won; compare two suppliers.");
+        if (ReportAccess.CanOpen(ReportKind.Suppliers, roles)) lines.Add("Suppliers: how many tenders each supplier bid on and won; compare two suppliers; a report about one supplier.");
         if (ReportAccess.CanOpen(ReportKind.Tenders, roles)) lines.Add("One tender: ask for everything about a tender by its name.");
         if (ReportAccess.CanSeeContracts(roles)) lines.Add("Contracts and deliveries: values, dates and status, optionally for one supplier.");
         lines.Add("Clarifications: your own question threads (pending and overdue).");
@@ -394,8 +564,12 @@ public class AiChatService(IOllamaClient ollama, AiDataService data, IReportServ
             return (null, new("text", "Which tender?", Text: "Tell me the tender name."));
 
         // GetTenderOptions runs the permission check, so the search can't reach tenders the user may not see.
-        var matches = (await data.GetTenderOptions(user))
-            .Where(o => o.Label.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        var options = await data.GetTenderOptions(user);
+        var q = query.Trim();
+        var matches = options.Where(o => o.Label.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matches.Count == 0 && Norm(q) is { Length: > 0 } nk)   // spaces and hyphens do not matter
+            matches = options.Where(o => Norm(o.Label).Contains(nk)).ToList();
+        if (matches.Count == 0 && Closest(q, options.Select(o => o.Label)) is { } near) return (null, DidYouMean(near, q));
         if (matches.Count == 0) return (null, new("text", "Not found", Text: $"No tender matches \"{query}\"."));
         if (matches.Count > 1)
             return (null, new("text", "Which one?", Text: "Several tenders match: " + string.Join("; ", matches.Take(5).Select(m => m.Label))));
