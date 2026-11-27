@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +10,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sourcing_Tender_Management_System.Controllers;
 using Sourcing_Tender_Management_System.Data;
+using Sourcing_Tender_Management_System.Services;
+using Microsoft.AspNetCore.Hosting;
 using Sourcing_Tender_Management_System.Models;
+using Sourcing_Tender_Management_System.Models.Reports;
+using Sourcing_Tender_Management_System.Services.Reports;
 using Sourcing_Tender_Management_System.Services.AiAssistant;
 using Sourcing_Tender_Management_System.Services.AiIntelligence;
 
@@ -82,13 +86,15 @@ try
         Status = status, SubmissionDeadline = DateTime.UtcNow.AddDays(-1), TermsAndConditions = "static"
     };
     var laptops = MakeTender("T-1", "Office laptops", TenderStatus.Awarded);
-    var cartons = MakeTender("T-2", "Egg cartons", TenderStatus.Published);
-    db.AddRange(laptops, cartons);
+    var cartons = MakeTender("T-2", "Egg cartons", TenderStatus.Closed);
+    var chairs = MakeTender("T-3", "Sealed chairs", TenderStatus.Closed);
+    chairs.OpeningDate = DateTime.UtcNow.AddDays(5);
+    db.AddRange(laptops, cartons, chairs);
     await db.SaveChangesAsync();
     Bid MakeBid(Tender t, Supplier s, decimal total, BidStatus status) => new()
     { TenderId = t.Id, SupplierId = s.Id, BidNumber = $"B-{t.Id}-{s.Id}", TotalAmount = total, Currency = "JOD", Status = status, DeliveryDays = 7 };
     db.AddRange(MakeBid(laptops, eggs, 900, BidStatus.Accepted), MakeBid(laptops, google, 1200, BidStatus.Submitted),
-        MakeBid(cartons, eggs, 50, BidStatus.Submitted));
+        MakeBid(cartons, eggs, 50, BidStatus.Submitted), MakeBid(chairs, eggs, 777, BidStatus.Submitted));
     await db.SaveChangesAsync();
 
     var data = new AiDataService(db);
@@ -120,13 +126,15 @@ try
         "supplier report for a name becomes the profile");
     Check((await Run(new("supplier_profile", null, Supplier: "xyzxyz"))).Title == "Not found", "unknown supplier is Not found");
     var compare = await Run(new("compare_suppliers", null, Supplier: "EggsComapny", Supplier2: "google@google.com"));
-    Check(compare.Headers?.Contains("Cheaper") == true && compare.Rows?.Count == 2, "two-supplier comparison");
+    Check(compare.Headers!.SequenceEqual(AiChatService.CompareHeaders) && compare.Rows?.Count == 3, "two-supplier comparison: one line per bid");
+    Check(compare.Rows!.All(r => r[3] == "7" && r[4] == "Pending" && r[5] == "-"), "comparison shows delivery, compliance and no score yet");
+    Check(compare.Notes!.Any(n => n.Contains("compliant")) && compare.Link!.Contains("ExportSupplierComparisonPdf"), "comparison has summaries and a PDF report link");
     Check((await Run(new("compare_suppliers", null, Supplier: "EggsComapny", Supplier2: "EggsComapny"))).Title == "Same supplier", "same supplier twice is refused");
     var bids = await Run(new("tender_bids", "laptops"));
     Check(bids.Rows?.Count == 2 && bids.TenderId == laptops.Id && bids.Notes?.Count > 0, "bids of one tender with advisory notes");
     Check((await Run(new("compare_tenders", "laptops", "cartons"))).Rows?.Count == 2, "two-tender price comparison");
     var stats = await Run(new("tender_stats", null));
-    Check(Card(stats, "Total") == "2" && Card(stats, "Awarded") == "1" && Card(stats, "Open") == "1", "tender totals");
+    Check(Card(stats, "Total") == "3" && Card(stats, "Awarded") == "1" && Card(stats, "Open") == "2", "tender totals");
     Check((await Run(new("duration_kpi", null))).Type == "table", "creation-to-winner-notice table");
 
     // ---- 3b. Corrections of the model's two usual mistakes ----
@@ -140,6 +148,37 @@ try
     Check(await Fixed(new("compare_tenders", "Office laptops"), "compare the bids of Office laptops") == "tender_bids", "one tender becomes its bids");
     Check(await Fixed(new("compare_tenders", "Office laptops", "Office laptops"), "compare the bids of Office laptops") == "tender_bids", "same tender twice becomes its bids");
     Check(await Fixed(new("compare_tenders", "laptops", "cartons"), "compare laptops and cartons") == "compare_tenders", "two tenders stay a comparison");
+
+    // ---- 3c. Sealed offers: the chairs tender opens in 5 days ----
+    var sealedReply = await Run(new("tender_bids", "chairs"));
+    Check(sealedReply.Title == "Offers are sealed" && sealedReply.Rows is null, "sealed tender shows no bids");
+    Check((await data.GetTenderBids(As("SourcingManager"), chairs.Id)).Count == 0, "sealed bids are not in the page or export data");
+    Check((await data.GetPriceRanges(As("SourcingManager"))).All(p => p.TenderId != chairs.Id), "sealed tender has no price range");
+    Check((await data.GetSupplierProfile(As("SourcingManager"), eggs.Id))!.Bids.All(b => b.Amount != 777), "supplier profile hides the sealed bid");
+    Check((await data.GetSupplierParticipation(As("SourcingManager"))).Sum(p => p.Bids) == 3, "participation ignores sealed bids");
+    Check((await data.GetSupplierComparison(As("SourcingManager"), eggs.Id, google.Id)).All(r => r.A?.Amount != 777), "comparison hides the sealed bid");
+    var reports = new ReportService(db);
+    var viewer = new ReportViewer("u1", "Tester", ["SourcingManager"], null);
+    bool Shows777(ReportDocument doc) => doc.Tables.SelectMany(t => t.Rows).SelectMany(r => r).Any(v => v is 777m);
+    Check(!Shows777((await reports.BuildAsync(ReportKind.Bids, new ReportFilter(), viewer)).Document), "bids report hides the sealed bid");
+    Check(!Shows777((await reports.BuildTenderFileAsync(chairs.Id, viewer))!), "tender file hides the sealed bid");
+
+    var web = Directory.GetCurrentDirectory();
+    var pdfs = new RoleTenderPdfService(db, new WebRoot(Path.Combine(web, "Sourcing-Tender-Management-System", "Sourcing-Tender-Management-System", "wwwroot")));
+    foreach (var audience in new[] { TenderQrAudience.SourcingOfficer, TenderQrAudience.SourcingManager, TenderQrAudience.EvaluationCommittee, TenderQrAudience.TopCommittee })
+    {
+        var sealedText = PdfText((await pdfs.CreateAsync(chairs.Id, audience, null))!.Value.Pdf);
+        Check(!sealedText.Contains("777.00"), $"{audience} QR PDF hides the sealed price");
+    }
+    Check(PdfText((await pdfs.CreateAsync(chairs.Id, TenderQrAudience.SourcingOfficer, null))!.Value.Pdf).Contains("sealed"), "QR PDF says the offers are sealed");
+    Check(PdfText((await pdfs.CreateAsync(laptops.Id, TenderQrAudience.SourcingOfficer, null))!.Value.Pdf).Contains("1,200.00"), "QR PDF still shows opened offers");
+
+    var export = await new AiIntelligenceController(data, chat) { ControllerContext = new() { HttpContext = new DefaultHttpContext { User = As("TopCommittee") } } }
+        .ExportSupplierComparisonPdf(eggs.Id, google.Id);
+    Check(export is FileContentResult file && PdfText(file.FileContents).Contains("Compliance") && !PdfText(file.FileContents).Contains("777.00"), "comparison PDF has compliance and no sealed price");
+    var refused = await new AiIntelligenceController(data, chat) { ControllerContext = new() { HttpContext = new DefaultHttpContext { User = As("TechnicalRepresentative") } } }
+        .ExportSupplierComparisonPdf(eggs.Id, google.Id);
+    Check(refused is ForbidResult, "evaluator cannot download the comparison");
 
     // ---- 4. Role limits ----
     Check((await Run(new("supplier_profile", null, Supplier: "EggsComapny"), "DepartmentRepresentative")).Title == "No access", "department: no supplier profile");
@@ -164,6 +203,44 @@ try
     Check(await Controller(chat, "SourcingManager").Ask(new string('a', 501), null, default) is BadRequestObjectResult, "501-character question rejected");
     var down = new AiChatService(new DownOllama(), data, null!, null!);
     Check(await Controller(down, "SourcingManager").Ask("how many tenders", null, default) is ObjectResult { StatusCode: 503 }, "Ollama down gives 503");
+
+    var slow = new AiChatService(new SlowOllama(), data, null!, null!);
+    Check(await Controller(slow, "SourcingManager").Ask("how many tenders", null, default) is ObjectResult { StatusCode: 504 }, "slow Ollama gives a friendly 504");
+    Check(await slow.SummarizeAsync("q", new ChatReply("table", "t"), default) is null, "a slow summary still leaves the data");
+
+    // ---- 5b. Document search (RAG), with the real local models ----
+    if (args.Contains("router"))
+    {
+        var home = Path.Combine(Path.GetTempPath(), "stms-rag-check-" + Guid.NewGuid().ToString("N"));
+        var env = new WebRoot(home);
+        Directory.CreateDirectory(DocumentSearch.KnowledgeFolder(env));
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+        byte[] Pdf(string text) => QuestPDF.Fluent.GenerateExtensions.GeneratePdf(QuestPDF.Fluent.Document.Create(d =>
+            QuestPDF.Fluent.PageExtensions.Page(d, page => QuestPDF.Fluent.TextExtensions.Text(page.Content(), text))));
+        void Save(string name, string text) => File.WriteAllBytes(
+            Path.Combine(DocumentSearch.KnowledgeFolder(env), $"{Guid.NewGuid():N}_{name}"), Pdf(text));
+        Save("warranty.pdf", "The warranty for all laptops is 24 months from the delivery date.");
+        Save("penalty.pdf", "Late delivery is penalised by one percent of the order value per week.");
+        try
+        {
+            var search = new DocumentSearch(db, new EmbeddingClient(new HttpClient { BaseAddress = new Uri("http://localhost:11434/") }),
+                new SupplierFileStore(env), env);
+            var ragChat = new AiChatService(ollama, data, null!, null!, search);
+            Check(await Denied(() => search.SearchAsync(As("Supplier"), "warranty", default)), "suppliers cannot search documents");
+            foreach (var role in new[] { "SourcingManager", "TopCommittee", "TechnicalRepresentative", "DepartmentRequester" })
+                Check((await search.SearchAsync(As(role), "How long is the laptop warranty?", default)).FirstOrDefault()?.File == "warranty.pdf",
+                    $"{role} can search uploaded documents");
+            var hits = await search.SearchAsync(As("Admin"), "How long is the laptop warranty?", default);
+            Check(hits.Count > 0 && hits[0].File == "warranty.pdf" && hits[0].Page == 1, "search finds the right file first");
+            var plan = await ragChat.PlanAsync("What do the documents say about warranty?", null, default);
+            Check(plan.Tool == "search_document", $"router picks document search (got {plan.Tool})");
+            var reply = await ragChat.RunAsync(new("search_document", null), As("Admin"), "How long is the laptop warranty?", default);
+            Console.WriteLine("   answer: " + reply.Text);
+            Check(reply.Text?.Contains("24") == true && reply.Notes?.Any(n => n.Contains("warranty.pdf")) == true, "answer comes from the document and names it");
+            Check((await ragChat.RunAsync(new("search_document", null), As("Supplier"), "warranty", default)).Title == "No access", "supplier gets No access");
+        }
+        finally { Directory.Delete(home, true); }
+    }
 
     // ---- 6. Router: the real model chooses the tool ----
     if (args.Contains("router"))
@@ -203,8 +280,30 @@ Console.WriteLine($"{passed} passed, {failed.Count} failed");
 foreach (var name in failed) Console.WriteLine("  FAILED: " + name);
 return failed.Count == 0 ? 0 : 1;
 
+static string PdfText(byte[] pdf)
+{
+    using var doc = UglyToad.PdfPig.PdfDocument.Open(pdf);
+    return string.Join(" ", doc.GetPages().SelectMany(p => p.GetWords()).Select(w => w.Text));
+}
+
+class SlowOllama : IOllamaClient
+{
+    public string ModelName => "slow";
+    public Task<string> ChatJsonAsync(string system, string user, object jsonSchema, CancellationToken ct) => throw new TaskCanceledException("timeout");
+}
+
 class DownOllama : IOllamaClient
 {
     public string ModelName => "down";
     public Task<string> ChatJsonAsync(string system, string user, object jsonSchema, CancellationToken ct) => throw new HttpRequestException("down");
+}
+
+class WebRoot(string path) : IWebHostEnvironment
+{
+    public string WebRootPath { get; set; } = path;
+    public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = null!;
+    public string ApplicationName { get; set; } = "checks";
+    public string ContentRootPath { get; set; } = path;
+    public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
+    public string EnvironmentName { get; set; } = "Development";
 }

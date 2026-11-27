@@ -1,4 +1,5 @@
-﻿@using System.Security.Claims
+﻿@inject IWebHostEnvironment Env
+@using System.Security.Claims
 @using Sourcing_Tender_Management_System.Models.Reports
 @using Sourcing_Tender_Management_System.Services.Reports
 @{
@@ -18,7 +19,7 @@
 }
 
 <h1 class="h3 mb-1">AI Intelligence</h1>
-<p class="text-muted">Built from live system data.@(canBids ? " Pick a tender for its own report, or upload a file to preview it." : " Ask a question, or upload a file to preview it.")</p>
+<p class="text-muted">Built from live system data.@(canBids ? " Pick a tender for its own report." : " Ask a question.")</p>
 
 @if (canTenders)
 {
@@ -59,7 +60,7 @@
             <label class="visually-hidden" for="tenderPicker">Tender</label>
             <select id="tenderPicker" class="form-select mb-3"></select>
             <div style="position:relative;height:280px"><canvas id="bidChart"></canvas></div>
-            <p id="bidEmpty" class="text-muted mb-0" hidden>No submitted bids for this tender.</p>
+            <p id="bidEmpty" class="text-muted mb-0" hidden>No bids to show. Offers stay sealed until the opening date.</p>
         </div></div>
     </div>
     }
@@ -118,16 +119,27 @@
     </form>
 </div></div>
 
+@if (User.IsInRole("Admin"))
+{
+    var folder = Sourcing_Tender_Management_System.Services.AiIntelligence.DocumentSearch.KnowledgeFolder(Env);
+    var uploaded = Directory.Exists(folder) ? Directory.GetFiles(folder, "*.pdf") : Array.Empty<string>();
 <div class="card mb-3"><div class="card-body">
-    <h2 class="h5">Preview a file</h2>
-    <p class="text-muted">Excel (.xlsx) or PDF, up to 5 MB. The file is read in memory and not stored.</p>
-    <form id="uploadForm" class="d-flex flex-wrap gap-2">
+    <h2 class="h5">Documents for the assistant</h2>
+    <p class="text-muted">PDF with typed text, up to 5 MB. The file is saved. Every staff user can ask the assistant about it, so do not upload confidential files or supplier offers.</p>
+    <form id="knowledgeForm" class="d-flex flex-wrap gap-2">
         @Html.AntiForgeryToken()
-        <input id="uploadFile" type="file" name="file" accept=".xlsx,.pdf" class="form-control" style="flex:1 1 260px" aria-label="Excel or PDF file" required />
-        <button class="btn btn-primary" type="submit">Preview</button>
+        <input type="file" name="file" accept=".pdf" class="form-control" style="flex:1 1 260px" aria-label="PDF document" required />
+        <button class="btn btn-primary" type="submit">Upload</button>
     </form>
-    <div id="uploadResult" class="mt-3" aria-live="polite"></div>
+    <p id="knowledgeResult" class="mb-0 mt-2" role="status"></p>
+    <ul id="knowledgeList" class="mb-0 mt-2">
+        @foreach (var path in uploaded)
+        {
+            <li>@Sourcing_Tender_Management_System.Services.AiIntelligence.DocumentSearch.DisplayName(path)</li>
+        }
+    </ul>
 </div></div>
+}
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -209,32 +221,16 @@
             return [wrap, note];
         }
 
-        function showText(d) {
-            const note = document.createElement('p');
-            note.className = 'text-muted';
-            note.textContent = `${d.pages} pages, ${d.characters} characters`;
-            const pre = document.createElement('pre');
-            pre.style.whiteSpace = 'pre-wrap';
-            pre.textContent = d.preview;
-            return [note, pre];
-        }
-
-        byId('uploadForm').addEventListener('submit', async e => {
+        byId('knowledgeForm')?.addEventListener('submit', async e => {
             e.preventDefault();
-            const out = byId('uploadResult');
-            const isPdf = byId('uploadFile').files[0]?.name.toLowerCase().endsWith('.pdf');
-            const res = await fetch(isPdf ? '/AiIntelligence/UploadPdf' : '/AiIntelligence/UploadExcel',
-                { method: 'POST', body: new FormData(e.target) });
-            if (!res.ok) {
-                const msg = document.createElement('p');
-                msg.className = 'text-danger mb-0';
-                msg.setAttribute('role', 'alert');
-                msg.textContent = await res.text();
-                out.replaceChildren(msg);
-                return;
-            }
+            const out = byId('knowledgeResult');
+            const res = await fetch('/AiIntelligence/UploadKnowledge', { method: 'POST', body: new FormData(e.target) });
+            if (!res.ok) { out.textContent = (await res.text()) || 'Upload failed.'; out.className = 'mb-0 mt-2 text-danger'; return; }
             const d = await res.json();
-            out.replaceChildren(...(isPdf ? showText(d) : showTable(d)));
+            out.textContent = `${d.name} uploaded.`;
+            out.className = 'mb-0 mt-2';
+            byId('knowledgeList').append(el('li', d.name));
+            e.target.reset();
         });
 
         const log = byId('chatLog');

@@ -180,6 +180,12 @@ public class RoleTenderPdfService(ApplicationDbContext db, IWebHostEnvironment e
             bids = bids.Where(b => b.ComplianceStatus == ComplianceDecision.Compliant);
         var rows = bids.OrderBy(b => b.TotalAmount).ToList();
         if (rows.Count == 0) return;
+        if (SealedBids.IsSealed(tender))
+        {
+            Heading(content, "Submitted offers");
+            content.Item().Text("Offers are sealed until bidding is closed and the opening date has passed.");
+            return;
+        }
         Heading(content, audience == TenderQrAudience.TopCommittee ? "Decision-ready compliant offers" : "Submitted offers");
         content.Item().Table(table =>
         {

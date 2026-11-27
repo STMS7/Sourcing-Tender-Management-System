@@ -66,6 +66,11 @@ namespace Sourcing_Tender_Management_System
             builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.AiIntelligence.AiDataService>();
             builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.AiIntelligence.AiChatService>();
 
+            //FOR RAG
+            builder.Services.AddHttpClient<Sourcing_Tender_Management_System.Services.AiIntelligence.EmbeddingClient>(http =>
+    http.BaseAddress = new Uri("http://localhost:11434/"));
+            builder.Services.AddScoped<Sourcing_Tender_Management_System.Services.AiIntelligence.DocumentSearch>();
+
             var app = builder.Build();
 
             AdminBootstrap.CreateFirstAdminAsync(app.Services, app.Configuration).GetAwaiter().GetResult();

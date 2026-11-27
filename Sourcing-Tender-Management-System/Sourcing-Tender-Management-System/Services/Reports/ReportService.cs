@@ -1,3 +1,4 @@
+using Sourcing_Tender_Management_System.Services;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Sourcing_Tender_Management_System.Data;
@@ -371,7 +372,7 @@ public partial class ReportService(ApplicationDbContext db) : IReportService
 
     private async Task FillBidsAsync(ReportDocument doc, ReportFilter f)
     {
-        var query = db.Bids.AsNoTracking().Where(b => b.Status != BidStatus.Draft);
+        var query = db.Bids.AsNoTracking().Unsealed().Where(b => b.Status != BidStatus.Draft);   // sealed offers are never reported
         if (f.From is DateTime from) query = query.Where(b => b.SubmittedAt >= from);
         if (f.To is DateTime to) query = query.Where(b => b.SubmittedAt < to.AddDays(1));
         if (TryParse<BidStatus>(f.Status, out var status)) query = query.Where(b => b.Status == status);
