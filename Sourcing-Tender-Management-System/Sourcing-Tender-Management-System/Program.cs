@@ -75,6 +75,7 @@ namespace Sourcing_Tender_Management_System
             {
                 app.UseMigrationsEndPoint();
                 TopCommitteeDevSeeder.SeedAsync(app.Services).GetAwaiter().GetResult();
+                Sourcing_Tender_Management_System.Data.Seed.CycleDevSeeder.SeedAsync(app.Services).GetAwaiter().GetResult();
             }
             else
             {

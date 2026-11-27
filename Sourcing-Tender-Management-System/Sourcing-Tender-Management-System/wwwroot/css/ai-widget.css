@@ -231,3 +231,40 @@
   .aiw *, .aiw *::before, .aiw *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
 @media print { .aiw { display: none; } }
+
+/* ---------- Zaytouna AI look (matches the AI Intelligence page): olive gradient head, leaf avatar, gold accents ---------- */
+.aiw-head {
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(80% 140% at 100% 0%, rgba(201, 168, 76, .35), transparent 60%),
+    linear-gradient(120deg, #26301A 0%, #3D4A2A 60%, #56632E 100%);
+  color: #F5F0E1;
+}
+.aiw-avatar {
+  flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #6B7B3A, #2E3920); box-shadow: 0 0 0 2px rgba(233, 207, 122, .55);
+}
+.aiw-avatar svg { width: 20px; height: 20px; fill: #C9A84C; stroke: #E9CF7A; stroke-width: 1.2; stroke-linecap: round; }
+.aiw-title { color: #F5F0E1; }
+.aiw-sub { display: flex; align-items: center; gap: 6px; color: rgba(245, 240, 225, .8); }
+.aiw-online { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #8DC25A; box-shadow: 0 0 0 0 rgba(141, 194, 90, .55); animation: aiw-pulse 2.2s infinite; }
+@keyframes aiw-pulse { 0% { box-shadow: 0 0 0 0 rgba(141, 194, 90, .55); } 70% { box-shadow: 0 0 0 7px rgba(141, 194, 90, 0); } 100% { box-shadow: 0 0 0 0 rgba(141, 194, 90, 0); } }
+.aiw-clear { border-color: rgba(233, 207, 122, .45); color: #F5F0E1; }
+.aiw-clear:hover { background: #C9A84C; border-color: #C9A84C; color: #2E3920; }
+.aiw-fab { background: radial-gradient(circle at 30% 25%, #6B7B3A, #2E3920 70%); color: #E9CF7A; box-shadow: 0 10px 24px rgba(46, 57, 32, .35), 0 0 0 3px rgba(233, 207, 122, .35); }
+.aiw-send { background: #3D4A2A; color: #F5F0E1; }
+.aiw-log { background: linear-gradient(180deg, #FBF8EE, #F5F0E1); }
+.aiw-msg.user { background: #3D4A2A; color: #FFFDF7; }
+.aiw-msg.bot { background: #E8EBD9; color: #3F4733; }
+/* the welcome suggestions read as a list of questions, like on the AI page */
+.aiw-chips { flex-direction: column; flex-wrap: nowrap; }
+.aiw-chip {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; border-radius: 12px; text-align: left;
+  background: rgba(255, 253, 247, .85);
+}
+.aiw-chip::after {
+  content: ''; width: 14px; height: 14px; flex: none; margin-left: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233D4A2A' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.aiw-chip:hover { background: #E8EBD9; }
+@media (prefers-reduced-motion: reduce) { .aiw-online { animation: none; } }

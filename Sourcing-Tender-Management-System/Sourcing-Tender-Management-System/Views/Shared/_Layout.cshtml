@@ -12,6 +12,9 @@
     var currentUser = signedIn ? await UserManager.GetUserAsync(User) : null;
     var displayName = currentUser?.FullName ?? User.Identity?.Name ?? "";
     var initial = string.IsNullOrWhiteSpace(displayName) ? "?" : displayName.Trim()[..1].ToUpperInvariant();
+    // Two-letter initials for the avatars (e.g. "Lujain Okour" -> "LO"); falls back to the single initial.
+    var nameWords = displayName.Split(new[] { ' ', '@' }, StringSplitOptions.RemoveEmptyEntries);
+    var initials = nameWords.Length >= 2 && !displayName.Contains('@') ? $"{char.ToUpperInvariant(nameWords[0][0])}{char.ToUpperInvariant(nameWords[1][0])}" : initial;
     bool InRole(params string[] roles) => roles.Any(User.IsInRole);
     var isOfficer = InRole("ProcurementOfficer", "SourcingOfficer");
     var isAdmin = InRole("Admin");
@@ -126,6 +129,8 @@
 @{
     // "Needs you" counts on sidebar links, so each role sees where work is waiting without opening every page.
     var badges = new Dictionary<string, int>();
+    // The top bar pill shows the icon of the page's sidebar link, like the design.
+    var activeIcon = links.Concat(tools).FirstOrDefault(l => l.Active).Icon;
     if (currentUser != null)
     {
         badges["Notifications"] = await Db.Notifications.CountAsync(n => n.UserId == currentUser.Id && !n.IsRead);
@@ -208,6 +213,7 @@
     {
         <link rel="stylesheet" href="~/css/department-requests.css" asp-append-version="true" />
     }
+    <link rel="stylesheet" href="~/css/nav-skin.css" asp-append-version="true" />
 </head>
 <body class="zt-app @(isAdminArea ? "zt-admin" : null)">
 <div class="zt-shell">
@@ -267,7 +273,13 @@
         <header class="zt-topbar">
             @if (ViewData["Title"] is string pageTitle && !string.IsNullOrWhiteSpace(pageTitle))
             {
-                <span class="zt-pill">@pageTitle</span>
+                <span class="zt-pill">
+                    @if (activeIcon != null)
+                    {
+                        <svg class="zt-pill-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="@activeIcon"></path></svg>
+                    }
+                    <span class="zt-pill-text">@pageTitle</span>
+                </span>
             }
             else
             {
@@ -291,7 +303,7 @@
                     </a>
                 }
                 <a class="zt-round" asp-area="Identity" asp-page="/Account/Manage/Index" aria-label="Profile: @displayName" title="@displayName">
-                    <span class="zt-avatar" aria-hidden="true">@initial</span>
+                    <span class="zt-avatar" aria-hidden="true">@initials</span>
                 </a>
             </div>
         </header>
