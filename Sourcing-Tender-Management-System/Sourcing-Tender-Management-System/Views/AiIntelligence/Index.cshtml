@@ -3,6 +3,7 @@
 @using Sourcing_Tender_Management_System.Models.Reports
 @using Sourcing_Tender_Management_System.Services.Reports
 @inject UserManager<Sourcing_Tender_Management_System.Models.ApplicationUser> UserManager
+@inject IWebHostEnvironment Env
 @{
     ViewData["Title"] = "AI Intelligence";
     // A card is drawn only when the user's role may read its data (the same rule the server enforces).
@@ -10,6 +11,8 @@
     var canTenders = ReportAccess.CanOpen(ReportKind.Tenders, roles);
     var canBids = ReportAccess.CanOpen(ReportKind.Bids, roles);
     var canData = canTenders || canBids;
+    // Only the administrator adds documents; every staff user can ask the chat about them.
+    var isAdmin = User.IsInRole("Admin");
 
     // Greeting only: read the signed-in user's name (no writes, nothing new in the database).
     var me = await UserManager.GetUserAsync(User);
@@ -79,11 +82,14 @@
                 <svg class="aii-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
             </button>
             }
+            @if (isAdmin)
+            {
             <button type="button" class="aii-action" data-aii-go="uploadFile">
                 <span class="aii-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg></span>
-                <span class="aii-action-text"><strong>Analyze Documents</strong><small>Upload &amp; preview a file</small></span>
+                <span class="aii-action-text"><strong>Documents</strong><small>Add files for the assistant</small></span>
                 <svg class="aii-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
             </button>
+            }
             @if (canTenders)
             {
             <button type="button" class="aii-action" data-aii-go="aiiInsights">
@@ -213,14 +219,16 @@
     </div>
 
     @* ================= BOTTOM ROW ================= *@
-    <div class="aii-bottom @(canTenders ? "" : "is-single")">
+    <div class="aii-bottom @(canTenders && isAdmin ? "" : "is-single")">
+        @if (isAdmin)
+        {
         <section class="aii-card" aria-labelledby="aiiDocTitle">
             <header class="aii-card-head">
                 <h2 id="aiiDocTitle" class="aii-card-title">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></svg>
-                    Document Analysis
+                    Documents for the assistant
                 </h2>
-                <span class="aii-tag">Excel / PDF</span>
+                <span class="aii-tag">PDF &middot; Admin only</span>
             </header>
             <div class="aii-doc">
                 <form id="uploadForm" class="aii-drop-form">
@@ -230,19 +238,30 @@
                         <span class="aii-drop-main">Drag &amp; drop your file here</span>
                         <span class="aii-drop-sub">or <u>choose a file</u></span>
                         <span class="aii-drop-name" id="aiiDropName" aria-live="polite"></span>
-                        <span class="aii-drop-note">Supports: Excel (.xlsx) or PDF, up to 5 MB. Read in memory, not stored.</span>
+                        <span class="aii-drop-note">PDF with typed text, up to 5 MB. The file is saved.</span>
                     </label>
-                    <input id="uploadFile" type="file" name="file" accept=".xlsx,.pdf" class="aii-file" aria-label="Excel or PDF file" required />
-                    <button class="aii-btn" type="submit">Preview</button>
+                    <input id="uploadFile" type="file" name="file" accept=".pdf" class="aii-file" aria-label="PDF document" required />
+                    <button class="aii-btn" type="submit">Upload</button>
                 </form>
                 <ul class="aii-checks">
-                    <li>Get an instant preview</li>
-                    <li>Read the first rows of an Excel sheet</li>
-                    <li>Extract the text of a PDF</li>
+                    <li>Staff can ask the chat about these files</li>
+                    <li>Answers name the file and page</li>
+                    <li>Do not upload confidential files or supplier offers</li>
                 </ul>
             </div>
-            <div id="uploadResult" class="aii-upload-result" aria-live="polite"></div>
+            <p id="uploadResult" class="aii-upload-result" role="status"></p>
+            @{
+                var folder = Sourcing_Tender_Management_System.Services.AiIntelligence.DocumentSearch.KnowledgeFolder(Env);
+                var uploaded = Directory.Exists(folder) ? Directory.GetFiles(folder, "*.pdf") : Array.Empty<string>();
+            }
+            <ul id="knowledgeList" class="mb-0">
+                @foreach (var path in uploaded)
+                {
+                    <li>@Sourcing_Tender_Management_System.Services.AiIntelligence.DocumentSearch.DisplayName(path)</li>
+                }
+            </ul>
         </section>
+        }
 
         @if (canTenders)
         {
@@ -410,50 +429,38 @@
             return [wrap, note];
         }
 
-        function showText(d) {
-            const note = document.createElement('p');
-            note.className = 'text-muted';
-            note.textContent = `${d.pages} pages, ${d.characters} characters`;
-            const pre = document.createElement('pre');
-            pre.style.whiteSpace = 'pre-wrap';
-            pre.textContent = d.preview;
-            return [note, pre];
-        }
-
-        // Drop zone: dropping a file fills the same file input the form already sends.
+        // Admin only. Drop zone: dropping a file fills the same file input the form sends.
         const drop = byId('aiiDrop'), fileInput = byId('uploadFile');
-        const showName = () => { byId('aiiDropName').textContent = fileInput.files[0]?.name ?? ''; drop.classList.toggle('has-file', !!fileInput.files[0]); };
-        fileInput.addEventListener('change', showName);
-        ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('is-over'); }));
-        ['dragleave', 'dragend', 'drop'].forEach(t => drop.addEventListener(t, () => drop.classList.remove('is-over')));
-        drop.addEventListener('drop', e => {
-            e.preventDefault();
-            if (e.dataTransfer?.files?.length) { fileInput.files = e.dataTransfer.files; showName(); }
-        });
-        drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
-        drop.tabIndex = 0;
+        if (drop) {
+            const showName = () => { byId('aiiDropName').textContent = fileInput.files[0]?.name ?? ''; drop.classList.toggle('has-file', !!fileInput.files[0]); };
+            fileInput.addEventListener('change', showName);
+            ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('is-over'); }));
+            ['dragleave', 'dragend', 'drop'].forEach(t => drop.addEventListener(t, () => drop.classList.remove('is-over')));
+            drop.addEventListener('drop', e => {
+                e.preventDefault();
+                if (e.dataTransfer?.files?.length) { fileInput.files = e.dataTransfer.files; showName(); }
+            });
+            drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+            drop.tabIndex = 0;
 
-        byId('uploadForm').addEventListener('submit', async e => {
-            e.preventDefault();
-            const out = byId('uploadResult');
-            if (!fileInput.files[0]) { fileInput.reportValidity?.(); drop.focus(); return; }
-            const isPdf = fileInput.files[0]?.name.toLowerCase().endsWith('.pdf');
-            const res = await fetch(isPdf ? '/AiIntelligence/UploadPdf' : '/AiIntelligence/UploadExcel',
-                { method: 'POST', body: new FormData(e.target) });
-            if (!res.ok) {
-                const msg = document.createElement('p');
-                msg.className = 'text-danger mb-0';
-                msg.setAttribute('role', 'alert');
-                msg.textContent = await res.text();
-                out.replaceChildren(msg);
-                return;
-            }
-            const d = await res.json();
-            out.textContent = `${d.name} uploaded.`;
-            out.className = 'mb-0 mt-2';
-            byId('knowledgeList').append(el('li', d.name));
-            e.target.reset();
-        });
+            byId('uploadForm').addEventListener('submit', async e => {
+                e.preventDefault();
+                const out = byId('uploadResult');
+                if (!fileInput.files[0]) { drop.focus(); return; }
+                const res = await fetch('/AiIntelligence/UploadKnowledge', { method: 'POST', body: new FormData(e.target) });
+                if (!res.ok) {
+                    out.textContent = (await res.text()) || 'Upload failed.';
+                    out.className = 'aii-upload-result text-danger';
+                    return;
+                }
+                const d = await res.json();
+                out.textContent = `${d.name} uploaded.`;
+                out.className = 'aii-upload-result';
+                byId('knowledgeList').append(el('li', d.name));
+                e.target.reset();
+                showName();
+            });
+        }
 
         const log = byId('chatLog');
         let chatContext = '';
