@@ -1,164 +1,323 @@
-﻿@inject IWebHostEnvironment Env
-@using System.Security.Claims
+﻿@using System.Security.Claims
+@using Microsoft.AspNetCore.Identity
 @using Sourcing_Tender_Management_System.Models.Reports
 @using Sourcing_Tender_Management_System.Services.Reports
+@inject UserManager<Sourcing_Tender_Management_System.Models.ApplicationUser> UserManager
 @{
     ViewData["Title"] = "AI Intelligence";
     // A card is drawn only when the user's role may read its data (the same rule the server enforces).
     var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
     var canTenders = ReportAccess.CanOpen(ReportKind.Tenders, roles);
     var canBids = ReportAccess.CanOpen(ReportKind.Bids, roles);
-    // Example questions for the empty chat, only for data this role may open. Unfinished ones are left in the box to complete.
-    var examples = new List<(string Label, string Question, bool Finished)>();
-    if (canTenders) examples.Add(("Tenders by status", "Tenders by status", true));
-    if (canBids) examples.Add(("Bids for a tender", "Show the bids of ", false));
-    if (ReportAccess.CanOpen(ReportKind.Suppliers, roles)) examples.Add(("Report about a supplier", "Report about ", false));
-    if (!canTenders && ReportAccess.CanOpen(ReportKind.Requests, roles)) examples.Add(("List the requests", "List the requests", true));
-    examples.Add(("My clarifications", "Show my clarifications", true));
-    examples.Add(("What can I ask?", "What can I ask?", true));
+    var canData = canTenders || canBids;
+
+    // Greeting only: read the signed-in user's name (no writes, nothing new in the database).
+    var me = await UserManager.GetUserAsync(User);
+    var fullName = me?.FullName ?? User.Identity?.Name ?? "";
+    var firstName = fullName.Split(new[] { ' ', '@' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "there";
 }
 
-<h1 class="h3 mb-1">AI Intelligence</h1>
-<p class="text-muted">Built from live system data.@(canBids ? " Pick a tender for its own report." : " Ask a question.")</p>
+<link rel="stylesheet" href="~/css/ai-intelligence.css" asp-append-version="true" />
 
-@if (canTenders)
-{
-<div class="row g-3 mb-3">
-    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
-        <div class="text-muted">Total tenders</div><div class="h2 mb-0" id="kpiTotal">-</div></div></div></div>
-    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
-        <div class="text-muted">Awarded</div><div class="h2 mb-0" id="kpiAwarded">-</div></div></div></div>
-    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
-        <div class="text-muted">Open</div><div class="h2 mb-0" id="kpiOpen">-</div></div></div></div>
-    <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body">
-        <div class="text-muted">Days from creation to winner notice</div><div class="h2 mb-0" id="kpiDuration">-</div></div></div></div>
-</div>
-}
+<div class="aii">
 
-@if (canTenders || canBids)
-{
-<div class="row g-3 mb-3">
-    @if (canTenders)
-    {
-    <div class="@(canBids ? "col-xl-5" : "col-12")">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h5">Tenders by status</h2>
-            <div style="position:relative;height:280px"><canvas id="statusChart"></canvas></div>
-            <p id="statusEmpty" class="text-muted mb-0" hidden>No tenders to show yet.</p>
-        </div></div>
-    </div>
-    }
-    @if (canBids)
-    {
-    <div class="@(canTenders ? "col-xl-7" : "col-12")">
-        <div class="card h-100"><div class="card-body">
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                <h2 class="h5 mb-0 me-auto">Tender report</h2>
-                <a id="exportBtn" class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Excel</a>
-                <a id="pdfBtn" class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">PDF</a>
-            </div>
-            <label class="visually-hidden" for="tenderPicker">Tender</label>
-            <select id="tenderPicker" class="form-select mb-3"></select>
-            <div style="position:relative;height:280px"><canvas id="bidChart"></canvas></div>
-            <p id="bidEmpty" class="text-muted mb-0" hidden>No bids to show. Offers stay sealed until the opening date.</p>
-        </div></div>
-    </div>
-    }
-</div>
-}
+    @* ================= HERO ================= *@
+    <section class="aii-hero" aria-labelledby="aiiTitle">
+        <svg class="aii-hero-leaves" viewBox="0 0 320 260" aria-hidden="true" focusable="false">
+            <path d="M40 250 C120 190 190 120 300 10" />
+            <g>
+                <ellipse cx="92" cy="200" rx="34" ry="10" transform="rotate(-35 92 200)" />
+                <ellipse cx="120" cy="210" rx="30" ry="9" transform="rotate(20 120 210)" />
+                <ellipse cx="150" cy="150" rx="38" ry="11" transform="rotate(-40 150 150)" />
+                <ellipse cx="185" cy="160" rx="32" ry="10" transform="rotate(15 185 160)" />
+                <ellipse cx="205" cy="98" rx="38" ry="11" transform="rotate(-48 205 98)" />
+                <ellipse cx="240" cy="105" rx="30" ry="9" transform="rotate(8 240 105)" />
+                <ellipse cx="262" cy="45" rx="32" ry="10" transform="rotate(-55 262 45)" />
+                <ellipse cx="290" cy="52" rx="26" ry="8" transform="rotate(0 290 52)" />
+            </g>
+        </svg>
 
-<style>
-    .ai-log { height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px; }
-    .ai-msg { max-width: 85%; padding: 10px 14px; border-radius: 16px; }
-    .ai-msg.user { align-self: flex-end; background: var(--zt-ink); color: var(--zt-card); }
-    .ai-msg.bot { align-self: flex-start; background: var(--zt-sage-soft); }
-    .ai-cards { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-    .ai-cards div { background: var(--zt-card); border: 1px solid var(--zt-line); border-radius: 12px; padding: 6px 12px; }
-    .ai-avatar { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--zt-ink); color: var(--zt-lime, #DCEB4B); }
-    .ai-avatar svg { width: 55%; height: 55%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .ai-welcome { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: auto 0; text-align: center; }
-    .ai-welcome .ai-avatar { width: 60px; height: 60px; }
-    .ai-hello { font-size: 19px; font-weight: 700; }
-    .ai-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 520px; }
-    .ai-chip { padding: 6px 14px; border: 1px solid var(--zt-line); border-radius: 999px; background: var(--zt-card); color: var(--zt-ink); font-size: 14px; }
-    .ai-chip:hover { background: var(--zt-lime, #DCEB4B); }
-    .ai-composer { display: flex; align-items: center; gap: 8px; padding: 5px 5px 5px 18px; border: 1px solid var(--zt-line); border-radius: 999px; }
-    .ai-composer:focus-within, .ai-chip:focus-visible { outline: 2px solid var(--zt-ink); outline-offset: 1px; }
-    .ai-composer input[name="question"] { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--zt-ink); box-shadow: none; }
-    .ai-send { border: 0; padding: 0; width: 38px; height: 38px; cursor: pointer; }
-    .ai-send:disabled { opacity: .45; cursor: default; }
-</style>
-
-<div class="card mb-3"><div class="card-body">
-    <div class="d-flex align-items-center gap-3 mb-3">
-        <span class="ai-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16v4M17 18h4" /></svg></span>
-        <div>
-            <h2 class="h5 mb-0">Ask the data</h2>
-            <div class="text-muted small">Answers come from live system data. The AI only comments and never decides or acts.</div>
+        <div class="aii-hero-text">
+            <p class="aii-hero-kicker">
+                <svg class="aii-spark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.6 4.6 2.4 7.4 10 10-7.6 2.6-9.4 5.4-10 10-.6-4.6-2.4-7.4-10-10 7.6-2.6 9.4-5.4 10-10z" /></svg>
+                <span><strong id="aiiTitle">AI Intelligence</strong><small>Your intelligent sourcing assistant</small></span>
+            </p>
+            <h1 class="aii-hero-title">How can I help you today?</h1>
+            <p class="aii-hero-lead">Ask questions, analyze data, and discover insights from your tenders. Answers come from live system data; the AI only advises and never decides.</p>
         </div>
-    </div>
-    <div id="chatLog" class="ai-log" aria-live="polite">
-        <div id="chatWelcome" class="ai-welcome">
-            <span class="ai-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16v4M17 18h4" /></svg></span>
-            <div class="ai-hello">How can I help?</div>
-            <div class="ai-chips">
-                @foreach (var x in examples)
+
+        <svg class="aii-robot" viewBox="0 0 200 220" aria-hidden="true" focusable="false">
+            <defs>
+                <linearGradient id="aiiShell" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" /><stop offset="1" stop-color="#E9E6DA" /></linearGradient>
+                <linearGradient id="aiiRing" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C9A84C" stop-opacity="0" /><stop offset=".5" stop-color="#E9CF7A" /><stop offset="1" stop-color="#C9A84C" stop-opacity="0" /></linearGradient>
+            </defs>
+            <ellipse class="aii-robot-ring" cx="100" cy="128" rx="92" ry="22" fill="none" stroke="url(#aiiRing)" stroke-width="3" />
+            <path d="M58 150 q42 -22 84 0 l6 52 q-48 18 -96 0z" fill="url(#aiiShell)" />
+            <circle cx="100" cy="176" r="12" fill="#6B7B3A" />
+            <path d="M94 180 q6 -14 13 -9 q-4 10 -13 9z" fill="#C9A84C" />
+            <rect x="38" y="30" width="124" height="104" rx="48" fill="url(#aiiShell)" />
+            <rect x="30" y="66" width="16" height="36" rx="8" fill="#2E3920" />
+            <rect x="154" y="66" width="16" height="36" rx="8" fill="#2E3920" />
+            <rect x="52" y="46" width="96" height="70" rx="34" fill="#141A10" />
+            <path class="aii-robot-eye" d="M74 86 q9 -12 18 0" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" />
+            <path class="aii-robot-eye" d="M108 86 q9 -12 18 0" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" />
+            <path d="M88 100 q12 8 24 0" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" />
+            <path d="M8 128 a92 22 0 0 0 184 0" fill="none" stroke="url(#aiiRing)" stroke-width="3" />
+        </svg>
+
+        <nav class="aii-actions" aria-label="AI shortcuts">
+            <button type="button" class="aii-action" data-aii-go="chatInput">
+                <span class="aii-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5z" /><path d="M9 9.5h.01M12 9.5h.01M15 9.5h.01" /></svg></span>
+                <span class="aii-action-text"><strong>Ask AI</strong><small>Get instant answers</small></span>
+                <svg class="aii-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+            @if (canData)
+            {
+            <button type="button" class="aii-action" data-aii-go="@(canBids ? "tenderPicker" : "aiiStatusCard")">
+                <span class="aii-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V11M10 20V7M16 20v-6M21 20H3" /><path d="M4 9l6-4 6 5 5-4" /></svg></span>
+                <span class="aii-action-text"><strong>Analyze Data</strong><small>Explore tenders &amp; stats</small></span>
+                <svg class="aii-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+            }
+            <button type="button" class="aii-action" data-aii-go="uploadFile">
+                <span class="aii-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg></span>
+                <span class="aii-action-text"><strong>Analyze Documents</strong><small>Upload &amp; preview a file</small></span>
+                <svg class="aii-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+            @if (canTenders)
+            {
+            <button type="button" class="aii-action" data-aii-go="aiiInsights">
+                <span class="aii-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" /></svg></span>
+                <span class="aii-action-text"><strong>Smart Insights</strong><small>See key figures</small></span>
+                <svg class="aii-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+            }
+        </nav>
+    </section>
+
+    @* ================= MAIN GRID ================= *@
+    <div class="aii-grid @(canData ? "" : "is-chat-only")">
+
+        @if (canData)
+        {
+        <div class="aii-main">
+            @if (canTenders)
+            {
+            <div class="aii-kpis">
+                <div class="aii-kpi">
+                    <span class="aii-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5M12 7l5 5M9.5 9.5l5 5-3 3-5-5zM6.5 12.5L3 16v3h3l3.5-3.5M13 21h8" /></svg></span>
+                    <div><div class="aii-kpi-label">Total Tenders</div><div class="aii-kpi-value" id="kpiTotal">-</div></div>
+                    <svg class="aii-kpi-wave" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 26 C20 24 30 20 45 21 S70 12 85 14 S105 4 120 2 V30 H0z" /></svg>
+                </div>
+                <div class="aii-kpi">
+                    <span class="aii-kpi-icon is-gold" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4" /></svg></span>
+                    <div><div class="aii-kpi-label">Awarded</div><div class="aii-kpi-value" id="kpiAwarded">-</div></div>
+                    <svg class="aii-kpi-wave" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 24 C18 26 30 18 48 20 S72 10 90 12 S110 6 120 5 V30 H0z" /></svg>
+                </div>
+                <div class="aii-kpi">
+                    <span class="aii-kpi-icon is-gold" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg></span>
+                    <div><div class="aii-kpi-label">Open</div><div class="aii-kpi-value" id="kpiOpen">-</div></div>
+                    <svg class="aii-kpi-wave" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 25 C20 25 34 22 50 23 S80 16 96 12 S112 10 120 8 V30 H0z" /></svg>
+                </div>
+                <div class="aii-kpi">
+                    <span class="aii-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" /></svg></span>
+                    <div><div class="aii-kpi-label">Days from creation to winner notice</div><div class="aii-kpi-value" id="kpiDuration">-</div></div>
+                    <svg class="aii-kpi-wave" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 26 C22 22 36 24 52 20 S78 14 92 10 S110 8 120 6 V30 H0z" /></svg>
+                </div>
+            </div>
+            }
+
+            <div class="aii-charts @(canTenders && canBids ? "" : "is-single")">
+                @if (canTenders)
                 {
-                    <button type="button" class="ai-chip" data-q="@x.Question" data-finished="@(x.Finished ? "1" : "")">@x.Label</button>
+                <section class="aii-card" id="aiiStatusCard" tabindex="-1" aria-labelledby="aiiStatusTitle">
+                    <header class="aii-card-head">
+                        <h2 id="aiiStatusTitle" class="aii-card-title">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-6M12 20V8M19 20V4" /></svg>
+                            Tenders by Status
+                        </h2>
+                        <a class="aii-link" href="@Url.Action("Index", "Reports")">View details <span aria-hidden="true">&rarr;</span></a>
+                    </header>
+                    <div class="aii-donut-wrap">
+                        <div class="aii-donut">
+                            <canvas id="statusChart" aria-label="Tenders by status chart" role="img"></canvas>
+                            <div class="aii-donut-center" aria-hidden="true"><strong id="aiiDonutTotal">-</strong><span>Total</span></div>
+                        </div>
+                        <ul class="aii-legend" id="aiiStatusLegend"></ul>
+                    </div>
+                    <p id="statusEmpty" class="aii-empty" hidden>No tenders to show yet.</p>
+                </section>
+                }
+                @if (canBids)
+                {
+                <section class="aii-card" aria-labelledby="aiiReportTitle">
+                    <header class="aii-card-head">
+                        <h2 id="aiiReportTitle" class="aii-card-title">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg>
+                            Tender Report
+                        </h2>
+                        <div class="aii-report-tools">
+                            <a id="exportBtn" class="aii-pill disabled" aria-disabled="true">Excel</a>
+                            <a id="pdfBtn" class="aii-pill disabled" aria-disabled="true">PDF</a>
+                        </div>
+                    </header>
+                    <label class="visually-hidden" for="tenderPicker">Tender</label>
+                    <select id="tenderPicker" class="aii-select"></select>
+                    <div class="aii-chart-box"><canvas id="bidChart"></canvas></div>
+                    <p id="bidEmpty" class="aii-empty" hidden>No submitted bids for this tender.</p>
+                </section>
                 }
             </div>
         </div>
-    </div>
-    <form id="chatForm" class="ai-composer mt-3">
-        @Html.AntiForgeryToken()
-        <input id="chatInput" name="question" maxlength="500" autocomplete="off"
-               placeholder="Type a question" aria-label="Question" required />
-        <button id="chatSend" class="ai-avatar ai-send" type="submit" aria-label="Send question">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
-        </button>
-    </form>
-</div></div>
-
-@if (User.IsInRole("Admin"))
-{
-    var folder = Sourcing_Tender_Management_System.Services.AiIntelligence.DocumentSearch.KnowledgeFolder(Env);
-    var uploaded = Directory.Exists(folder) ? Directory.GetFiles(folder, "*.pdf") : Array.Empty<string>();
-<div class="card mb-3"><div class="card-body">
-    <h2 class="h5">Documents for the assistant</h2>
-    <p class="text-muted">PDF with typed text, up to 5 MB. The file is saved. Every staff user can ask the assistant about it, so do not upload confidential files or supplier offers.</p>
-    <form id="knowledgeForm" class="d-flex flex-wrap gap-2">
-        @Html.AntiForgeryToken()
-        <input type="file" name="file" accept=".pdf" class="form-control" style="flex:1 1 260px" aria-label="PDF document" required />
-        <button class="btn btn-primary" type="submit">Upload</button>
-    </form>
-    <p id="knowledgeResult" class="mb-0 mt-2" role="status"></p>
-    <ul id="knowledgeList" class="mb-0 mt-2">
-        @foreach (var path in uploaded)
-        {
-            <li>@Sourcing_Tender_Management_System.Services.AiIntelligence.DocumentSearch.DisplayName(path)</li>
         }
-    </ul>
-</div></div>
-}
+
+        @* ================= ASSISTANT ================= *@
+        <section class="aii-card aii-chat" id="aiiChat" aria-labelledby="aiiChatTitle">
+            <header class="aii-chat-head">
+                <span class="aii-avatar" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M6 18c2-8 8-12 13-13-1 6-5 12-13 13z" /><path d="M6 18l6-6" /></svg>
+                </span>
+                <div class="aii-chat-name">
+                    <h2 id="aiiChatTitle" class="aii-card-title">Zaytouna AI Assistant</h2>
+                    <span class="aii-online"><span class="aii-dot" aria-hidden="true"></span>Online</span>
+                </div>
+                <button type="button" class="aii-icon-btn" id="aiiExpand" aria-pressed="false" aria-label="Expand chat">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" /></svg>
+                </button>
+            </header>
+
+            <div id="chatLog" class="ai-log" aria-live="polite"></div>
+
+            <div class="aii-suggest" id="aiiSuggest" aria-label="Suggested questions" role="group">
+                @if (canBids)
+                {
+                <button type="button" class="aii-suggest-btn" data-q="Which tender has the highest bid?">Which tender has the highest bid?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+                }
+                @if (canTenders)
+                {
+                <button type="button" class="aii-suggest-btn" data-q="Show me tenders by status">Show me tenders by status<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+                <button type="button" class="aii-suggest-btn" data-q="How long does it take to notify winners?">How long does it take to notify winners?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+                }
+                <button type="button" class="aii-suggest-btn" data-q="What can I ask?">What can I ask?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+            </div>
+
+            <form id="chatForm" class="aii-chat-form">
+                @Html.AntiForgeryToken()
+                <input id="chatInput" name="question" class="aii-input" maxlength="500" autocomplete="off"
+                       placeholder="Type your question..." aria-label="Question" required />
+                <button id="chatSend" class="aii-send" type="submit" aria-label="Ask">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z" /></svg>
+                </button>
+            </form>
+        </section>
+    </div>
+
+    @* ================= BOTTOM ROW ================= *@
+    <div class="aii-bottom @(canTenders ? "" : "is-single")">
+        <section class="aii-card" aria-labelledby="aiiDocTitle">
+            <header class="aii-card-head">
+                <h2 id="aiiDocTitle" class="aii-card-title">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></svg>
+                    Document Analysis
+                </h2>
+                <span class="aii-tag">Excel / PDF</span>
+            </header>
+            <div class="aii-doc">
+                <form id="uploadForm" class="aii-drop-form">
+                    @Html.AntiForgeryToken()
+                    <label class="aii-drop" id="aiiDrop" for="uploadFile">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a5 5 0 0 1-.6-9.96A6 6 0 0 1 18 9a4 4 0 0 1-1 8" /><path d="M12 12v9M8.5 15.5L12 12l3.5 3.5" /></svg>
+                        <span class="aii-drop-main">Drag &amp; drop your file here</span>
+                        <span class="aii-drop-sub">or <u>choose a file</u></span>
+                        <span class="aii-drop-name" id="aiiDropName" aria-live="polite"></span>
+                        <span class="aii-drop-note">Supports: Excel (.xlsx) or PDF, up to 5 MB. Read in memory, not stored.</span>
+                    </label>
+                    <input id="uploadFile" type="file" name="file" accept=".xlsx,.pdf" class="aii-file" aria-label="Excel or PDF file" required />
+                    <button class="aii-btn" type="submit">Preview</button>
+                </form>
+                <ul class="aii-checks">
+                    <li>Get an instant preview</li>
+                    <li>Read the first rows of an Excel sheet</li>
+                    <li>Extract the text of a PDF</li>
+                </ul>
+            </div>
+            <div id="uploadResult" class="aii-upload-result" aria-live="polite"></div>
+        </section>
+
+        @if (canTenders)
+        {
+        <section class="aii-card" id="aiiInsights" tabindex="-1" aria-labelledby="aiiInsightsTitle">
+            <header class="aii-card-head">
+                <h2 id="aiiInsightsTitle" class="aii-card-title">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" /></svg>
+                    Quick Insights
+                </h2>
+                <a class="aii-link" href="@Url.Action("Index", "Reports")">View all <span aria-hidden="true">&rarr;</span></a>
+            </header>
+            <div class="aii-insights">
+                <div class="aii-insight">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-6M12 20V8M19 20V4" /></svg>
+                    <strong id="aiiInsAwarded">-</strong><span>Awarded tenders</span>
+                </div>
+                <div class="aii-insight">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9h9A9 9 0 1 1 12 3z" /><path d="M15 3.5A9 9 0 0 1 20.5 9H15z" /></svg>
+                    <strong id="aiiInsRate">-</strong><span>Award success rate</span>
+                </div>
+                <div class="aii-insight">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>
+                    <strong id="aiiInsDays">-</strong><span>Avg. days to award</span>
+                </div>
+            </div>
+        </section>
+        }
+    </div>
+</div>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
-        const ink = getComputedStyle(document.querySelector('.zt-app') ?? document.body).getPropertyValue('--zt-ink').trim() || '#17402A';
+        const ink = getComputedStyle(document.querySelector('.zt-app') ?? document.body).getPropertyValue('--zt-ink').trim() || '#3D4A2A';
         const byId = id => document.getElementById(id);
         const getJson = url => fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+        const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const palette = ['#3D4A2A', '#A9B57A', '#C9A84C', '#6B7B3A', '#D9C88F', '#7E8B5A', '#E4DCC8', '#2E3920', '#B49A55'];
+        const pretty = s => String(s).replace(/([a-z])([A-Z])/g, '$1 $2');
+
+        if (window.Chart) {
+            Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
+            Chart.defaults.color = '#5C6149';
+            if (calm) Chart.defaults.animation = false;
+        }
 
         function bar(canvas, labels, values, label) {
-            return new Chart(typeof canvas === 'string' ? byId(canvas) : canvas, {
+            const target = typeof canvas === 'string' ? byId(canvas) : canvas;
+            const ctx = target.getContext('2d');
+            const fill = ctx.createLinearGradient(0, 0, 0, target.clientHeight || 260);
+            fill.addColorStop(0, ink);
+            fill.addColorStop(1, '#8A9A5B');
+            return new Chart(target, {
                 type: 'bar',
-                data: { labels, datasets: [{ label, data: values, backgroundColor: ink, borderRadius: 6 }] },
+                data: { labels, datasets: [{ label, data: values, backgroundColor: fill, hoverBackgroundColor: '#C9A84C', borderRadius: 8, maxBarThickness: 46 }] },
                 options: {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(61,74,42,.08)' }, border: { display: false } }
+                    }
                 }
             });
         }
+
+        // Hero shortcuts: scroll to the matching block and focus it.
+        document.querySelectorAll('[data-aii-go]').forEach(b => b.addEventListener('click', () => {
+            const t = byId(b.dataset.aiiGo);
+            if (!t) return;
+            const block = t.closest('.aii-card') ?? t;
+            block.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
+            setTimeout(() => (t.matches('input[type=file]') ? byId('aiiDrop') : t).focus({ preventScroll: true }), calm ? 0 : 350);
+            block.classList.remove('is-flash'); void block.offsetWidth; block.classList.add('is-flash');
+        }));
 
         // These cards exist only for roles that may read tender data, so each block checks its card first.
         if (byId('kpiTotal')) {
@@ -166,14 +325,44 @@
                 byId('kpiTotal').textContent = d.total;
                 byId('kpiAwarded').textContent = d.awarded;
                 byId('kpiOpen').textContent = d.open;
+                if (byId('aiiInsAwarded')) {
+                    byId('aiiInsAwarded').textContent = d.awarded;
+                    byId('aiiInsRate').textContent = d.total ? Math.round(d.awarded * 100 / d.total) + '%' : '-';
+                }
             });
-            getJson('/AiIntelligence/DurationKpi').then(d => byId('kpiDuration').textContent = d.averageDays);
+            getJson('/AiIntelligence/DurationKpi').then(d => {
+                byId('kpiDuration').textContent = d.averageDays;
+                if (byId('aiiInsDays')) byId('aiiInsDays').textContent = d.perTender?.length ? d.averageDays : '-';
+            });
         }
 
         if (byId('statusChart')) {
             getJson('/AiIntelligence/TendersByStatus').then(rows => {
                 byId('statusEmpty').hidden = rows.length > 0;
-                if (rows.length) bar('statusChart', rows.map(r => r.status), rows.map(r => r.count), 'Tenders');
+                const total = rows.reduce((s, r) => s + r.count, 0);
+                byId('aiiDonutTotal').textContent = total;
+                if (!rows.length) { byId('statusChart').closest('.aii-donut-wrap').hidden = true; return; }
+                // Same colours as the design: awarded = dark olive, draft = sage, under evaluation = gold; others take the next free shade.
+                const fixed = { Awarded: '#3D4A2A', Draft: '#A9B57A', UnderEvaluation: '#C9A84C' };
+                const spare = palette.filter(c => !Object.values(fixed).includes(c));
+                let k = 0;
+                const colors = rows.map(r => fixed[r.status] ?? spare[k++ % spare.length]);
+                new Chart(byId('statusChart'), {
+                    type: 'doughnut',
+                    data: { labels: rows.map(r => pretty(r.status)), datasets: [{ data: rows.map(r => r.count), backgroundColor: colors, borderColor: '#FFFDF7', borderWidth: 3, hoverOffset: 6 }] },
+                    options: { maintainAspectRatio: false, cutout: '62%', plugins: { legend: { display: false } } }
+                });
+                // Legend is built with textContent, so a status name can never inject markup.
+                const legend = byId('aiiStatusLegend');
+                legend.replaceChildren(...rows.map((r, i) => {
+                    const li = document.createElement('li');
+                    const sw = document.createElement('span'); sw.className = 'aii-swatch'; sw.style.background = colors[i];
+                    const name = document.createElement('span'); name.className = 'aii-legend-name'; name.textContent = pretty(r.status);
+                    const val = document.createElement('span'); val.className = 'aii-legend-val';
+                    val.textContent = `${r.count} (${total ? Math.round(r.count * 100 / total) : 0}%)`;
+                    li.append(sw, name, val);
+                    return li;
+                }));
             });
         }
 
@@ -221,11 +410,44 @@
             return [wrap, note];
         }
 
-        byId('knowledgeForm')?.addEventListener('submit', async e => {
+        function showText(d) {
+            const note = document.createElement('p');
+            note.className = 'text-muted';
+            note.textContent = `${d.pages} pages, ${d.characters} characters`;
+            const pre = document.createElement('pre');
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.textContent = d.preview;
+            return [note, pre];
+        }
+
+        // Drop zone: dropping a file fills the same file input the form already sends.
+        const drop = byId('aiiDrop'), fileInput = byId('uploadFile');
+        const showName = () => { byId('aiiDropName').textContent = fileInput.files[0]?.name ?? ''; drop.classList.toggle('has-file', !!fileInput.files[0]); };
+        fileInput.addEventListener('change', showName);
+        ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('is-over'); }));
+        ['dragleave', 'dragend', 'drop'].forEach(t => drop.addEventListener(t, () => drop.classList.remove('is-over')));
+        drop.addEventListener('drop', e => {
             e.preventDefault();
-            const out = byId('knowledgeResult');
-            const res = await fetch('/AiIntelligence/UploadKnowledge', { method: 'POST', body: new FormData(e.target) });
-            if (!res.ok) { out.textContent = (await res.text()) || 'Upload failed.'; out.className = 'mb-0 mt-2 text-danger'; return; }
+            if (e.dataTransfer?.files?.length) { fileInput.files = e.dataTransfer.files; showName(); }
+        });
+        drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+        drop.tabIndex = 0;
+
+        byId('uploadForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const out = byId('uploadResult');
+            if (!fileInput.files[0]) { fileInput.reportValidity?.(); drop.focus(); return; }
+            const isPdf = fileInput.files[0]?.name.toLowerCase().endsWith('.pdf');
+            const res = await fetch(isPdf ? '/AiIntelligence/UploadPdf' : '/AiIntelligence/UploadExcel',
+                { method: 'POST', body: new FormData(e.target) });
+            if (!res.ok) {
+                const msg = document.createElement('p');
+                msg.className = 'text-danger mb-0';
+                msg.setAttribute('role', 'alert');
+                msg.textContent = await res.text();
+                out.replaceChildren(msg);
+                return;
+            }
             const d = await res.json();
             out.textContent = `${d.name} uploaded.`;
             out.className = 'mb-0 mt-2';
@@ -272,7 +494,7 @@
             }
             if (r.type === 'table') parts.push(...showTable({ headers: r.headers, rows: r.rows, totalRows: r.rows.length }));
             if (r.link) {
-                const open = el('a', 'Open full report', 'btn btn-outline-secondary btn-sm mt-2');
+                const open = el('a', 'Open full report', 'aii-pill mt-2');
                 open.href = r.link;
                 parts.push(open);
             }
@@ -285,7 +507,7 @@
                 // Same secured export endpoints as the report card: one data method, many outputs.
                 const dl = el('div', '', 'd-flex gap-2 mt-2');
                 [['Excel', 'ExportBids'], ['PDF', 'ExportBidsPdf']].forEach(([label, action]) => {
-                    const a = el('a', label, 'btn btn-outline-secondary btn-sm');
+                    const a = el('a', label, 'aii-pill');
                     a.href = `/AiIntelligence/${action}?tenderId=${r.tenderId}`;
                     dl.append(a);
                 });
@@ -293,7 +515,7 @@
             }
             let canvas;
             if (r.type === 'chart') {
-                m.style.width = '85%';
+                m.classList.add('wide');
                 const box = el('div', '');
                 box.style.cssText = 'position:relative;height:220px';
                 canvas = document.createElement('canvas');
@@ -304,29 +526,26 @@
             if (canvas) bar(canvas, r.labels, r.values, r.title);   // draw only after it is in the page
         }
 
-        log.querySelectorAll('.ai-chip').forEach(chip => chip.addEventListener('click', () => {
-            const input = byId('chatInput');
-            if (byId('chatSend').disabled) return;
-            input.value = chip.dataset.q;
-            if (chip.dataset.finished) byId('chatForm').requestSubmit();
-            else input.focus();
-        }));
+        const hello = bubble('bot');
+        hello.append(el('strong', @Json.Serialize("Hello " + firstName + "!")));
+        hello.append(el('p', 'I\'m here to help you with tenders, reports, and more. Ask me about tender totals, tenders by status, the bids of one tender, or how long it takes to notify winners.', 'mb-0 mt-1'));
 
-        byId('chatForm').addEventListener('submit', async e => {
-            e.preventDefault();
+        async function ask(q) {
             const input = byId('chatInput'), send = byId('chatSend');
-            const q = input.value.trim();
-            if (!q) return;
-            byId('chatWelcome')?.remove();
-            const fd = new FormData(e.target);          // read before clearing the box
+            q = (q ?? input.value).trim();
+            if (!q || send.disabled) return;
+            const fd = new FormData(byId('chatForm'));     // carries the anti-forgery token
+            fd.set('question', q);
             fd.set('context', chatContext);
             bubble('user').textContent = q;
             input.value = '';
             send.disabled = true;
             const m = bubble('bot');
+            m.classList.add('is-thinking');
             m.textContent = 'Thinking...';
             try {
                 const res = await fetch('/AiIntelligence/Ask', { method: 'POST', body: fd });
+                m.classList.remove('is-thinking');
                 if (res.ok) {
                     const reply = await res.json();
                     chatContext = reply.context ?? chatContext;   // lets "and the lowest one?" refer back
@@ -334,11 +553,23 @@
                 }
                 else { m.textContent = (await res.text()) || 'Something went wrong. Please try again.'; m.classList.add('text-danger'); }
             } catch {
+                m.classList.remove('is-thinking');
                 m.textContent = 'Could not reach the server.';
                 m.classList.add('text-danger');
             }
             send.disabled = false;
             input.focus();
+            log.scrollTop = log.scrollHeight;
+        }
+
+        byId('chatForm').addEventListener('submit', e => { e.preventDefault(); ask(); });
+        document.querySelectorAll('.aii-suggest-btn').forEach(b => b.addEventListener('click', () => ask(b.dataset.q)));
+
+        byId('aiiExpand').addEventListener('click', e => {
+            const btn = e.currentTarget, on = btn.getAttribute('aria-pressed') !== 'true';
+            btn.setAttribute('aria-pressed', String(on));
+            btn.setAttribute('aria-label', on ? 'Shrink chat' : 'Expand chat');
+            document.querySelector('.aii-grid').classList.toggle('is-chat-wide', on);
             log.scrollTop = log.scrollHeight;
         });
     </script>

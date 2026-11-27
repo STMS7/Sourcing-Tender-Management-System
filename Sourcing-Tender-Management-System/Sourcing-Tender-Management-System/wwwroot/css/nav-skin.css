@@ -1,0 +1,85 @@
+/*
+ * Zaytouna olive frame (sidebar + top bar), from the AI Intelligence design: deep olive sidebar with leaves,
+ * gold badges and active item, a user card above Profile / Log out, and a soft white top bar.
+ * Frame only: nothing here targets page content, and no colour tokens (--zt-*) are changed, so dashboards,
+ * tables, forms and buttons keep their own looks. The "html body.zt-app" prefix lets these rules win over the
+ * per-page frame tints in heritage.css and admin-palette.css without !important.
+ */
+
+/* ---------- sidebar ---------- */
+html body.zt-app aside.zt-sidebar {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 200'%3E%3Cg fill='%236B7B3A' fill-opacity='.24'%3E%3Cpath d='M20 200 C60 150 110 110 200 60' fill='none' stroke='%236B7B3A' stroke-opacity='.32' stroke-width='3'/%3E%3Cellipse cx='60' cy='160' rx='26' ry='8' transform='rotate(-40 60 160)'/%3E%3Cellipse cx='82' cy='168' rx='22' ry='7' transform='rotate(18 82 168)'/%3E%3Cellipse cx='104' cy='124' rx='28' ry='8' transform='rotate(-44 104 124)'/%3E%3Cellipse cx='132' cy='130' rx='24' ry='7' transform='rotate(12 132 130)'/%3E%3Cellipse cx='150' cy='92' rx='26' ry='8' transform='rotate(-50 150 92)'/%3E%3Cellipse cx='178' cy='94' rx='22' ry='7' transform='rotate(6 178 94)'/%3E%3C/g%3E%3C/svg%3E") no-repeat right -46px bottom -24px / 190px auto,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='%236B7B3A' fill-opacity='.22'%3E%3Cpath d='M10 200 C40 160 70 140 120 120' fill='none' stroke='%236B7B3A' stroke-opacity='.3' stroke-width='3'/%3E%3Cellipse cx='40' cy='170' rx='22' ry='7' transform='rotate(-50 40 170)'/%3E%3Cellipse cx='70' cy='150' rx='22' ry='7' transform='rotate(-30 70 150)'/%3E%3Cellipse cx='96' cy='134' rx='20' ry='6' transform='rotate(-20 96 134)'/%3E%3C/g%3E%3C/svg%3E") no-repeat left -20px top 46% / 150px auto,
+    linear-gradient(170deg, #3A4727 0%, #2E3920 55%, #27311B 100%);
+  color: #F5F0E1;
+  box-shadow: 0 24px 48px -28px rgba(30, 38, 20, .8), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+
+/* brand mark: olive tile with a gold leaf */
+html body.zt-app aside.zt-sidebar .zt-mark rect { fill: #5A6A30; }
+html body.zt-app aside.zt-sidebar .zt-mark path:first-of-type { fill: #C9A84C; }
+html body.zt-app aside.zt-sidebar .zt-mark path:last-of-type { stroke: #2E3920; }
+html body.zt-app aside.zt-sidebar .zt-brand-name { color: #FFFDF7; }
+html body.zt-app aside.zt-sidebar .zt-brand-name span { color: #C9A84C; }
+html body.zt-app aside.zt-sidebar .zt-brand-sub { color: rgba(245, 240, 225, .7); }
+
+/* links */
+html body.zt-app aside.zt-sidebar .zt-nav-label { color: rgba(245, 240, 225, .62); font-weight: 500; }
+html body.zt-app aside.zt-sidebar .zt-nav a,
+html body.zt-app aside.zt-sidebar .zt-nav button {
+  color: #ECE7D6; border-radius: 12px;
+  transition: background-color .2s ease, color .2s ease, transform .2s cubic-bezier(.16, 1, .3, 1);
+}
+html body.zt-app aside.zt-sidebar .zt-nav a:hover,
+html body.zt-app aside.zt-sidebar .zt-nav button:hover { background: rgba(245, 240, 225, .08); color: #FFFFFF; transform: translateX(2px); }
+html body.zt-app aside.zt-sidebar .zt-nav a.is-active {
+  background: linear-gradient(90deg, rgba(201, 168, 76, .24), rgba(107, 123, 58, .38));
+  color: #E9CF7A;
+  box-shadow: inset 0 0 0 1px rgba(233, 207, 122, .18);
+}
+html body.zt-app aside.zt-sidebar .zt-nav a.is-active svg { color: #E9CF7A; }
+html body.zt-app aside.zt-sidebar .zt-nav a:focus-visible,
+html body.zt-app aside.zt-sidebar .zt-nav button:focus-visible { outline: 3px solid #C9A84C; outline-offset: 2px; }
+
+/* gold "needs action" counts */
+html body.zt-app aside.zt-sidebar .zt-nav a .zt-nav-count {
+  background: #C9A84C; color: #2E3920; min-width: 22px; height: 22px; border-radius: 999px; font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(46, 57, 32, .6);
+}
+
+html body.zt-app aside.zt-sidebar .zt-account { border-top-color: rgba(245, 240, 225, .12); }
+
+/* phone menu button */
+html body.zt-app aside.zt-sidebar .zt-menu-toggle { background: rgba(245, 240, 225, .1); color: #E9CF7A; }
+
+/* ---------- top bar ---------- */
+html body.zt-app header.zt-topbar .zt-pill {
+  gap: 10px; background: #FFFDF7; color: #2E3920;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 8px 20px -14px rgba(46, 57, 32, .45), 0 0 0 1px rgba(61, 74, 42, .08);
+}
+.zt-pill-icon { flex: none; color: #C9A84C; }
+.zt-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+html body.zt-app header.zt-topbar .zt-round {
+  background: #FFFDF7; color: #3D4A2A;
+  box-shadow: 0 8px 20px -14px rgba(46, 57, 32, .45), 0 0 0 1px rgba(61, 74, 42, .08);
+  transition: background-color .2s ease, transform .2s cubic-bezier(.16, 1, .3, 1);
+}
+html body.zt-app header.zt-topbar .zt-round:hover { background: #E8EBD9; color: #2E3920; transform: translateY(-1px); }
+html body.zt-app header.zt-topbar .zt-avatar { width: 44px; height: 44px; background: linear-gradient(150deg, #D9B95C, #C9A84C); color: #FFFDF7; font-size: 15px; }
+html body.zt-app header.zt-topbar .zt-round:has(.zt-avatar) { background: transparent; box-shadow: none; }
+
+/* search box and bell (top-tools) */
+html body.zt-app header.zt-topbar .tt-input {
+  background: #FFFDF7; border-color: rgba(61, 74, 42, .08);
+  box-shadow: 0 8px 20px -14px rgba(46, 57, 32, .45);
+}
+html body.zt-app header.zt-topbar .tt-input:focus-visible { border-color: #6B7B3A; box-shadow: 0 0 0 3px rgba(107, 123, 58, .2); }
+html body.zt-app header.zt-topbar .tt-btn { background: #FFFDF7; color: #3D4A2A; box-shadow: 0 8px 20px -14px rgba(46, 57, 32, .45), 0 0 0 1px rgba(61, 74, 42, .08); }
+html body.zt-app header.zt-topbar .tt-btn:hover { background: #E8EBD9; }
+html body.zt-app header.zt-topbar .tt-count { background: #C9A84C; color: #2E3920; box-shadow: 0 0 0 2px #FFFDF7; }
+
+@media (prefers-reduced-motion: reduce) {
+  html body.zt-app aside.zt-sidebar .zt-nav a, html body.zt-app aside.zt-sidebar .zt-nav button, html body.zt-app header.zt-topbar .zt-round { transition: none; }
+  html body.zt-app aside.zt-sidebar .zt-nav a:hover, html body.zt-app aside.zt-sidebar .zt-nav button:hover, html body.zt-app header.zt-topbar .zt-round:hover { transform: none; }
+}
